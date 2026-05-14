@@ -90,5 +90,11 @@ function xmldb_local_aireader_upgrade(int $oldversion): bool {
         upgrade_plugin_savepoint(true, 2026051501, 'local', 'aireader');
     }
 
+    if ($oldversion < 2026051502) {
+        // Language picker in the player UI + new CSS. No schema change; the
+        // version bump is here so theme/js revs increment.
+        upgrade_plugin_savepoint(true, 2026051502, 'local', 'aireader');
+    }
+
     return true;
 }

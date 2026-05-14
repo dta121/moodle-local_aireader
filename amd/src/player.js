@@ -62,16 +62,37 @@ class Player {
         this.iconPause = root.querySelector('.local-aireader-icon-pause');
         this.managerBox = root.querySelector('[data-region="manager"]');
         this.managerBtn = this.managerBox && this.managerBox.querySelector('[data-action="toggle-enabled"]');
+        this.langPicker = root.querySelector('[data-region="langpicker"]');
+        this.langSelect = this.langPicker && this.langPicker.querySelector('[data-action="set-lang"]');
         this.polling = false;
 
         if (config.canmanage) {
             this.regenBtn.classList.remove('d-none');
             this.managerBox.classList.remove('d-none');
         }
+        this.populateLanguages();
 
         this.bindEvents();
         this.setStatus(STATE.LOADING, 'Loading audio…');
         this.refresh();
+    }
+
+    populateLanguages() {
+        const langs = Array.isArray(this.config.languages) ? this.config.languages : [];
+        if (!this.langPicker || !this.langSelect || langs.length < 2) {
+            return;
+        }
+        this.langSelect.innerHTML = '';
+        langs.forEach((lang) => {
+            const opt = document.createElement('option');
+            opt.value = lang.code;
+            opt.textContent = lang.name || lang.code;
+            if (lang.code === this.config.lang) {
+                opt.selected = true;
+            }
+            this.langSelect.appendChild(opt);
+        });
+        this.langPicker.classList.remove('d-none');
     }
 
     bindEvents() {
@@ -91,6 +112,25 @@ class Player {
         if (this.managerBtn) {
             this.managerBtn.addEventListener('click', () => this.disableHere());
         }
+
+        if (this.langSelect) {
+            this.langSelect.addEventListener('change', () => this.changeLanguage(this.langSelect.value));
+        }
+    }
+
+    changeLanguage(newlang) {
+        if (!newlang || newlang === this.config.lang) {
+            return;
+        }
+        this.config.lang = newlang;
+        // Reset playback state so the user knows we're switching.
+        this.audio.pause();
+        this.audio.removeAttribute('src');
+        this.playBtn.disabled = true;
+        this.restartBtn.disabled = true;
+        this.setStatus(STATE.LOADING, 'Preparing in selected language…');
+        this.polling = false;
+        this.refresh();
     }
 
     callStatus() {

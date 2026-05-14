@@ -24,6 +24,8 @@
 
 namespace local_aireader;
 
+use local_aireader\manager\asset_manager;
+use local_aireader\manager\openai_translator;
 use local_aireader\manager\override_manager;
 
 /**
@@ -93,12 +95,27 @@ class hook_callbacks {
         $disclosure = (string)(get_config('local_aireader', 'disclosure')
             ?: get_string('default_disclosure', 'local_aireader'));
 
+        // Build the language menu the player should offer.
+        $enabledcodes = asset_manager::enabled_languages();
+        $languages = [];
+        foreach ($enabledcodes as $code) {
+            $languages[] = [
+                'code' => $code,
+                'name' => openai_translator::language_display_name($code),
+            ];
+        }
+        $defaultlang = current_language();
+        if (!in_array($defaultlang, $enabledcodes, true)) {
+            $defaultlang = $enabledcodes[0];
+        }
+
         $PAGE->requires->js_call_amd('local_aireader/player', 'init', [[
             'cmid'          => (int)$PAGE->cm->id,
             'contextid'     => $modulecontext->id,
             'module'        => $modname,
             'chapterid'     => $chapterid,
-            'lang'          => current_language(),
+            'lang'          => $defaultlang,
+            'languages'     => $languages,
             'pollinterval'  => $pollinterval,
             'disclosure'    => $disclosure,
             'enabled'       => $enabled,

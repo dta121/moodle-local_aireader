@@ -167,9 +167,69 @@
     outline-offset: 1px;
 }
 
+.local-aireader-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+    flex: 0 0 auto;
+}
+
+.local-aireader-langpicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border: 1px solid var(--la-border);
+    border-radius: 8px;
+    padding: 4px 8px 4px 8px;
+    color: var(--la-muted);
+    background: transparent;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    cursor: pointer;
+}
+
+.local-aireader-langpicker:hover {
+    background: var(--la-bg-hover);
+    border-color: var(--la-text);
+    color: var(--la-text);
+}
+
+.local-aireader-langpicker:focus-within {
+    outline: 2px solid var(--la-orange-soft);
+    outline-offset: 1px;
+}
+
+.local-aireader-langicon {
+    width: 14px;
+    height: 14px;
+    flex: 0 0 auto;
+}
+
+.local-aireader-langselect {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background: transparent;
+    border: none;
+    font: inherit;
+    color: inherit;
+    font-size: 13px;
+    padding: 0 14px 0 2px;
+    cursor: pointer;
+    line-height: 1.4;
+    background-image: linear-gradient(45deg, transparent 45%, currentColor 45%, currentColor 55%, transparent 55%),
+                      linear-gradient(-45deg, transparent 45%, currentColor 45%, currentColor 55%, transparent 55%);
+    background-position: calc(100% - 7px) 50%, calc(100% - 2px) 50%;
+    background-size: 5px 5px;
+    background-repeat: no-repeat;
+}
+
+.local-aireader-langselect:focus {
+    outline: none;
+}
+
 .local-aireader-manager {
     flex: 0 0 auto;
-    margin-left: auto;
 }
 
 .local-aireader-managerbtn {
@@ -271,9 +331,15 @@
         font-size: 14px;
     }
 
-    .local-aireader-manager {
+    .local-aireader-right {
         margin-left: 0;
         flex-basis: 100%;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+    }
+
+    .local-aireader-manager {
+        flex: 1 1 auto;
     }
 
     .local-aireader-managerbtn {
