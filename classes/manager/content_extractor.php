@@ -30,7 +30,6 @@ namespace local_aireader\manager;
  * @package local_aireader
  */
 class content_extractor {
-
     /**
      * Extract narration-ready text and titles for a supported activity.
      *

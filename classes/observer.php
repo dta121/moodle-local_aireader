@@ -36,7 +36,6 @@ use local_aireader\manager\asset_manager;
  * @package local_aireader
  */
 class observer {
-
     /**
      * Mark assets stale when a course module is updated.
      *

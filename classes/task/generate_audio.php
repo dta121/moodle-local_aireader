@@ -36,7 +36,6 @@ use local_aireader\manager\storage;
  * @package local_aireader
  */
 class generate_audio extends adhoc_task {
-
     /**
      * Human-readable task name shown in the scheduled tasks admin UI.
      *

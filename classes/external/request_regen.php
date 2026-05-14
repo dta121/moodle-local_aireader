@@ -36,7 +36,6 @@ use local_aireader\manager\asset_manager;
  * @package local_aireader
  */
 class request_regen extends external_api {
-
     /**
      * Parameter definition.
      *

@@ -42,7 +42,6 @@ use local_aireader\manager\storage;
  * @package local_aireader
  */
 class get_status extends external_api {
-
     /**
      * Parameter definition.
      *
@@ -134,9 +133,12 @@ class get_status extends external_api {
         ]);
 
         if (!$matched || $asset->status !== asset_manager::STATUS_READY) {
-            if ($asset->status === asset_manager::STATUS_PENDING
-                || $asset->status === asset_manager::STATUS_STALE
-                || $asset->status === asset_manager::STATUS_ERROR) {
+            $queueable = [
+                asset_manager::STATUS_PENDING,
+                asset_manager::STATUS_STALE,
+                asset_manager::STATUS_ERROR,
+            ];
+            if (in_array($asset->status, $queueable, true)) {
                 asset_manager::queue_generation((int)$asset->id);
             }
         }

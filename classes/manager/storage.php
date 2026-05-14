@@ -36,7 +36,6 @@ namespace local_aireader\manager;
  * @package local_aireader
  */
 class storage {
-
     /** Plugin component identifier used for the file area. */
     public const COMPONENT = 'local_aireader';
     /** File area name where generated mp3s live. */

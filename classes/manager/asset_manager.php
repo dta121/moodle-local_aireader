@@ -33,7 +33,6 @@ use local_aireader\task\generate_audio;
  * @package local_aireader
  */
 class asset_manager {
-
     /** Pending generation. */
     public const STATUS_PENDING = 'pending';
     /** Generation in progress. */

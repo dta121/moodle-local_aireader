@@ -30,7 +30,6 @@ namespace local_aireader;
  * @package local_aireader
  */
 class hook_callbacks {
-
     /**
      * Inject the player mount point and bootstrap JS on mod_page and mod_book views.
      *

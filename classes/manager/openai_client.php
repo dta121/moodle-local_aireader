@@ -33,7 +33,6 @@ namespace local_aireader\manager;
  * @package local_aireader
  */
 class openai_client {
-
     /** @var string Bearer API key. */
     private $apikey;
     /** @var string Endpoint URL. */
