@@ -40,7 +40,6 @@ namespace local_aireader\manager;
  * @package local_aireader
  */
 class override_manager {
-
     /**
      * Look up an override for an exact (cmid, chapterid) tuple.
      *

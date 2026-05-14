@@ -241,7 +241,7 @@ const renderOffline = async(mount, config) => {
         const actionLabel = `Turn on for this ${scopeLabel(config)}`;
         const {html, js} = await Templates.renderForPromise('local_aireader/manager_offline', {
             message,
-            action_label: actionLabel,
+            actionlabel: actionLabel,
         });
         Templates.replaceNodeContents(mount, html, js);
         const btn = mount.querySelector('[data-action="enable"]');
@@ -267,8 +267,8 @@ const renderPlayer = async(mount, config) => {
     try {
         const {html, js} = await Templates.renderForPromise('local_aireader/player', {
             disclosure: config.disclosure || '',
-            managerlabel_on: `Turn off for this ${scopeLabel(config)}`,
-            managerlabel_off: `Turn on for this ${scopeLabel(config)}`,
+            managerlabelon: `Turn off for this ${scopeLabel(config)}`,
+            managerlabeloff: `Turn on for this ${scopeLabel(config)}`,
         });
         Templates.replaceNodeContents(mount, html, js);
 

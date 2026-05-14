@@ -213,7 +213,7 @@ class content_extractor {
             $node->parentNode->replaceChild($replacement, $node);
         }
 
-        // saveHTML on the wrapper div yields the modified inner HTML.
+        // The saveHTML on the wrapper div yields the modified inner HTML.
         $wrappernode = $dom->getElementsByTagName('div')->item(0);
         if (!$wrappernode) {
             return $html;
@@ -289,7 +289,8 @@ class content_extractor {
             return 'video';
         }
         if ($tag === 'iframe' || $tag === 'embed' || $tag === 'object') {
-            if ($src !== '' && preg_match('#(youtube\.com|youtu\.be|vimeo\.com|wistia|kaltura|loom\.com|panopto|brightcove)#i', $src)) {
+            $videohosts = '#(youtube\.com|youtu\.be|vimeo\.com|wistia|kaltura|loom\.com|panopto|brightcove)#i';
+            if ($src !== '' && preg_match($videohosts, $src)) {
                 return 'video';
             }
             return 'embed';

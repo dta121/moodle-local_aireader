@@ -6,7 +6,13 @@
 
     Context variables:
       * message - explanatory text
-      * action_label - button label to enable narration here
+      * actionlabel - button label to enable narration here
+
+    Example context (json):
+    {
+      "message": "AI narration is turned off for this page.",
+      "actionlabel": "Turn on for this page"
+    }
 }}
 <div class="local-aireader-offline card mb-3" role="region" aria-label="AI Reader narration disabled">
   <div class="card-body py-2 px-3 d-flex align-items-center flex-wrap">
@@ -14,7 +20,7 @@
     <button type="button"
             class="btn btn-outline-primary btn-sm ml-2"
             data-action="enable">
-      {{action_label}}
+      {{actionlabel}}
     </button>
   </div>
 </div>
