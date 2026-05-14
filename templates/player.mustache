@@ -5,13 +5,18 @@
 
     Context variables:
       * disclosure - string shown under controls
+      * managerlabel_off - text shown to managers when narration is disabled
+      * managerlabel_on - text shown to managers when narration is enabled
+      * label_disabled_for_user - placeholder text shown to learners (never visible — gated server-side)
 
     Example context (json):
     {
-      "disclosure": "Audio narration is AI-generated."
+      "disclosure": "Audio narration is AI-generated.",
+      "managerlabel_off": "Narration is off here.",
+      "managerlabel_on": "Narration on"
     }
 }}
-<div class="local-aireader-player card mb-3" role="region" aria-label="Listen to this content">
+<div class="local-aireader-player card mb-3" role="region" aria-label="Listen to this content" data-state="loading">
   <div class="card-body py-2 px-3 d-flex align-items-center flex-wrap">
     <div class="local-aireader-controls d-flex align-items-center mr-3">
       <button type="button"
@@ -40,6 +45,14 @@
       Loading audio&hellip;
     </div>
     <div class="local-aireader-time small text-muted ml-2" data-region="time">--:-- / --:--</div>
+    <div class="local-aireader-manager d-none ml-2" data-region="manager">
+      <button type="button"
+              class="btn btn-outline-secondary btn-sm"
+              data-action="toggle-enabled"
+              aria-pressed="true">
+        <span data-region="manager-label">{{managerlabel_on}}</span>
+      </button>
+    </div>
   </div>
   <div class="local-aireader-disclosure px-3 pb-2 small text-muted">
     {{disclosure}}

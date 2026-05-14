@@ -1,0 +1,20 @@
+{{!
+    @template local_aireader/manager_offline
+
+    Slim placeholder shown ONLY to managers when narration is disabled at the
+    current scope. Lets them flip it back on without leaving the page.
+
+    Context variables:
+      * message - explanatory text
+      * action_label - button label to enable narration here
+}}
+<div class="local-aireader-offline card mb-3" role="region" aria-label="AI Reader narration disabled">
+  <div class="card-body py-2 px-3 d-flex align-items-center flex-wrap">
+    <div class="flex-grow-1 small text-muted">{{message}}</div>
+    <button type="button"
+            class="btn btn-outline-primary btn-sm ml-2"
+            data-action="enable">
+      {{action_label}}
+    </button>
+  </div>
+</div>

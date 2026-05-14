@@ -43,4 +43,13 @@ $functions = [
         'capabilities'  => 'local/aireader:manage',
         'loginrequired' => true,
     ],
+    'local_aireader_set_override' => [
+        'classname'     => 'local_aireader\external\set_override',
+        'methodname'    => 'execute',
+        'description'   => 'Enable or disable narration for a specific page or book chapter.',
+        'type'          => 'write',
+        'ajax'          => true,
+        'capabilities'  => 'local/aireader:manage',
+        'loginrequired' => true,
+    ],
 ];

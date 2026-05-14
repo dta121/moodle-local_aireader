@@ -25,6 +25,7 @@
 namespace local_aireader;
 
 use local_aireader\manager\asset_manager;
+use local_aireader\manager\override_manager;
 
 /**
  * Observers that mark cached assets stale when source content changes.
@@ -55,12 +56,14 @@ class observer {
     }
 
     /**
-     * Purge metadata and stored files when the source module is deleted.
+     * Purge metadata, stored files, and overrides when the source module is deleted.
      *
      * @param \core\event\course_module_deleted $event
      */
     public static function course_module_deleted(\core\event\course_module_deleted $event): void {
-        asset_manager::purge_cm((int)$event->objectid);
+        $cmid = (int)$event->objectid;
+        asset_manager::purge_cm($cmid);
+        override_manager::purge_cm($cmid);
     }
 
     /**
@@ -74,13 +77,14 @@ class observer {
     }
 
     /**
-     * Purge a chapter's cached audio when the chapter is deleted.
+     * Purge a chapter's cached audio and override when the chapter is deleted.
      *
      * @param \core\event\base $event
      */
     public static function book_chapter_deleted(\core\event\base $event): void {
         $chapterid = (int)$event->objectid;
         asset_manager::purge_chapter($chapterid);
+        override_manager::purge_chapter($chapterid);
     }
 
     /**

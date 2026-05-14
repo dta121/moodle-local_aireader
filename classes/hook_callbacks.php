@@ -24,6 +24,8 @@
 
 namespace local_aireader;
 
+use local_aireader\manager\override_manager;
+
 /**
  * Hook callbacks that inject the player on supported resource views.
  *
@@ -68,16 +70,23 @@ class hook_callbacks {
         }
 
         $modulecontext = \context_module::instance($PAGE->cm->id);
-        if (!has_capability('local/aireader:listen', $modulecontext)) {
+        $canlisten = has_capability('local/aireader:listen', $modulecontext);
+        $canmanage = has_capability('local/aireader:manage', $modulecontext);
+        if (!$canlisten && !$canmanage) {
             return;
         }
 
-        $chapterid = null;
+        $chapterid = 0;
         if ($modname === 'book') {
-            $chapterid = optional_param('chapterid', 0, PARAM_INT) ?: null;
-            if ($chapterid === null) {
-                $chapterid = self::resolve_default_book_chapter($PAGE->cm->instance);
+            $chapterid = (int)optional_param('chapterid', 0, PARAM_INT);
+            if ($chapterid === 0) {
+                $chapterid = (int)self::resolve_default_book_chapter($PAGE->cm->instance);
             }
+        }
+
+        $enabled = override_manager::is_enabled((int)$PAGE->cm->id, $chapterid, $modname);
+        if (!$enabled && !$canmanage) {
+            return;
         }
 
         $pollinterval = (int)(get_config('local_aireader', 'poll_interval') ?: 5);
@@ -92,7 +101,8 @@ class hook_callbacks {
             'lang'          => current_language(),
             'pollinterval'  => $pollinterval,
             'disclosure'    => $disclosure,
-            'canregenerate' => has_capability('local/aireader:manage', $modulecontext),
+            'enabled'       => $enabled,
+            'canmanage'     => $canmanage,
         ]]);
 
         $hook->add_html('<div id="local-aireader-mount" data-region="local_aireader-player"></div>');
@@ -102,9 +112,9 @@ class hook_callbacks {
      * Best-effort lookup of the first visible chapter for a book instance.
      *
      * @param int $bookid The book id.
-     * @return int|null Chapter id, or null when the book has no visible chapters.
+     * @return int Chapter id, or 0 when the book has no visible chapters.
      */
-    private static function resolve_default_book_chapter(int $bookid): ?int {
+    private static function resolve_default_book_chapter(int $bookid): int {
         global $DB;
         $chapter = $DB->get_records(
             'book_chapters',
@@ -115,7 +125,7 @@ class hook_callbacks {
             1
         );
         if (!$chapter) {
-            return null;
+            return 0;
         }
         $row = reset($chapter);
         return (int)$row->id;

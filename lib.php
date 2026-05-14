@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * File serving callback and Moodle integration hooks for local_aireader.
+ * File serving, mod-form injection and other Moodle integration hooks for local_aireader.
  *
  * @package    local_aireader
  * @copyright  2026 Saylor Academy
@@ -71,4 +71,69 @@ function local_aireader_pluginfile($course, $cm, $context, $filearea, $args, $fo
     }
 
     send_stored_file($file, 0, 0, $forcedownload, $options);
+}
+
+/**
+ * Inject an "Enable AI narration" field into mod_page and mod_book edit forms.
+ *
+ * Moodle calls this for every coursemodule edit form site-wide; we no-op for
+ * unsupported modules.
+ *
+ * @param moodleform_mod $formwrapper The mod form wrapper.
+ * @param MoodleQuickForm $mform The underlying QuickForm.
+ * @return void
+ */
+function local_aireader_coursemodule_standard_elements($formwrapper, $mform): void {
+    if (!get_config('local_aireader', 'enabled')) {
+        return;
+    }
+    $modname = $formwrapper->get_current()->modulename ?? '';
+    if (!in_array($modname, ['page', 'book'], true)) {
+        return;
+    }
+    $globalkey = $modname === 'book' ? 'enable_book' : 'enable_page';
+    if (!get_config('local_aireader', $globalkey)) {
+        return;
+    }
+
+    $cm = $formwrapper->get_coursemodule();
+    $cmid = $cm ? (int)$cm->id : 0;
+
+    $current = null;
+    if ($cmid > 0) {
+        $current = \local_aireader\manager\override_manager::get($cmid, 0);
+    }
+    $default = $current === null ? 1 : ($current ? 1 : 0);
+
+    $mform->addElement('header', 'local_aireader_section', get_string('form_section', 'local_aireader'));
+    $mform->addElement(
+        'selectyesno',
+        'local_aireader_enabled',
+        get_string('form_enabled_' . $modname, 'local_aireader')
+    );
+    $mform->addHelpButton('local_aireader_enabled', 'form_enabled_' . $modname, 'local_aireader');
+    $mform->setDefault('local_aireader_enabled', $default);
+}
+
+/**
+ * Persist the form value after a mod_page or mod_book activity is saved.
+ *
+ * @param stdClass $data Submitted form data, including the new coursemodule id.
+ * @param stdClass $course Course record.
+ * @return stdClass Possibly-modified data (we just pass through).
+ */
+function local_aireader_coursemodule_edit_post_actions($data, $course) {
+    if (!isset($data->local_aireader_enabled)) {
+        return $data;
+    }
+    if (empty($data->coursemodule)) {
+        return $data;
+    }
+    \local_aireader\manager\override_manager::set(
+        (int)$course->id,
+        (int)$data->coursemodule,
+        0,
+        (bool)(int)$data->local_aireader_enabled
+    );
+    return $data;
 }

@@ -2,10 +2,11 @@
 //
 // The PHP hook injects an empty #local-aireader-mount div near the top of the
 // body. This module:
-//   1. Renders the player template into that mount.
-//   2. Repositions the mount above the resource content region.
-//   3. Polls local_aireader_get_status until ready or error.
-//   4. Wires play/pause/restart/regen controls.
+//   1. If narration is disabled at this scope AND viewer is a manager, render a
+//      slim "turn it on" placeholder.
+//   2. Otherwise render the full player template, reposition above the resource
+//      content region, poll local_aireader_get_status until ready or error, and
+//      wire play/pause/restart/regen plus a manager-only "turn off here" button.
 
 import Ajax from 'core/ajax';
 import Templates from 'core/templates';
@@ -30,6 +31,23 @@ const formatTime = (seconds) => {
     return `${m}:${r.toString().padStart(2, '0')}`;
 };
 
+const scopeLabel = (config) => {
+    if (config.module === 'book' && config.chapterid) {
+        return 'chapter';
+    }
+    return config.module === 'book' ? 'book' : 'page';
+};
+
+const setOverride = (config, enabled) => Ajax.call([{
+    methodname: 'local_aireader_set_override',
+    args: {
+        cmid: config.cmid,
+        module: config.module,
+        chapterid: config.module === 'book' ? (config.chapterid || 0) : 0,
+        enabled,
+    },
+}])[0];
+
 class Player {
     constructor(root, config) {
         this.root = root;
@@ -42,10 +60,13 @@ class Player {
         this.regenBtn = root.querySelector('.local-aireader-regen');
         this.iconPlay = root.querySelector('.local-aireader-icon-play');
         this.iconPause = root.querySelector('.local-aireader-icon-pause');
+        this.managerBox = root.querySelector('[data-region="manager"]');
+        this.managerBtn = this.managerBox && this.managerBox.querySelector('[data-action="toggle-enabled"]');
         this.polling = false;
 
-        if (config.canregenerate) {
+        if (config.canmanage) {
             this.regenBtn.classList.remove('d-none');
+            this.managerBox.classList.remove('d-none');
         }
 
         this.bindEvents();
@@ -66,6 +87,10 @@ class Player {
         this.audio.addEventListener('error', () => {
             this.setStatus(STATE.ERROR, 'Audio playback failed.');
         });
+
+        if (this.managerBtn) {
+            this.managerBtn.addEventListener('click', () => this.disableHere());
+        }
     }
 
     callStatus() {
@@ -174,6 +199,16 @@ class Player {
         }
     }
 
+    async disableHere() {
+        try {
+            await setOverride(this.config, false);
+            // Swap to the offline placeholder so the manager can re-enable later.
+            renderOffline(this.root.parentNode, {...this.config, enabled: false});
+        } catch (e) {
+            Notification.exception(e);
+        }
+    }
+
     renderPlaying(isPlaying) {
         this.iconPlay.classList.toggle('d-none', isPlaying);
         this.iconPause.classList.toggle('d-none', !isPlaying);
@@ -200,22 +235,42 @@ const findInsertionTarget = (module) => {
     return candidates.find((el) => el) || document.body;
 };
 
-export const init = async(config) => {
-    const mount = document.getElementById('local-aireader-mount');
-    if (!mount) {
-        return;
+const renderOffline = async(mount, config) => {
+    try {
+        const message = `AI narration is turned off for this ${scopeLabel(config)}.`;
+        const actionLabel = `Turn on for this ${scopeLabel(config)}`;
+        const {html, js} = await Templates.renderForPromise('local_aireader/manager_offline', {
+            message,
+            action_label: actionLabel,
+        });
+        Templates.replaceNodeContents(mount, html, js);
+        const btn = mount.querySelector('[data-action="enable"]');
+        if (btn) {
+            btn.addEventListener('click', async() => {
+                btn.disabled = true;
+                try {
+                    await setOverride(config, true);
+                    // Reload so the server-rendered player mount picks up the change.
+                    window.location.reload();
+                } catch (e) {
+                    btn.disabled = false;
+                    Notification.exception(e);
+                }
+            });
+        }
+    } catch (e) {
+        Notification.exception(e);
     }
+};
+
+const renderPlayer = async(mount, config) => {
     try {
         const {html, js} = await Templates.renderForPromise('local_aireader/player', {
             disclosure: config.disclosure || '',
+            managerlabel_on: `Turn off for this ${scopeLabel(config)}`,
+            managerlabel_off: `Turn on for this ${scopeLabel(config)}`,
         });
         Templates.replaceNodeContents(mount, html, js);
-
-        // Reposition above the main content for the resource.
-        const target = findInsertionTarget(config.module);
-        if (target && target.parentNode) {
-            target.parentNode.insertBefore(mount, target);
-        }
 
         const root = mount.querySelector('.local-aireader-player');
         if (root) {
@@ -224,4 +279,25 @@ export const init = async(config) => {
     } catch (e) {
         Notification.exception(e);
     }
+};
+
+export const init = async(config) => {
+    const mount = document.getElementById('local-aireader-mount');
+    if (!mount) {
+        return;
+    }
+
+    // Reposition mount above the resource content region.
+    const target = findInsertionTarget(config.module);
+    if (target && target.parentNode && mount.parentNode !== target.parentNode) {
+        target.parentNode.insertBefore(mount, target);
+    }
+
+    if (!config.enabled) {
+        if (config.canmanage) {
+            renderOffline(mount, config);
+        }
+        return;
+    }
+    renderPlayer(mount, config);
 };

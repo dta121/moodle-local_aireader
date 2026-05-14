@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="local/aireader/db" VERSION="20260513" COMMENT="Tables for local_aireader"
+<XMLDB PATH="local/aireader/db" VERSION="20260514" COMMENT="Tables for local_aireader"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
 >
@@ -43,6 +43,25 @@
             FIELDS="cmid, chapterid, lang, voice, model, sourcehash"/>
         <INDEX NAME="status_timemodified" UNIQUE="false" FIELDS="status, timemodified"/>
         <INDEX NAME="cmid_chapter" UNIQUE="false" FIELDS="cmid, chapterid"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_aireader_override" COMMENT="Per-resource enable/disable overrides set by instructors.">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="cmid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="chapterid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
+            COMMENT="0 means the activity-level default; positive value scopes to a specific book chapter."/>
+        <FIELD NAME="enabled" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="usermodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="courseid_fk" TYPE="foreign" FIELDS="courseid" REFTABLE="course" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="unique_scope" UNIQUE="true" FIELDS="cmid, chapterid"/>
       </INDEXES>
     </TABLE>
   </TABLES>
