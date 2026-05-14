@@ -1,4 +1,27 @@
 <?php
+// This file is part of Moodle - https://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
+
+/**
+ * External web service: return audio status and URL.
+ *
+ * @package    local_aireader
+ * @copyright  2026 Saylor Academy
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
 namespace local_aireader\external;
 
 use core_external\external_api;
@@ -9,17 +32,22 @@ use local_aireader\manager\asset_manager;
 use local_aireader\manager\content_extractor;
 use local_aireader\manager\storage;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Web service: return audio status/URL for a Page or Book chapter.
  *
  * Side effect: this is also where the cache-first generation flow is anchored.
  * If a `ready` asset matching the current sourcehash exists, return it; if not,
  * (re)create the row, queue generation, and return `pending`. The browser polls.
+ *
+ * @package local_aireader
  */
 class get_status extends external_api {
 
+    /**
+     * Parameter definition.
+     *
+     * @return external_function_parameters
+     */
     public static function execute_parameters(): external_function_parameters {
         return new external_function_parameters([
             'cmid'      => new external_value(PARAM_INT, 'Course module id'),
@@ -29,6 +57,11 @@ class get_status extends external_api {
         ]);
     }
 
+    /**
+     * Return structure definition.
+     *
+     * @return external_single_structure
+     */
     public static function execute_returns(): external_single_structure {
         return new external_single_structure([
             'status'        => new external_value(PARAM_ALPHA, 'pending|generating|ready|error|stale'),
@@ -40,9 +73,16 @@ class get_status extends external_api {
         ]);
     }
 
+    /**
+     * Resolve current audio status for a Page or Book chapter; queue generation if missing.
+     *
+     * @param int $cmid Course module id.
+     * @param string $module page|book
+     * @param int $chapterid Book chapter id (0 for page).
+     * @param string $lang Language code.
+     * @return array Matches execute_returns().
+     */
     public static function execute(int $cmid, string $module, int $chapterid = 0, string $lang = 'en'): array {
-        global $DB;
-
         $params = self::validate_parameters(self::execute_parameters(), [
             'cmid'      => $cmid,
             'module'    => $module,

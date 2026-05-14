@@ -1,10 +1,33 @@
 <?php
-namespace local_aireader;
-
-defined('MOODLE_INTERNAL') || die();
+// This file is part of Moodle - https://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
  * Hook callbacks that inject the player on supported resource views.
+ *
+ * @package    local_aireader
+ * @copyright  2026 Saylor Academy
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
+namespace local_aireader;
+
+/**
+ * Hook callbacks that inject the player on supported resource views.
+ *
+ * @package local_aireader
  */
 class hook_callbacks {
 
@@ -22,7 +45,6 @@ class hook_callbacks {
             return;
         }
 
-        // Only on resource view pages.
         if ($PAGE->pagelayout !== 'incourse' && $PAGE->pagelayout !== 'standard') {
             return;
         }
@@ -41,13 +63,11 @@ class hook_callbacks {
             return;
         }
 
-        // Restrict to the actual "view" script for each module.
         $scriptpath = $PAGE->url->get_path();
         if (!str_ends_with($scriptpath, "/mod/{$modname}/view.php")) {
             return;
         }
 
-        // Capability gate: don't render player for users who couldn't listen anyway.
         $modulecontext = \context_module::instance($PAGE->cm->id);
         if (!has_capability('local/aireader:listen', $modulecontext)) {
             return;
@@ -56,7 +76,6 @@ class hook_callbacks {
         $chapterid = null;
         if ($modname === 'book') {
             $chapterid = optional_param('chapterid', 0, PARAM_INT) ?: null;
-            // mod_book defaults to the first chapter when no id given; resolve it.
             if ($chapterid === null) {
                 $chapterid = self::resolve_default_book_chapter($PAGE->cm->instance);
             }
@@ -67,17 +86,16 @@ class hook_callbacks {
             ?: get_string('default_disclosure', 'local_aireader'));
 
         $PAGE->requires->js_call_amd('local_aireader/player', 'init', [[
-            'cmid'         => (int)$PAGE->cm->id,
-            'contextid'    => $modulecontext->id,
-            'module'       => $modname,
-            'chapterid'    => $chapterid,
-            'lang'         => current_language(),
-            'pollinterval' => $pollinterval,
-            'disclosure'   => $disclosure,
+            'cmid'          => (int)$PAGE->cm->id,
+            'contextid'     => $modulecontext->id,
+            'module'        => $modname,
+            'chapterid'     => $chapterid,
+            'lang'          => current_language(),
+            'pollinterval'  => $pollinterval,
+            'disclosure'    => $disclosure,
             'canregenerate' => has_capability('local/aireader:manage', $modulecontext),
         ]]);
 
-        // The JS mounts into this container, which the module places at the top of the body.
         $hook->add_html('<div id="local-aireader-mount" data-region="local_aireader-player"></div>');
     }
 

@@ -1,31 +1,59 @@
 <?php
+// This file is part of Moodle - https://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
+
+/**
+ * Asset row lifecycle helpers for local_aireader.
+ *
+ * @package    local_aireader
+ * @copyright  2026 Saylor Academy
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
 namespace local_aireader\manager;
 
 use core\task\manager as task_manager;
 use local_aireader\task\generate_audio;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Lifecycle for local_aireader_asset rows and the files they own.
+ *
+ * @package local_aireader
  */
 class asset_manager {
 
-    public const STATUS_PENDING    = 'pending';
+    /** Pending generation. */
+    public const STATUS_PENDING = 'pending';
+    /** Generation in progress. */
     public const STATUS_GENERATING = 'generating';
-    public const STATUS_READY      = 'ready';
-    public const STATUS_ERROR      = 'error';
-    public const STATUS_STALE      = 'stale';
+    /** Ready to play. */
+    public const STATUS_READY = 'ready';
+    /** Generation failed. */
+    public const STATUS_ERROR = 'error';
+    /** Stale - content changed; superseded by a new row. */
+    public const STATUS_STALE = 'stale';
 
     /**
      * Compute the canonical source hash for the (cm, chapter, voice, model, lang) variant.
      *
-     * @param string $module    Module name.
-     * @param int    $cmid      Course module id.
+     * @param string $module Module name.
+     * @param int $cmid Course module id.
      * @param int|null $chapterid Book chapter id, or null.
-     * @param string $lang      Language code.
-     * @param string $voice     Voice name.
-     * @param string $model     Model id.
+     * @param string $lang Language code.
+     * @param string $voice Voice name.
+     * @param string $model Model id.
      * @param string $cleantext Extracted narration-ready text.
      * @return string 64-char hex SHA256.
      */
@@ -53,11 +81,11 @@ class asset_manager {
     /**
      * Look up the asset row for the requested variant, ignoring stale ones.
      *
-     * @param int    $cmid      Course module id.
+     * @param int $cmid Course module id.
      * @param int|null $chapterid Book chapter id, or null for non-book modules.
-     * @param string $lang      Language code.
-     * @param string $voice     Voice name.
-     * @param string $model     Model id.
+     * @param string $lang Language code.
+     * @param string $voice Voice name.
+     * @param string $model Model id.
      * @return \stdClass|null The most recent matching asset row, or null.
      */
     public static function find_current(
@@ -86,6 +114,12 @@ class asset_manager {
         return $rows ? reset($rows) : null;
     }
 
+    /**
+     * Fetch an asset row by id.
+     *
+     * @param int $id Asset id.
+     * @return \stdClass|null
+     */
     public static function get_by_id(int $id): ?\stdClass {
         global $DB;
         $row = $DB->get_record('local_aireader_asset', ['id' => $id]);
@@ -114,14 +148,12 @@ class asset_manager {
         $now = time();
 
         if ($existing && $existing->sourcehash === $fields['sourcehash']) {
-            // Touch lastrequested so we can prune cold assets later.
             $DB->set_field('local_aireader_asset', 'lastrequested', $now, ['id' => $existing->id]);
             $existing->lastrequested = $now;
             return [$existing, true];
         }
 
         if ($existing) {
-            // Hash changed: mark the prior row stale; we will produce a new asset row.
             $DB->set_field('local_aireader_asset', 'status', self::STATUS_STALE, ['id' => $existing->id]);
         }
 
@@ -150,6 +182,13 @@ class asset_manager {
         return [$row, false];
     }
 
+    /**
+     * Update an asset's status and optional error string.
+     *
+     * @param int $id Asset id.
+     * @param string $status One of the STATUS_* constants.
+     * @param string|null $error Optional error message to record.
+     */
     public static function update_status(int $id, string $status, ?string $error = null): void {
         global $DB;
         $update = (object)[
@@ -167,6 +206,14 @@ class asset_manager {
         $DB->update_record('local_aireader_asset', $update);
     }
 
+    /**
+     * Mark an asset as ready and record the stored file metadata.
+     *
+     * @param int $id Asset id.
+     * @param int $fileid files.id of the stored mp3.
+     * @param int $bytesize File size in bytes.
+     * @param int|null $duration Duration in seconds, or null if unknown.
+     */
     public static function record_generated(int $id, int $fileid, int $bytesize, ?int $duration): void {
         global $DB;
         $now = time();
@@ -182,12 +229,22 @@ class asset_manager {
         ]);
     }
 
+    /**
+     * Queue a generation ad hoc task for an asset id.
+     *
+     * @param int $assetid
+     */
     public static function queue_generation(int $assetid): void {
         $task = new generate_audio();
         $task->set_custom_data(['assetid' => $assetid]);
         task_manager::queue_adhoc_task($task, true);
     }
 
+    /**
+     * Mark all non-stale assets for a course module as stale.
+     *
+     * @param int $cmid
+     */
     public static function mark_cm_stale(int $cmid): void {
         global $DB;
         $DB->set_field_select(
@@ -199,6 +256,11 @@ class asset_manager {
         );
     }
 
+    /**
+     * Mark all non-stale assets for a chapter as stale.
+     *
+     * @param int $chapterid
+     */
     public static function mark_chapter_stale(int $chapterid): void {
         global $DB;
         $DB->set_field_select(
@@ -210,6 +272,11 @@ class asset_manager {
         );
     }
 
+    /**
+     * Queue a regeneration task for every asset attached to a course module.
+     *
+     * @param int $cmid
+     */
     public static function queue_regeneration_for_cm(int $cmid): void {
         global $DB;
         $rows = $DB->get_records('local_aireader_asset', ['cmid' => $cmid], '', 'id');
@@ -218,6 +285,11 @@ class asset_manager {
         }
     }
 
+    /**
+     * Purge all assets attached to a course module.
+     *
+     * @param int $cmid
+     */
     public static function purge_cm(int $cmid): void {
         global $DB;
         $rows = $DB->get_records('local_aireader_asset', ['cmid' => $cmid]);
@@ -226,6 +298,11 @@ class asset_manager {
         }
     }
 
+    /**
+     * Purge all assets attached to a chapter.
+     *
+     * @param int $chapterid
+     */
     public static function purge_chapter(int $chapterid): void {
         global $DB;
         $rows = $DB->get_records('local_aireader_asset', ['chapterid' => $chapterid]);
@@ -234,6 +311,11 @@ class asset_manager {
         }
     }
 
+    /**
+     * Delete a single asset row and its stored file.
+     *
+     * @param \stdClass $asset
+     */
     public static function purge_asset(\stdClass $asset): void {
         global $DB;
         $fs = get_file_storage();

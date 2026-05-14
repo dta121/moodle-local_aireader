@@ -1,21 +1,50 @@
 <?php
-namespace local_aireader\manager;
+// This file is part of Moodle - https://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
-defined('MOODLE_INTERNAL') || die();
+/**
+ * OpenAI Audio (speech) client for local_aireader.
+ *
+ * @package    local_aireader
+ * @copyright  2026 Saylor Academy
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
+namespace local_aireader\manager;
 
 /**
  * Minimal OpenAI Audio (speech) client.
  *
  * Endpoint: POST {endpoint} with JSON body {model, voice, input, instructions, format}.
  * Response: raw audio bytes (mp3).
+ *
+ * @package local_aireader
  */
 class openai_client {
 
-    /** @var string */
+    /** @var string Bearer API key. */
     private $apikey;
-    /** @var string */
+    /** @var string Endpoint URL. */
     private $endpoint;
 
+    /**
+     * Construct a client, optionally overriding the configured key/endpoint.
+     *
+     * @param string|null $apikey
+     * @param string|null $endpoint
+     */
     public function __construct(?string $apikey = null, ?string $endpoint = null) {
         $this->apikey   = $apikey ?? (string)get_config('local_aireader', 'openai_api_key');
         $this->endpoint = $endpoint ?? (string)(get_config('local_aireader', 'openai_endpoint')
@@ -25,12 +54,12 @@ class openai_client {
     /**
      * Synthesize a single chunk and return raw mp3 bytes.
      *
-     * @param string $text         Input text to read.
-     * @param string $model        TTS model id.
-     * @param string $voice        Voice name.
+     * @param string $text Input text to read.
+     * @param string $model TTS model id.
+     * @param string $voice Voice name.
      * @param string $instructions Narration style instructions.
      * @return string Raw mp3 bytes.
-     * @throws \moodle_exception on transport or API error.
+     * @throws \moodle_exception On transport or API error.
      */
     public function synthesize(string $text, string $model, string $voice, string $instructions): string {
         if ($this->apikey === '') {
@@ -62,7 +91,6 @@ class openai_client {
         $status = (int)($info['http_code'] ?? 0);
 
         if ($status < 200 || $status >= 300) {
-            // The body is plaintext JSON in error cases.
             $snippet = is_string($response) ? substr($response, 0, 500) : '';
             throw new \moodle_exception(
                 'error_tts_http',
@@ -81,8 +109,8 @@ class openai_client {
     /**
      * Split input into chunks at sentence boundaries, preferring to stay under $maxchars.
      *
-     * @param string $text     Input text.
-     * @param int    $maxchars Soft maximum chars per chunk.
+     * @param string $text Input text.
+     * @param int $maxchars Soft maximum chars per chunk.
      * @return string[]
      */
     public static function chunk_text(string $text, int $maxchars): array {
@@ -105,7 +133,6 @@ class openai_client {
             } else {
                 $buffer = $candidate;
             }
-            // Single sentence that exceeds the budget: hard-split on whitespace.
             while (mb_strlen($buffer) > $maxchars) {
                 $cut = mb_strrpos(mb_substr($buffer, 0, $maxchars), ' ') ?: $maxchars;
                 $chunks[] = trim(mb_substr($buffer, 0, $cut));
