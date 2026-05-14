@@ -52,4 +52,13 @@ $functions = [
         'capabilities'  => 'local/aireader:manage',
         'loginrequired' => true,
     ],
+    'local_aireader_set_position' => [
+        'classname'     => 'local_aireader\external\set_position',
+        'methodname'    => 'execute',
+        'description'   => 'Persist the current learner playback position for resume.',
+        'type'          => 'write',
+        'ajax'          => true,
+        'capabilities'  => 'local/aireader:listen',
+        'loginrequired' => true,
+    ],
 ];

@@ -30,6 +30,7 @@ use core_external\external_single_structure;
 use core_external\external_value;
 use local_aireader\manager\asset_manager;
 use local_aireader\manager\content_extractor;
+use local_aireader\manager\position_manager;
 use local_aireader\manager\storage;
 
 /**
@@ -63,12 +64,14 @@ class get_status extends external_api {
      */
     public static function execute_returns(): external_single_structure {
         return new external_single_structure([
-            'status'        => new external_value(PARAM_ALPHA, 'pending|generating|ready|error|stale'),
-            'audiourl'      => new external_value(PARAM_URL, 'mp3 URL or empty', VALUE_OPTIONAL),
-            'durationsecs'  => new external_value(PARAM_INT, 'Duration in seconds', VALUE_OPTIONAL),
-            'canregenerate' => new external_value(PARAM_BOOL, 'Whether the caller may force regen'),
-            'message'       => new external_value(PARAM_RAW, 'Human-readable status'),
-            'lastgenerated' => new external_value(PARAM_INT, 'UNIX timestamp', VALUE_OPTIONAL),
+            'status'         => new external_value(PARAM_ALPHA, 'pending|generating|ready|error|stale'),
+            'audiourl'       => new external_value(PARAM_URL, 'mp3 URL or empty', VALUE_OPTIONAL),
+            'durationsecs'   => new external_value(PARAM_INT, 'Duration in seconds', VALUE_OPTIONAL),
+            'canregenerate'  => new external_value(PARAM_BOOL, 'Whether the caller may force regen'),
+            'message'        => new external_value(PARAM_RAW, 'Human-readable status'),
+            'lastgenerated'  => new external_value(PARAM_INT, 'UNIX timestamp', VALUE_OPTIONAL),
+            'assetid'        => new external_value(PARAM_INT, 'Asset row id (for set_position)', VALUE_OPTIONAL),
+            'resumeposition' => new external_value(PARAM_INT, 'Saved playback position in seconds', VALUE_OPTIONAL),
         ]);
     }
 
@@ -82,6 +85,7 @@ class get_status extends external_api {
      * @return array Matches execute_returns().
      */
     public static function execute(int $cmid, string $module, int $chapterid = 0, string $lang = 'en'): array {
+        global $USER;
         $params = self::validate_parameters(self::execute_parameters(), [
             'cmid'      => $cmid,
             'module'    => $module,
@@ -150,25 +154,29 @@ class get_status extends external_api {
         if ($asset->status === asset_manager::STATUS_READY) {
             $url = storage::get_audio_url($asset);
             return [
-                'status'        => 'ready',
-                'audiourl'      => $url ? $url->out(false) : '',
-                'durationsecs'  => (int)($asset->durationsecs ?? 0) ?: $estimatedduration,
-                'canregenerate' => $canregenerate,
-                'message'       => get_string('status_ready', 'local_aireader'),
-                'lastgenerated' => (int)($asset->lastgenerated ?? 0),
+                'status'         => 'ready',
+                'audiourl'       => $url ? $url->out(false) : '',
+                'durationsecs'   => (int)($asset->durationsecs ?? 0) ?: $estimatedduration,
+                'canregenerate'  => $canregenerate,
+                'message'        => get_string('status_ready', 'local_aireader'),
+                'lastgenerated'  => (int)($asset->lastgenerated ?? 0),
+                'assetid'        => (int)$asset->id,
+                'resumeposition' => position_manager::get((int)$USER->id, (int)$asset->id),
             ];
         }
 
         $messagekey = 'status_' . $asset->status;
         return [
-            'status'        => $asset->status,
-            'audiourl'      => '',
-            'durationsecs'  => $estimatedduration,
-            'canregenerate' => $canregenerate,
-            'message'       => get_string_manager()->string_exists($messagekey, 'local_aireader')
+            'status'         => $asset->status,
+            'audiourl'       => '',
+            'durationsecs'   => $estimatedduration,
+            'canregenerate'  => $canregenerate,
+            'message'        => get_string_manager()->string_exists($messagekey, 'local_aireader')
                 ? get_string($messagekey, 'local_aireader')
                 : get_string('status_pending', 'local_aireader'),
-            'lastgenerated' => (int)($asset->lastgenerated ?? 0),
+            'lastgenerated'  => (int)($asset->lastgenerated ?? 0),
+            'assetid'        => (int)$asset->id,
+            'resumeposition' => 0,
         ];
     }
 

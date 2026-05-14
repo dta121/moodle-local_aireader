@@ -22,6 +22,9 @@ const STATE = {
 
 const SPEED_STORAGE_KEY = 'local_aireader_playbackrate';
 const SKIP_SECONDS = 15;
+const POSITION_WRITE_INTERVAL_MS = 5000;
+const RESUME_MIN_SECONDS = 5;
+const RESUME_TAIL_BUFFER = 5;
 
 const formatTime = (seconds) => {
     if (!Number.isFinite(seconds) || seconds < 0) {
@@ -108,6 +111,10 @@ class Player {
         this.polling = false;
         this.estimateSecs = 0;
         this.dragging = false;
+        this.assetId = 0;
+        this.pendingResumePosition = 0;
+        this.appliedResume = false;
+        this.lastPositionWriteAt = 0;
 
         if (config.canmanage) {
             this.regenBtn.classList.remove('d-none');
@@ -169,13 +176,34 @@ class Player {
         }
 
         this.audio.addEventListener('play', () => this.renderPlaying(true));
-        this.audio.addEventListener('pause', () => this.renderPlaying(false));
-        this.audio.addEventListener('ended', () => this.renderPlaying(false));
-        this.audio.addEventListener('timeupdate', () => this.renderTime());
-        this.audio.addEventListener('loadedmetadata', () => this.renderTime());
+        this.audio.addEventListener('pause', () => {
+            this.renderPlaying(false);
+            // Don't write on pause-due-to-ended; the ended handler resets to 0.
+            if (!this.audio.ended) {
+                this.flushPositionWrite();
+            }
+        });
+        this.audio.addEventListener('ended', () => {
+            this.renderPlaying(false);
+            this.writePosition(0, true);
+        });
+        this.audio.addEventListener('timeupdate', () => {
+            this.renderTime();
+            this.maybeWritePosition();
+        });
+        this.audio.addEventListener('loadedmetadata', () => {
+            this.renderTime();
+            this.applyResumeIfNeeded();
+        });
         this.audio.addEventListener('durationchange', () => this.renderTime());
         this.audio.addEventListener('error', () => {
             this.setStatus(STATE.ERROR, 'Audio playback failed.');
+        });
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') {
+                this.flushPositionWrite();
+            }
         });
 
         if (this.managerBtn) {
@@ -382,6 +410,13 @@ class Player {
             this.renderTime();
         }
 
+        if (result.assetid) {
+            this.assetId = Number(result.assetid) || 0;
+        }
+        const resumePos = Math.floor(Number(result.resumeposition) || 0);
+        this.pendingResumePosition = resumePos >= RESUME_MIN_SECONDS ? resumePos : 0;
+        this.appliedResume = false;
+
         if (result.status === 'ready' && result.audiourl) {
             this.audio.src = result.audiourl;
             this.playBtn.disabled = false;
@@ -442,7 +477,93 @@ class Player {
             return;
         }
         this.audio.currentTime = 0;
+        // Restarting consumes the saved resume position so a subsequent reload
+        // doesn't jump straight back to where they were.
+        this.writePosition(0, true);
         this.audio.play().catch(() => { /* User gesture required. */ });
+    }
+
+    /**
+     * Apply the server-supplied resume position the first time we know the
+     * audio's true duration. Skipped if the saved position is in the last
+     * RESUME_TAIL_BUFFER seconds (treat as completed → restart from 0).
+     */
+    applyResumeIfNeeded() {
+        if (this.appliedResume || !this.pendingResumePosition) {
+            return;
+        }
+        const dur = this.audio.duration;
+        if (!Number.isFinite(dur) || dur <= 0) {
+            return;
+        }
+        this.appliedResume = true;
+        if (this.pendingResumePosition >= dur - RESUME_TAIL_BUFFER) {
+            // Effectively completed last time; start fresh.
+            this.pendingResumePosition = 0;
+            return;
+        }
+        this.audio.currentTime = this.pendingResumePosition;
+        this.renderTime();
+        this.pendingResumePosition = 0;
+    }
+
+    /**
+     * Throttled timeupdate-driven position write. At most one network call
+     * per POSITION_WRITE_INTERVAL_MS, only while playing.
+     */
+    maybeWritePosition() {
+        if (this.audio.paused || this.audio.ended) {
+            return;
+        }
+        const now = Date.now();
+        if (now - this.lastPositionWriteAt < POSITION_WRITE_INTERVAL_MS) {
+            return;
+        }
+        this.lastPositionWriteAt = now;
+        this.writePosition(Math.floor(this.audio.currentTime || 0));
+    }
+
+    /**
+     * Force a position write right now (used on pause + visibility hidden).
+     */
+    flushPositionWrite() {
+        if (!this.assetId || !this.audio.src) {
+            return;
+        }
+        const pos = Math.floor(this.audio.currentTime || 0);
+        if (pos < RESUME_MIN_SECONDS) {
+            return;
+        }
+        this.lastPositionWriteAt = Date.now();
+        this.writePosition(pos);
+    }
+
+    /**
+     * Persist a specific position. If `force` is true, sends even when 0.
+     *
+     * @param {number} position
+     * @param {boolean} [force]
+     */
+    writePosition(position, force) {
+        if (!this.assetId) {
+            return;
+        }
+        if (!force && position < RESUME_MIN_SECONDS) {
+            return;
+        }
+        try {
+            Ajax.call([{
+                methodname: 'local_aireader_set_position',
+                args: {
+                    assetid: this.assetId,
+                    position: Math.max(0, Math.floor(position)),
+                },
+            }])[0].catch(() => {
+                // Position writes are best-effort; ignore transport errors.
+            });
+        } catch (e) {
+            // Ignore.
+        }
     }
 
     async regen() {
@@ -480,6 +601,10 @@ class Player {
         this.skipBackBtn.disabled = true;
         this.skipFwdBtn.disabled = true;
         this.estimateSecs = 0;
+        this.assetId = 0;
+        this.pendingResumePosition = 0;
+        this.appliedResume = false;
+        this.lastPositionWriteAt = 0;
         this.renderTime();
         this.setStatus(STATE.LOADING, 'Preparing in selected language…');
         this.polling = false;
