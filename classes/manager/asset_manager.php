@@ -96,15 +96,20 @@ class asset_manager {
     ): ?\stdClass {
         global $DB;
         $params = [
-            'cmid'      => $cmid,
-            'chapterid' => $chapterid,
-            'lang'      => $lang,
-            'voice'     => $voice,
-            'model'     => $model,
+            'cmid'  => $cmid,
+            'lang'  => $lang,
+            'voice' => $voice,
+            'model' => $model,
         ];
+        if ($chapterid === null) {
+            $chaptercond = 'chapterid IS NULL';
+        } else {
+            $chaptercond = 'chapterid = :chapterid';
+            $params['chapterid'] = $chapterid;
+        }
         $sql = "SELECT * FROM {local_aireader_asset}
                  WHERE cmid = :cmid
-                   AND (chapterid = :chapterid OR (chapterid IS NULL AND :chapterid IS NULL))
+                   AND {$chaptercond}
                    AND lang = :lang
                    AND voice = :voice
                    AND model = :model
