@@ -60,5 +60,29 @@ function xmldb_local_aireader_upgrade(int $oldversion): bool {
         upgrade_plugin_savepoint(true, 2026051401, 'local', 'aireader');
     }
 
+    if ($oldversion < 2026051402) {
+        // Visual redesign of the player and offline placeholder; new styles.css.
+        // No schema change.
+        upgrade_plugin_savepoint(true, 2026051402, 'local', 'aireader');
+    }
+
+    if ($oldversion < 2026051500) {
+        $table = new xmldb_table('local_aireader_translation');
+        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+        $table->add_field('texthash', XMLDB_TYPE_CHAR, '64', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('sourcelang', XMLDB_TYPE_CHAR, '16', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('targetlang', XMLDB_TYPE_CHAR, '16', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('model', XMLDB_TYPE_CHAR, '64', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('translated', XMLDB_TYPE_TEXT, null, null, XMLDB_NOTNULL, null, null);
+        $table->add_field('timecreated', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('timemodified', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+        $table->add_index('unique_translation', XMLDB_INDEX_UNIQUE, ['texthash', 'targetlang', 'model']);
+        if (!$dbman->table_exists($table)) {
+            $dbman->create_table($table);
+        }
+        upgrade_plugin_savepoint(true, 2026051500, 'local', 'aireader');
+    }
+
     return true;
 }

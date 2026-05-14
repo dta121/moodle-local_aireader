@@ -32,6 +32,7 @@ $string['default_prompt'] = 'Read this course content as a calm, clear academic 
 $string['error_empty_content'] = 'Activity content is empty after extraction.';
 $string['error_no_apikey'] = 'OpenAI API key is not configured for local_aireader.';
 $string['error_tts_empty'] = 'TTS response was empty.';
+$string['error_translation_empty'] = 'Translation model returned an empty result.';
 $string['error_tts_http'] = 'TTS request failed: HTTP {$a->status}: {$a->body}';
 $string['form_enabled_book'] = 'Enable AI narration on this book';
 $string['form_enabled_book_help'] = 'When on, learners see a "Listen to this content" player at the top of each chapter of this book. Individual chapters can still be turned off from the player itself. Turn the whole book off here if most chapters are video.';

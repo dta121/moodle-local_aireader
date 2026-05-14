@@ -64,5 +64,25 @@
         <INDEX NAME="unique_scope" UNIQUE="true" FIELDS="cmid, chapterid"/>
       </INDEXES>
     </TABLE>
+    <TABLE NAME="local_aireader_translation" COMMENT="Cached translations of cleaned source text, shared across voices.">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="texthash" TYPE="char" LENGTH="64" NOTNULL="true" SEQUENCE="false"
+            COMMENT="SHA256 of the source cleantext only; language-agnostic content fingerprint."/>
+        <FIELD NAME="sourcelang" TYPE="char" LENGTH="16" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="targetlang" TYPE="char" LENGTH="16" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="model" TYPE="char" LENGTH="64" NOTNULL="true" SEQUENCE="false"
+            COMMENT="Translation model id."/>
+        <FIELD NAME="translated" TYPE="text" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="unique_translation" UNIQUE="true" FIELDS="texthash, targetlang, model"/>
+      </INDEXES>
+    </TABLE>
   </TABLES>
 </XMLDB>
