@@ -1,22 +1,33 @@
 {{!
     @template local_aireader/player
 
-    "Listen to this content" player styled after saylor.org's article reader.
+    "Listen to this content" player styled after saylor.org's article reader,
+    with podcast-style scrubber, skip ±15s, speed control, MediaSession + key
+    shortcuts.
 
     Context variables:
       * disclosure - text shown beneath the player
-      * managerlabelon - label for the manager "Turn off here" button (visible when narration is enabled)
-      * managerlabeloff - label for the manager "Turn on here" button (only used by the offline placeholder)
+      * managerlabelon - manager toggle label when narration is enabled
 
     Example context (json):
     {
       "disclosure": "Audio narration is AI-generated.",
-      "managerlabelon": "Turn off for this page",
-      "managerlabeloff": "Turn on for this page"
+      "managerlabelon": "Turn off for this page"
     }
 }}
-<div class="local-aireader local-aireader-player" data-state="loading" role="region" aria-label="Listen to this content">
+<div class="local-aireader local-aireader-player" data-state="loading" role="region" aria-label="Listen to this content" tabindex="-1">
   <div class="local-aireader-row">
+    <button type="button"
+            class="local-aireader-iconbtn local-aireader-skipback"
+            data-action="skipback"
+            disabled
+            aria-label="Skip back 15 seconds">
+      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="1 4 1 10 7 10"/>
+        <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+        <text x="12" y="17" font-size="7" stroke="none" fill="currentColor" text-anchor="middle" font-weight="700">15</text>
+      </svg>
+    </button>
     <button type="button"
             class="local-aireader-playpause"
             data-action="playpause"
@@ -29,6 +40,17 @@
         <path d="M6 4h4v16H6zM14 4h4v16h-4z"/>
       </svg>
     </button>
+    <button type="button"
+            class="local-aireader-iconbtn local-aireader-skipfwd"
+            data-action="skipfwd"
+            disabled
+            aria-label="Skip forward 15 seconds">
+      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="23 4 23 10 17 10"/>
+        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+        <text x="12" y="17" font-size="7" stroke="none" fill="currentColor" text-anchor="middle" font-weight="700">15</text>
+      </svg>
+    </button>
     <div class="local-aireader-body">
       <div class="local-aireader-title-row">
         <svg class="local-aireader-headphones" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -37,28 +59,6 @@
         </svg>
         <span class="local-aireader-title">Listen to this content</span>
         <span class="local-aireader-meta" data-region="status" aria-live="polite">Loading&hellip;</span>
-      </div>
-      <div class="local-aireader-meta-row">
-        <span class="local-aireader-time" data-region="time">--:-- / --:--</span>
-        <button type="button"
-                class="local-aireader-iconbtn local-aireader-restart"
-                data-action="restart"
-                disabled
-                aria-label="Restart">
-          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="1 4 1 10 7 10"/>
-            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
-          </svg>
-        </button>
-        <button type="button"
-                class="local-aireader-iconbtn local-aireader-regen d-none"
-                data-action="regen"
-                aria-label="Regenerate audio">
-          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M23 4v6h-6"/>
-            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
-          </svg>
-        </button>
       </div>
     </div>
     <div class="local-aireader-right">
@@ -80,6 +80,56 @@
       </div>
     </div>
   </div>
+
+  <div class="local-aireader-progress-row">
+    <div class="local-aireader-progress"
+         data-region="progress"
+         role="slider"
+         aria-label="Playback position"
+         aria-valuemin="0"
+         aria-valuemax="100"
+         aria-valuenow="0"
+         tabindex="0">
+      <div class="local-aireader-progress-fill" data-region="progress-fill"></div>
+      <div class="local-aireader-progress-thumb" data-region="progress-thumb"></div>
+    </div>
+    <span class="local-aireader-time" data-region="time" aria-hidden="true">--:--</span>
+  </div>
+
+  <div class="local-aireader-controls-row">
+    <div class="local-aireader-speed" data-region="speed">
+      <span class="local-aireader-speed-label">Speed</span>
+      <select class="local-aireader-speed-select" data-action="set-speed" aria-label="Playback speed">
+        <option value="0.75">0.75&times;</option>
+        <option value="1" selected>1&times;</option>
+        <option value="1.25">1.25&times;</option>
+        <option value="1.5">1.5&times;</option>
+        <option value="1.75">1.75&times;</option>
+        <option value="2">2&times;</option>
+      </select>
+    </div>
+    <span class="local-aireader-spacer"></span>
+    <button type="button"
+            class="local-aireader-iconbtn local-aireader-restart"
+            data-action="restart"
+            disabled
+            aria-label="Restart from beginning">
+      <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+        <polygon points="19 20 9 12 19 4"/>
+        <rect x="5" y="4" width="2" height="16"/>
+      </svg>
+    </button>
+    <button type="button"
+            class="local-aireader-iconbtn local-aireader-regen d-none"
+            data-action="regen"
+            aria-label="Regenerate audio">
+      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M23 4v6h-6"/>
+        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+      </svg>
+    </button>
+  </div>
+
   <div class="local-aireader-disclosure">{{disclosure}}</div>
   <audio data-region="audio" preload="none" class="d-none"></audio>
 </div>

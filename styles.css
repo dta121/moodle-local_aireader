@@ -26,9 +26,141 @@
 .local-aireader-row {
     display: flex;
     align-items: center;
-    gap: 14px;
-    padding: 14px 18px;
+    gap: 12px;
+    padding: 12px 18px 6px 18px;
     flex-wrap: wrap;
+}
+
+.local-aireader-progress-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 18px;
+}
+
+.local-aireader-progress {
+    flex: 1 1 auto;
+    height: 16px;
+    position: relative;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    /* The visible track is a 4px bar; the surrounding 16px is the hit area. */
+}
+
+.local-aireader-progress::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 4px;
+    background: var(--la-border);
+    border-radius: 2px;
+    transform: translateY(-50%);
+}
+
+.local-aireader-progress-fill {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    height: 4px;
+    background: var(--la-orange);
+    border-radius: 2px;
+    transform: translateY(-50%);
+    width: 0;
+    pointer-events: none;
+    transition: width 0.08s linear;
+}
+
+.local-aireader-progress-thumb {
+    position: absolute;
+    top: 50%;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--la-orange);
+    transform: translate(-50%, -50%);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+    left: 0;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    pointer-events: none;
+}
+
+.local-aireader-progress:hover .local-aireader-progress-thumb,
+.local-aireader-progress:focus .local-aireader-progress-thumb,
+.local-aireader[data-state="ready"] .local-aireader-progress-thumb {
+    opacity: 1;
+}
+
+.local-aireader-progress:focus {
+    outline: none;
+}
+
+.local-aireader-progress:focus-visible::before {
+    box-shadow: 0 0 0 2px var(--la-orange-soft);
+}
+
+.local-aireader-controls-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 18px 10px 18px;
+}
+
+.local-aireader-spacer {
+    flex: 1 1 auto;
+}
+
+.local-aireader-speed {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border: 1px solid var(--la-border);
+    border-radius: 8px;
+    padding: 4px 8px;
+    color: var(--la-muted);
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.local-aireader-speed:hover {
+    background: var(--la-bg-hover);
+    border-color: var(--la-text);
+    color: var(--la-text);
+}
+
+.local-aireader-speed:focus-within {
+    outline: 2px solid var(--la-orange-soft);
+    outline-offset: 1px;
+}
+
+.local-aireader-speed-label {
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.local-aireader-speed-select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background: transparent;
+    border: none;
+    font: inherit;
+    color: inherit;
+    font-size: 13px;
+    padding: 0 14px 0 4px;
+    cursor: pointer;
+    line-height: 1.4;
+    background-image: linear-gradient(45deg, transparent 45%, currentColor 45%, currentColor 55%, transparent 55%),
+                      linear-gradient(-45deg, transparent 45%, currentColor 45%, currentColor 55%, transparent 55%);
+    background-position: calc(100% - 7px) 50%, calc(100% - 2px) 50%;
+    background-size: 5px 5px;
+    background-repeat: no-repeat;
+}
+
+.local-aireader-speed-select:focus {
+    outline: none;
 }
 
 /* Big orange circular play/pause button. */
@@ -120,18 +252,13 @@
     color: var(--la-muted);
 }
 
-.local-aireader-meta-row {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    margin-top: 4px;
-    font-size: 12px;
-    color: var(--la-muted);
-}
-
 .local-aireader-time {
     font-variant-numeric: tabular-nums;
-    padding-right: 4px;
+    font-size: 12px;
+    color: var(--la-muted);
+    min-width: 5em;
+    text-align: right;
+    white-space: nowrap;
 }
 
 .local-aireader-iconbtn {
@@ -165,6 +292,19 @@
 .local-aireader-iconbtn:focus-visible {
     outline: 2px solid var(--la-orange-soft);
     outline-offset: 1px;
+}
+
+/* Skip buttons live alongside the big play button and want a slightly larger
+ * tap target than the secondary restart/regen icons. */
+.local-aireader-skipback,
+.local-aireader-skipfwd {
+    padding: 6px;
+}
+
+.local-aireader-skipback svg,
+.local-aireader-skipfwd svg {
+    width: 22px;
+    height: 22px;
 }
 
 .local-aireader-right {
@@ -261,6 +401,7 @@
     color: var(--la-muted);
     border-top: 1px solid var(--la-border);
     background: rgba(0, 0, 0, 0.012);
+    margin-top: 4px;
 }
 
 /* Error state colours the status text but keeps layout. */
@@ -318,13 +459,30 @@
 /* Compact layout on small screens. */
 @media (max-width: 520px) {
     .local-aireader-row {
-        gap: 10px;
-        padding: 12px;
+        gap: 8px;
+        padding: 10px 12px 4px 12px;
+    }
+
+    .local-aireader-progress-row,
+    .local-aireader-controls-row {
+        padding-left: 12px;
+        padding-right: 12px;
     }
 
     .local-aireader-playpause {
         width: 44px;
         height: 44px;
+    }
+
+    .local-aireader-skipback,
+    .local-aireader-skipfwd {
+        padding: 4px;
+    }
+
+    .local-aireader-skipback svg,
+    .local-aireader-skipfwd svg {
+        width: 20px;
+        height: 20px;
     }
 
     .local-aireader-title-row {

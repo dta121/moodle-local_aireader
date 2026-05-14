@@ -113,5 +113,12 @@ function xmldb_local_aireader_upgrade(int $oldversion): bool {
         upgrade_plugin_savepoint(true, 2026051503, 'local', 'aireader');
     }
 
+    if ($oldversion < 2026051600) {
+        // Player UX: scrub bar, skip ±15s, playback speed, MediaSession,
+        // keyboard shortcuts, "~N min listen" pre-play estimate. No schema
+        // change; version bump so themerev/jsrev increments.
+        upgrade_plugin_savepoint(true, 2026051600, 'local', 'aireader');
+    }
+
     return true;
 }

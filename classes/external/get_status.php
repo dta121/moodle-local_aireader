@@ -145,12 +145,14 @@ class get_status extends external_api {
 
         $canregenerate = has_capability('local/aireader:manage', $context);
 
+        $estimatedduration = self::estimate_duration_seconds($extracted['text']);
+
         if ($asset->status === asset_manager::STATUS_READY) {
             $url = storage::get_audio_url($asset);
             return [
                 'status'        => 'ready',
                 'audiourl'      => $url ? $url->out(false) : '',
-                'durationsecs'  => (int)($asset->durationsecs ?? 0),
+                'durationsecs'  => (int)($asset->durationsecs ?? 0) ?: $estimatedduration,
                 'canregenerate' => $canregenerate,
                 'message'       => get_string('status_ready', 'local_aireader'),
                 'lastgenerated' => (int)($asset->lastgenerated ?? 0),
@@ -161,12 +163,30 @@ class get_status extends external_api {
         return [
             'status'        => $asset->status,
             'audiourl'      => '',
-            'durationsecs'  => 0,
+            'durationsecs'  => $estimatedduration,
             'canregenerate' => $canregenerate,
             'message'       => get_string_manager()->string_exists($messagekey, 'local_aireader')
                 ? get_string($messagekey, 'local_aireader')
                 : get_string('status_pending', 'local_aireader'),
             'lastgenerated' => (int)($asset->lastgenerated ?? 0),
         ];
+    }
+
+    /**
+     * Rough audio-duration estimate from cleaned source text.
+     *
+     * Used to fill the "~6 min listen" hint shown before audio is generated.
+     * Treats the input as Latin-script prose at ~150 wpm; falls back to
+     * mb_strlen/5 for CJK-style content where str_word_count under-counts.
+     *
+     * @param string $cleantext
+     * @return int Estimated seconds.
+     */
+    private static function estimate_duration_seconds(string $cleantext): int {
+        $words = str_word_count($cleantext);
+        if ($words === 0) {
+            $words = (int)max(1, round(mb_strlen($cleantext) / 5));
+        }
+        return (int)max(1, round($words * 60 / 150));
     }
 }
