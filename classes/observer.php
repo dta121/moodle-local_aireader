@@ -99,8 +99,16 @@ class observer {
         }
         asset_manager::mark_cm_stale($cmid);
 
-        if (get_config('local_aireader', 'auto_generate_on_save')) {
-            asset_manager::queue_regeneration_for_cm($cmid);
+        if (!get_config('local_aireader', 'auto_generate_on_save')) {
+            return;
+        }
+
+        asset_manager::queue_regeneration_for_cm($cmid);
+
+        // Eager mode: also pre-generate every enabled non-default language so
+        // the first learner in (say) Spanish doesn't have to wait for synthesis.
+        if (get_config('local_aireader', 'eager_languages_on_save')) {
+            asset_manager::queue_eager_language_generation_for_cm($cmid);
         }
     }
 }

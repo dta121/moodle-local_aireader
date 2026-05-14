@@ -28,7 +28,9 @@ use core\task\adhoc_task;
 use local_aireader\manager\asset_manager;
 use local_aireader\manager\content_extractor;
 use local_aireader\manager\openai_client;
+use local_aireader\manager\openai_translator;
 use local_aireader\manager\storage;
+use local_aireader\manager\translation_manager;
 
 /**
  * Ad hoc task that turns a pending or stale asset row into a stored mp3.
@@ -94,8 +96,27 @@ class generate_audio extends adhoc_task {
                 return;
             }
 
+            // Translate before TTS when the asset's language doesn't match the site source.
+            global $CFG;
+            $sourcelang = (string)($CFG->lang ?? 'en');
+            $narrationtext = $extracted['text'];
+            if (!translation_manager::is_same_language($sourcelang, (string)$asset->lang)) {
+                $translationmodel = (string)(get_config('local_aireader', 'translation_model') ?: 'gpt-4o-mini');
+                mtrace("local_aireader: asset {$asset->id} translating {$sourcelang} -> {$asset->lang} via {$translationmodel}");
+                $translator = new openai_translator();
+                $narrationtext = translation_manager::get_or_translate(
+                    $extracted['text'],
+                    $sourcelang,
+                    (string)$asset->lang,
+                    $translationmodel,
+                    static function (string $text, string $src, string $tgt) use ($translator): string {
+                        return $translator->translate($text, $src, $tgt);
+                    }
+                );
+            }
+
             $chunksize = (int)(get_config('local_aireader', 'chunk_size') ?: 3800);
-            $chunks = openai_client::chunk_text($extracted['text'], $chunksize);
+            $chunks = openai_client::chunk_text($narrationtext, $chunksize);
             if (!$chunks) {
                 throw new \moodle_exception('error_empty_content', 'local_aireader');
             }

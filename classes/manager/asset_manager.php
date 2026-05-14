@@ -290,6 +290,109 @@ class asset_manager {
     }
 
     /**
+     * For every enabled non-default language, ensure a pending asset row exists
+     * for the given cm (or for each visible chapter of a book) and queue
+     * generation. Only meaningful when `eager_languages_on_save` is on.
+     *
+     * @param int $cmid Course module id.
+     */
+    public static function queue_eager_language_generation_for_cm(int $cmid): void {
+        global $DB, $CFG;
+        $cm = $DB->get_record('course_modules', ['id' => $cmid], 'id,course,instance,module');
+        if (!$cm) {
+            return;
+        }
+        $modnamerec = $DB->get_record('modules', ['id' => $cm->module], 'name');
+        if (!$modnamerec) {
+            return;
+        }
+        $modname = (string)$modnamerec->name;
+        if (!in_array($modname, ['page', 'book'], true)) {
+            return;
+        }
+
+        $enabled = self::enabled_languages();
+        if (count($enabled) <= 1) {
+            return;
+        }
+        $sourcelang = (string)($CFG->lang ?? 'en');
+        $voice = (string)(get_config('local_aireader', 'voice') ?: 'marin');
+        $model = (string)(get_config('local_aireader', 'model') ?: 'gpt-4o-mini-tts');
+        $context = \context_module::instance($cmid);
+
+        // Determine the set of (cmid, chapterid) tuples to seed.
+        $tuples = [];
+        if ($modname === 'page') {
+            $tuples[] = [$cmid, 0];
+        } else {
+            $chapters = $DB->get_records('book_chapters', ['bookid' => $cm->instance, 'hidden' => 0], 'pagenum ASC', 'id');
+            foreach ($chapters as $ch) {
+                $tuples[] = [$cmid, (int)$ch->id];
+            }
+        }
+
+        foreach ($tuples as [$thiscmid, $chapterid]) {
+            try {
+                $extracted = \local_aireader\manager\content_extractor::extract(
+                    $modname,
+                    $thiscmid,
+                    $chapterid > 0 ? $chapterid : null
+                );
+            } catch (\Throwable $e) {
+                continue;
+            }
+            foreach ($enabled as $lang) {
+                if (\local_aireader\manager\translation_manager::is_same_language($sourcelang, $lang)) {
+                    // Source-language row is already handled by queue_regeneration_for_cm.
+                    continue;
+                }
+                $hash = self::compute_hash(
+                    $modname,
+                    $thiscmid,
+                    $chapterid > 0 ? $chapterid : null,
+                    $lang,
+                    $voice,
+                    $model,
+                    $extracted['text']
+                );
+                [$asset, $matched] = self::ensure_row([
+                    'courseid'   => (int)$cm->course,
+                    'cmid'       => $thiscmid,
+                    'contextid'  => (int)$context->id,
+                    'module'     => $modname,
+                    'instanceid' => (int)$cm->instance,
+                    'chapterid'  => $chapterid > 0 ? $chapterid : null,
+                    'lang'       => $lang,
+                    'voice'      => $voice,
+                    'model'      => $model,
+                    'sourcehash' => $hash,
+                ]);
+                if (!$matched || $asset->status !== self::STATUS_READY) {
+                    self::queue_generation((int)$asset->id);
+                }
+            }
+        }
+    }
+
+    /**
+     * Return the trimmed, deduplicated list of enabled languages from settings.
+     *
+     * @return string[]
+     */
+    public static function enabled_languages(): array {
+        $raw = (string)(get_config('local_aireader', 'enabled_languages') ?: 'en');
+        $codes = preg_split('/[\s,;]+/', $raw, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $clean = [];
+        foreach ($codes as $c) {
+            $c = trim($c);
+            if ($c !== '' && !in_array($c, $clean, true)) {
+                $clean[] = $c;
+            }
+        }
+        return $clean ?: ['en'];
+    }
+
+    /**
      * Purge all assets attached to a course module.
      *
      * @param int $cmid

@@ -46,7 +46,7 @@ class request_regen extends external_api {
             'cmid'      => new external_value(PARAM_INT, 'Course module id'),
             'module'    => new external_value(PARAM_ALPHA, 'page|book'),
             'chapterid' => new external_value(PARAM_INT, 'Book chapter id (0 for none)', VALUE_DEFAULT, 0),
-            'lang'      => new external_value(PARAM_LANG, 'Language', VALUE_DEFAULT, 'en'),
+            'lang'      => new external_value(PARAM_ALPHANUMEXT, 'Language code (e.g. en, es, zh_cn)', VALUE_DEFAULT, 'en'),
         ]);
     }
 
