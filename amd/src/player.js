@@ -69,7 +69,7 @@ const loadSavedSpeed = () => {
             return parsed;
         }
     } catch (e) {
-        // localStorage may be blocked in privacy modes; ignore.
+        // LocalStorage may be blocked in privacy modes; fall through.
     }
     return 1;
 };
@@ -78,7 +78,7 @@ const saveSpeed = (rate) => {
     try {
         window.localStorage.setItem(SPEED_STORAGE_KEY, String(rate));
     } catch (e) {
-        // ignore
+        // LocalStorage may be blocked; the missing preference is acceptable.
     }
 };
 
@@ -314,7 +314,11 @@ class Player {
                 // Browser may not support every action; that's fine.
             }
         };
-        setHandler('play', () => this.audio.play().catch(() => {}));
+        setHandler('play', () => {
+            this.audio.play().catch(() => {
+                // Autoplay policies may block; nothing actionable here.
+            });
+        });
         setHandler('pause', () => this.audio.pause());
         setHandler('seekbackward', (details) => this.skip(-((details && details.seekOffset) || SKIP_SECONDS)));
         setHandler('seekforward', (details) => this.skip((details && details.seekOffset) || SKIP_SECONDS));
@@ -335,7 +339,7 @@ class Player {
                 artist: 'AI narration',
             });
         } catch (e) {
-            // ignore
+            // MediaMetadata is best-effort; ignore unsupported browsers.
         }
     }
 
