@@ -9,7 +9,12 @@ defined('MOODLE_INTERNAL') || die();
 class content_extractor {
 
     /**
-     * Returned shape: ['title' => string, 'subtitle' => ?string, 'text' => string]
+     * Extract narration-ready text and titles for a supported activity.
+     *
+     * @param string $module    Module name (page or book).
+     * @param int    $cmid      Course module id.
+     * @param int|null $chapterid Book chapter id, or null for non-book modules.
+     * @return array Shape: ['title' => string, 'subtitle' => ?string, 'text' => string]
      */
     public static function extract(string $module, int $cmid, ?int $chapterid = null): array {
         switch ($module) {
@@ -81,9 +86,13 @@ class content_extractor {
     /**
      * Convert HTML into clean narration-ready plain text.
      *
-     * - Removes script/style/nav/buttons.
-     * - Inserts sentence breaks at headings, paragraphs, and list items.
-     * - Collapses whitespace, strips raw URLs.
+     * Removes script/style/nav/buttons, inserts sentence breaks at headings,
+     * paragraphs, and list items, collapses whitespace, and strips raw URLs.
+     *
+     * @param string $html     The HTML source from the activity.
+     * @param string $title    Resource title to prepend.
+     * @param string|null $subtitle Optional secondary title (e.g. chapter title).
+     * @return string Speech-ready plain text.
      */
     public static function html_to_speech_text(string $html, string $title, ?string $subtitle = null): string {
         if (trim($html) === '') {

@@ -83,6 +83,9 @@ class hook_callbacks {
 
     /**
      * Best-effort lookup of the first visible chapter for a book instance.
+     *
+     * @param int $bookid The book id.
+     * @return int|null Chapter id, or null when the book has no visible chapters.
      */
     private static function resolve_default_book_chapter(int $bookid): ?int {
         global $DB;

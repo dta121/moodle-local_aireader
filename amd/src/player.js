@@ -117,7 +117,7 @@ class Player {
             return;
         }
 
-        // pending | generating | stale — keep polling.
+        // Pending, generating, or stale — keep polling.
         this.setStatus(result.status, result.message || 'Audio is being prepared…');
         this.schedulePoll();
     }
@@ -159,7 +159,7 @@ class Player {
             return;
         }
         this.audio.currentTime = 0;
-        this.audio.play().catch(() => { /* user gesture required */ });
+        this.audio.play().catch(() => { /* User gesture required. */ });
     }
 
     async regen() {
@@ -200,7 +200,7 @@ const findInsertionTarget = (module) => {
     return candidates.find((el) => el) || document.body;
 };
 
-export const init = async (config) => {
+export const init = async(config) => {
     const mount = document.getElementById('local-aireader-mount');
     if (!mount) {
         return;

@@ -25,6 +25,11 @@ class openai_client {
     /**
      * Synthesize a single chunk and return raw mp3 bytes.
      *
+     * @param string $text         Input text to read.
+     * @param string $model        TTS model id.
+     * @param string $voice        Voice name.
+     * @param string $instructions Narration style instructions.
+     * @return string Raw mp3 bytes.
      * @throws \moodle_exception on transport or API error.
      */
     public function synthesize(string $text, string $model, string $voice, string $instructions): string {
@@ -76,6 +81,8 @@ class openai_client {
     /**
      * Split input into chunks at sentence boundaries, preferring to stay under $maxchars.
      *
+     * @param string $text     Input text.
+     * @param int    $maxchars Soft maximum chars per chunk.
      * @return string[]
      */
     public static function chunk_text(string $text, int $maxchars): array {

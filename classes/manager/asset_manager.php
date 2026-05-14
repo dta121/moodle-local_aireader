@@ -19,6 +19,15 @@ class asset_manager {
 
     /**
      * Compute the canonical source hash for the (cm, chapter, voice, model, lang) variant.
+     *
+     * @param string $module    Module name.
+     * @param int    $cmid      Course module id.
+     * @param int|null $chapterid Book chapter id, or null.
+     * @param string $lang      Language code.
+     * @param string $voice     Voice name.
+     * @param string $model     Model id.
+     * @param string $cleantext Extracted narration-ready text.
+     * @return string 64-char hex SHA256.
      */
     public static function compute_hash(
         string $module,
@@ -43,6 +52,13 @@ class asset_manager {
 
     /**
      * Look up the asset row for the requested variant, ignoring stale ones.
+     *
+     * @param int    $cmid      Course module id.
+     * @param int|null $chapterid Book chapter id, or null for non-book modules.
+     * @param string $lang      Language code.
+     * @param string $voice     Voice name.
+     * @param string $model     Model id.
+     * @return \stdClass|null The most recent matching asset row, or null.
      */
     public static function find_current(
         int $cmid,
@@ -80,7 +96,9 @@ class asset_manager {
      * Ensure a row exists for this variant, either reusing the current one or
      * creating a fresh pending row when the hash changed.
      *
-     * Returns [$asset, $existed_with_matching_hash].
+     * @param array $fields Keys: courseid, cmid, contextid, module, instanceid,
+     *                      chapterid, lang, voice, model, sourcehash.
+     * @return array Tuple [\stdClass $asset, bool $existed_with_matching_hash].
      */
     public static function ensure_row(array $fields): array {
         global $DB;

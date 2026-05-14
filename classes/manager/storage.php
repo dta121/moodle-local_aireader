@@ -18,7 +18,12 @@ class storage {
     public const FILEAREA  = 'audio';
 
     /**
-     * Store an mp3 against an asset row. Returns the stored_file.
+     * Store an mp3 against an asset row, replacing any prior file for the same asset.
+     *
+     * @param int    $assetid   local_aireader_asset.id
+     * @param int    $contextid Module context id to own the file.
+     * @param string $mp3bytes  Raw mp3 binary content.
+     * @return \stored_file The newly created file.
      */
     public static function store_mp3(int $assetid, int $contextid, string $mp3bytes): \stored_file {
         $fs = get_file_storage();
@@ -39,7 +44,10 @@ class storage {
     }
 
     /**
-     * Return the public-via-pluginfile URL for the stored audio, or null.
+     * Return the pluginfile URL for the stored audio for an asset, or null if absent.
+     *
+     * @param \stdClass $asset local_aireader_asset row.
+     * @return \moodle_url|null
      */
     public static function get_audio_url(\stdClass $asset): ?\moodle_url {
         $fs = get_file_storage();
