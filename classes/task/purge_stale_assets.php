@@ -38,7 +38,6 @@ use local_aireader\manager\asset_manager;
  * @package local_aireader
  */
 class purge_stale_assets extends scheduled_task {
-
     /** @var int Soft per-run cap. */
     public const BATCH_LIMIT = 500;
 
