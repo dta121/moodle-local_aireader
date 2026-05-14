@@ -76,12 +76,15 @@
         <FIELD NAME="translated" TYPE="text" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="lastusedtime" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
+            COMMENT="Last time this translation was returned from cache; used for LRU-style GC."/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
       </KEYS>
       <INDEXES>
         <INDEX NAME="unique_translation" UNIQUE="true" FIELDS="texthash, targetlang, model"/>
+        <INDEX NAME="lastusedtime" UNIQUE="false" FIELDS="lastusedtime"/>
       </INDEXES>
     </TABLE>
   </TABLES>

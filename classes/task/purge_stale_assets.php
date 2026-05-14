@@ -26,6 +26,7 @@ namespace local_aireader\task;
 
 use core\task\scheduled_task;
 use local_aireader\manager\asset_manager;
+use local_aireader\manager\translation_manager;
 
 /**
  * Garbage-collect stale narration assets older than the configured retention.
@@ -38,8 +39,10 @@ use local_aireader\manager\asset_manager;
  * @package local_aireader
  */
 class purge_stale_assets extends scheduled_task {
-    /** @var int Soft per-run cap. */
+    /** @var int Soft per-run cap on asset rows. */
     public const BATCH_LIMIT = 500;
+    /** @var int Soft per-run cap on translation cache rows. */
+    public const TRANSLATION_BATCH_LIMIT = 1000;
 
     /**
      * Human-readable task name shown in the scheduled tasks admin UI.
@@ -51,7 +54,7 @@ class purge_stale_assets extends scheduled_task {
     }
 
     /**
-     * Run the sweep.
+     * Run the sweep — stale assets first, then orphan translations.
      */
     public function execute(): void {
         $days = (int)get_config('local_aireader', 'stale_retention_days');
@@ -60,8 +63,13 @@ class purge_stale_assets extends scheduled_task {
             return;
         }
         $seconds = $days * DAYSECS;
-        mtrace("local_aireader: purging stale assets older than {$days} days (cutoff " . $seconds . "s)...");
-        $purged = asset_manager::purge_stale_older_than($seconds, self::BATCH_LIMIT);
-        mtrace("local_aireader: purged {$purged} stale asset row(s) (cap " . self::BATCH_LIMIT . ').');
+
+        mtrace("local_aireader: purging stale assets older than {$days} days...");
+        $purgedassets = asset_manager::purge_stale_older_than($seconds, self::BATCH_LIMIT);
+        mtrace("local_aireader: purged {$purgedassets} stale asset row(s) (cap " . self::BATCH_LIMIT . ').');
+
+        mtrace("local_aireader: purging translation cache rows unused for {$days}+ days...");
+        $purgedtranslations = translation_manager::purge_unused_older_than($seconds, self::TRANSLATION_BATCH_LIMIT);
+        mtrace("local_aireader: purged {$purgedtranslations} translation row(s) (cap " . self::TRANSLATION_BATCH_LIMIT . ').');
     }
 }

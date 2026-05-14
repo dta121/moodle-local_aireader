@@ -34,6 +34,10 @@ namespace local_aireader\manager;
  * @package local_aireader
  */
 class translation_manager {
+    /** Throttle window for lastusedtime updates: 1 hour. Keeps popular rows
+     *  from being rewritten on every page view. */
+    private const LASTUSED_TOUCH_INTERVAL = HOURSECS;
+
     /**
      * Compute the lookup key for a piece of cleaned source text.
      *
@@ -47,6 +51,9 @@ class translation_manager {
     /**
      * Return the cached translation for this (text, target language, model) tuple, or null.
      *
+     * As a side effect, refreshes the row's lastusedtime if it hasn't been touched
+     * in the last hour, so the LRU GC keeps popular translations indefinitely.
+     *
      * @param string $texthash {@see compute_texthash()}
      * @param string $targetlang Moodle language code (e.g. 'es', 'fr', 'zh_cn').
      * @param string $model Translation model id.
@@ -58,8 +65,15 @@ class translation_manager {
             'texthash'   => $texthash,
             'targetlang' => $targetlang,
             'model'      => $model,
-        ], 'translated');
-        return $row ? (string)$row->translated : null;
+        ], 'id, translated, lastusedtime');
+        if (!$row) {
+            return null;
+        }
+        $now = time();
+        if (($now - (int)$row->lastusedtime) > self::LASTUSED_TOUCH_INTERVAL) {
+            $DB->set_field('local_aireader_translation', 'lastusedtime', $now, ['id' => $row->id]);
+        }
+        return (string)$row->translated;
     }
 
     /**
@@ -92,6 +106,7 @@ class translation_manager {
                 'id'           => $existing->id,
                 'translated'   => $translated,
                 'timemodified' => $now,
+                'lastusedtime' => $now,
             ]);
             return;
         }
@@ -103,7 +118,44 @@ class translation_manager {
             'translated'   => $translated,
             'timecreated'  => $now,
             'timemodified' => $now,
+            'lastusedtime' => $now,
         ]);
+    }
+
+    /**
+     * Delete translation rows that haven't been used (returned from cache or
+     * stored) in the last $olderthanseconds seconds. Implements LRU GC for the
+     * translation cache so orphaned translations from edited pages don't
+     * accumulate forever.
+     *
+     * @param int $olderthanseconds Maximum age in seconds. Rows with lastusedtime
+     *                               more than this many seconds in the past are
+     *                               eligible for deletion. <= 0 disables.
+     * @param int $batchlimit Soft cap on rows deleted per run. 0 = no cap.
+     * @return int Number of translation rows purged.
+     */
+    public static function purge_unused_older_than(int $olderthanseconds, int $batchlimit = 1000): int {
+        global $DB;
+        if ($olderthanseconds <= 0) {
+            return 0;
+        }
+        $cutoff = time() - $olderthanseconds;
+        $rows = $DB->get_records_select(
+            'local_aireader_translation',
+            'lastusedtime > 0 AND lastusedtime < :cutoff',
+            ['cutoff' => $cutoff],
+            'lastusedtime ASC',
+            'id',
+            0,
+            $batchlimit > 0 ? $batchlimit : 0
+        );
+        if (!$rows) {
+            return 0;
+        }
+        $ids = array_map(static fn($r) => (int)$r->id, array_values($rows));
+        [$insql, $params] = $DB->get_in_or_equal($ids);
+        $DB->delete_records_select('local_aireader_translation', "id {$insql}", $params);
+        return count($ids);
     }
 
     /**

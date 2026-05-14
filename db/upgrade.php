@@ -96,5 +96,22 @@ function xmldb_local_aireader_upgrade(int $oldversion): bool {
         upgrade_plugin_savepoint(true, 2026051502, 'local', 'aireader');
     }
 
+    if ($oldversion < 2026051503) {
+        // Add lastusedtime + index for LRU garbage-collection of unused translations.
+        $table = new xmldb_table('local_aireader_translation');
+        $field = new xmldb_field('lastusedtime', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0', 'timemodified');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+            // Backfill existing rows so a brand-new value of 0 doesn't make them
+            // immediately eligible for purge.
+            $DB->execute('UPDATE {local_aireader_translation} SET lastusedtime = timemodified WHERE lastusedtime = 0');
+        }
+        $index = new xmldb_index('lastusedtime', XMLDB_INDEX_NOTUNIQUE, ['lastusedtime']);
+        if (!$dbman->index_exists($table, $index)) {
+            $dbman->add_index($table, $index);
+        }
+        upgrade_plugin_savepoint(true, 2026051503, 'local', 'aireader');
+    }
+
     return true;
 }
