@@ -61,6 +61,8 @@ class openai_client {
      * @throws \moodle_exception On transport or API error.
      */
     public function synthesize(string $text, string $model, string $voice, string $instructions): string {
+        global $CFG;
+        require_once($CFG->libdir . '/filelib.php');
         if ($this->apikey === '') {
             throw new \moodle_exception('error_no_apikey', 'local_aireader');
         }

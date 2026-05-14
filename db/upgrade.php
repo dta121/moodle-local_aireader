@@ -84,5 +84,11 @@ function xmldb_local_aireader_upgrade(int $oldversion): bool {
         upgrade_plugin_savepoint(true, 2026051500, 'local', 'aireader');
     }
 
+    if ($oldversion < 2026051501) {
+        // No schema change; new admin settings for translation + enabled languages
+        // need a version bump so admin_apply_default_settings() runs.
+        upgrade_plugin_savepoint(true, 2026051501, 'local', 'aireader');
+    }
+
     return true;
 }

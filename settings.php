@@ -126,4 +126,49 @@ if ($hassiteconfig) {
         get_string('default_prompt', 'local_aireader'),
         PARAM_TEXT
     ));
+
+    $settings->add(new admin_setting_heading(
+        'local_aireader/heading_languages',
+        get_string('setting_heading_languages', 'local_aireader'),
+        ''
+    ));
+
+    $settings->add(new admin_setting_configtext(
+        'local_aireader/enabled_languages',
+        get_string('setting_enabledlanguages', 'local_aireader'),
+        get_string('setting_enabledlanguages_desc', 'local_aireader', $CFG->lang ?? 'en'),
+        'en',
+        PARAM_TEXT
+    ));
+
+    $settings->add(new admin_setting_configcheckbox(
+        'local_aireader/eager_languages_on_save',
+        get_string('setting_eagerlanguages', 'local_aireader'),
+        get_string('setting_eagerlanguages_desc', 'local_aireader'),
+        0
+    ));
+
+    $settings->add(new admin_setting_configtext(
+        'local_aireader/translation_model',
+        get_string('setting_translationmodel', 'local_aireader'),
+        get_string('setting_translationmodel_desc', 'local_aireader'),
+        'gpt-4o-mini',
+        PARAM_TEXT
+    ));
+
+    $settings->add(new admin_setting_configtext(
+        'local_aireader/translation_endpoint',
+        get_string('setting_translationendpoint', 'local_aireader'),
+        get_string('setting_translationendpoint_desc', 'local_aireader'),
+        'https://api.openai.com/v1/chat/completions',
+        PARAM_URL
+    ));
+
+    $settings->add(new admin_setting_configtextarea(
+        'local_aireader/translation_prompt',
+        get_string('setting_translationprompt', 'local_aireader'),
+        get_string('setting_translationprompt_desc', 'local_aireader'),
+        get_string('default_translation_prompt', 'local_aireader'),
+        PARAM_TEXT
+    ));
 }
