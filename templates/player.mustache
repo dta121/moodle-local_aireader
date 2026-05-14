@@ -1,0 +1,48 @@
+{{!
+    @template local_aireader/player
+
+    Compact "Listen to this content" player.
+
+    Context variables:
+      * disclosure - string shown under controls
+
+    Example context (json):
+    {
+      "disclosure": "Audio narration is AI-generated."
+    }
+}}
+<div class="local-aireader-player card mb-3" role="region" aria-label="Listen to this content">
+  <div class="card-body py-2 px-3 d-flex align-items-center flex-wrap">
+    <div class="local-aireader-controls d-flex align-items-center mr-3">
+      <button type="button"
+              class="btn btn-primary btn-sm local-aireader-playpause mr-2"
+              data-action="playpause"
+              disabled
+              aria-label="Play">
+        <span class="local-aireader-icon-play" aria-hidden="true">&#9658;</span>
+        <span class="local-aireader-icon-pause d-none" aria-hidden="true">&#10074;&#10074;</span>
+      </button>
+      <button type="button"
+              class="btn btn-secondary btn-sm local-aireader-restart mr-2"
+              data-action="restart"
+              disabled
+              aria-label="Restart">
+        &#8634;
+      </button>
+      <button type="button"
+              class="btn btn-link btn-sm local-aireader-regen d-none px-1"
+              data-action="regen"
+              aria-label="Regenerate">
+        Regenerate
+      </button>
+    </div>
+    <div class="local-aireader-status flex-grow-1 small" data-region="status" aria-live="polite">
+      Loading audio&hellip;
+    </div>
+    <div class="local-aireader-time small text-muted ml-2" data-region="time">--:-- / --:--</div>
+  </div>
+  <div class="local-aireader-disclosure px-3 pb-2 small text-muted">
+    {{disclosure}}
+  </div>
+  <audio data-region="audio" preload="none" class="d-none"></audio>
+</div>

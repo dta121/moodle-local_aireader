@@ -1,0 +1,9 @@
+amd/build/
+node_modules/
+vendor/
+.idea/
+.vscode/
+*.bak
+*.log
+.DS_Store
+Thumbs.db
