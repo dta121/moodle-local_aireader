@@ -1,8 +1,8 @@
 {{!
     @template local_aireader/manager_offline
 
-    Slim placeholder shown ONLY to managers when narration is disabled at the
-    current scope. Lets them flip it back on without leaving the page.
+    Manager-only placeholder shown when narration is disabled at the current
+    scope, styled to match the main player.
 
     Context variables:
       * message - explanatory text
@@ -14,13 +14,15 @@
       "actionlabel": "Turn on for this page"
     }
 }}
-<div class="local-aireader-offline card mb-3" role="region" aria-label="AI Reader narration disabled">
-  <div class="card-body py-2 px-3 d-flex align-items-center flex-wrap">
-    <div class="flex-grow-1 small text-muted">{{message}}</div>
-    <button type="button"
-            class="btn btn-outline-primary btn-sm ml-2"
-            data-action="enable">
-      {{actionlabel}}
-    </button>
-  </div>
+<div class="local-aireader local-aireader-offline" role="region" aria-label="AI narration disabled">
+  <svg class="local-aireader-offline-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 18v-6a9 9 0 0 1 18 0v6"/>
+    <line x1="2" y1="2" x2="22" y2="22"/>
+  </svg>
+  <span class="local-aireader-offline-message">{{message}}</span>
+  <button type="button"
+          class="local-aireader-offline-action"
+          data-action="enable">
+    {{actionlabel}}
+  </button>
 </div>

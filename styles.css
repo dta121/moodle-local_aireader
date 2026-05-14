@@ -1,0 +1,297 @@
+/* local_aireader — "Listen to this content" widget */
+/* Visual style inspired by saylor.org's article audio player. */
+
+.local-aireader {
+    --la-orange: #f86a01;
+    --la-orange-hover: #d95600;
+    --la-orange-soft: rgba(248, 106, 1, 0.12);
+    --la-text: rgba(0, 0, 0, 0.86);
+    --la-muted: rgba(0, 0, 0, 0.56);
+    --la-border: rgba(0, 0, 0, 0.08);
+    --la-bg: #ffffff;
+    --la-bg-hover: rgba(0, 0, 0, 0.04);
+    --la-error: #c93030;
+
+    background: var(--la-bg);
+    border: 1px solid var(--la-border);
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    margin: 0 0 1.25rem 0;
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", sans-serif;
+    color: var(--la-text);
+    line-height: 1.4;
+}
+
+.local-aireader-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 18px;
+    flex-wrap: wrap;
+}
+
+/* Big orange circular play/pause button. */
+.local-aireader-playpause {
+    flex: 0 0 auto;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: none;
+    background: var(--la-orange);
+    color: #ffffff;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    transition: background-color 0.15s ease, transform 0.05s ease, box-shadow 0.15s ease;
+    box-shadow: 0 1px 2px rgba(248, 106, 1, 0.25);
+}
+
+.local-aireader-playpause:hover:not(:disabled) {
+    background: var(--la-orange-hover);
+    box-shadow: 0 2px 4px rgba(248, 106, 1, 0.35);
+}
+
+.local-aireader-playpause:active:not(:disabled) {
+    transform: scale(0.96);
+}
+
+.local-aireader-playpause:disabled {
+    background: var(--la-muted);
+    box-shadow: none;
+    cursor: default;
+    opacity: 0.55;
+}
+
+.local-aireader-playpause:focus-visible {
+    outline: 3px solid var(--la-orange-soft);
+    outline-offset: 2px;
+}
+
+.local-aireader-icon-play,
+.local-aireader-icon-pause {
+    width: 22px;
+    height: 22px;
+}
+
+/* Visually centre the play triangle since its bounding box isn't symmetrical. */
+.local-aireader-icon-play {
+    margin-left: 2px;
+}
+
+.local-aireader-body {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.local-aireader-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 15px;
+    line-height: 1.3;
+    flex-wrap: wrap;
+}
+
+.local-aireader-headphones {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 auto;
+    color: var(--la-text);
+    opacity: 0.7;
+}
+
+.local-aireader-title {
+    font-weight: 600;
+    color: var(--la-text);
+}
+
+.local-aireader-meta {
+    font-weight: 400;
+    color: var(--la-muted);
+    font-size: 13px;
+}
+
+.local-aireader-meta::before {
+    content: "·";
+    margin: 0 6px 0 2px;
+    color: var(--la-muted);
+}
+
+.local-aireader-meta-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--la-muted);
+}
+
+.local-aireader-time {
+    font-variant-numeric: tabular-nums;
+    padding-right: 4px;
+}
+
+.local-aireader-iconbtn {
+    background: transparent;
+    border: none;
+    color: var(--la-muted);
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.local-aireader-iconbtn svg {
+    width: 15px;
+    height: 15px;
+}
+
+.local-aireader-iconbtn:hover:not(:disabled) {
+    background: var(--la-bg-hover);
+    color: var(--la-text);
+}
+
+.local-aireader-iconbtn:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.local-aireader-iconbtn:focus-visible {
+    outline: 2px solid var(--la-orange-soft);
+    outline-offset: 1px;
+}
+
+.local-aireader-manager {
+    flex: 0 0 auto;
+    margin-left: auto;
+}
+
+.local-aireader-managerbtn {
+    background: transparent;
+    border: 1px solid var(--la-border);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--la-muted);
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.local-aireader-managerbtn:hover {
+    background: var(--la-bg-hover);
+    border-color: var(--la-text);
+    color: var(--la-text);
+}
+
+.local-aireader-managerbtn:focus-visible {
+    outline: 2px solid var(--la-orange-soft);
+    outline-offset: 1px;
+}
+
+.local-aireader-disclosure {
+    padding: 8px 18px 12px 18px;
+    font-size: 12px;
+    color: var(--la-muted);
+    border-top: 1px solid var(--la-border);
+    background: rgba(0, 0, 0, 0.012);
+}
+
+/* Error state colours the status text but keeps layout. */
+.local-aireader[data-state="error"] .local-aireader-meta {
+    color: var(--la-error);
+}
+
+.local-aireader[data-state="error"] .local-aireader-meta::before {
+    color: var(--la-error);
+}
+
+/* Offline (disabled here) placeholder — managers only. */
+.local-aireader-offline {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 18px;
+    color: var(--la-muted);
+    font-size: 14px;
+}
+
+.local-aireader-offline-icon {
+    width: 20px;
+    height: 20px;
+    flex: 0 0 auto;
+    color: var(--la-muted);
+}
+
+.local-aireader-offline-message {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.local-aireader-offline-action {
+    background: transparent;
+    border: 1px solid var(--la-border);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 13px;
+    color: var(--la-text);
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.local-aireader-offline-action:hover {
+    background: var(--la-bg-hover);
+    border-color: var(--la-text);
+}
+
+.local-aireader-offline-action:focus-visible {
+    outline: 2px solid var(--la-orange-soft);
+    outline-offset: 1px;
+}
+
+/* Compact layout on small screens. */
+@media (max-width: 520px) {
+    .local-aireader-row {
+        gap: 10px;
+        padding: 12px;
+    }
+
+    .local-aireader-playpause {
+        width: 44px;
+        height: 44px;
+    }
+
+    .local-aireader-title-row {
+        font-size: 14px;
+    }
+
+    .local-aireader-manager {
+        margin-left: 0;
+        flex-basis: 100%;
+    }
+
+    .local-aireader-managerbtn {
+        width: 100%;
+    }
+}
+
+/* Adapt to dark themes. */
+@media (prefers-color-scheme: dark) {
+    .local-aireader {
+        --la-text: rgba(255, 255, 255, 0.92);
+        --la-muted: rgba(255, 255, 255, 0.62);
+        --la-border: rgba(255, 255, 255, 0.12);
+        --la-bg: #1f2024;
+        --la-bg-hover: rgba(255, 255, 255, 0.06);
+    }
+
+    .local-aireader-disclosure {
+        background: rgba(255, 255, 255, 0.02);
+    }
+}

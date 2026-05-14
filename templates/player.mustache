@@ -1,60 +1,75 @@
 {{!
     @template local_aireader/player
 
-    Compact "Listen to this content" player.
+    "Listen to this content" player styled after saylor.org's article reader.
 
     Context variables:
-      * disclosure - string shown under controls
-      * managerlabeloff - text shown to managers when narration is disabled
-      * managerlabelon - text shown to managers when narration is enabled
+      * disclosure - text shown beneath the player
+      * managerlabelon - label for the manager "Turn off here" button (visible when narration is enabled)
+      * managerlabeloff - label for the manager "Turn on here" button (only used by the offline placeholder)
 
     Example context (json):
     {
       "disclosure": "Audio narration is AI-generated.",
-      "managerlabeloff": "Narration is off here.",
-      "managerlabelon": "Turn off for this page"
+      "managerlabelon": "Turn off for this page",
+      "managerlabeloff": "Turn on for this page"
     }
 }}
-<div class="local-aireader-player card mb-3" role="region" aria-label="Listen to this content" data-state="loading">
-  <div class="card-body py-2 px-3 d-flex align-items-center flex-wrap">
-    <div class="local-aireader-controls d-flex align-items-center mr-3">
-      <button type="button"
-              class="btn btn-primary btn-sm local-aireader-playpause mr-2"
-              data-action="playpause"
-              disabled
-              aria-label="Play">
-        <span class="local-aireader-icon-play" aria-hidden="true">&#9658;</span>
-        <span class="local-aireader-icon-pause d-none" aria-hidden="true">&#10074;&#10074;</span>
-      </button>
-      <button type="button"
-              class="btn btn-secondary btn-sm local-aireader-restart mr-2"
-              data-action="restart"
-              disabled
-              aria-label="Restart">
-        &#8634;
-      </button>
-      <button type="button"
-              class="btn btn-link btn-sm local-aireader-regen d-none px-1"
-              data-action="regen"
-              aria-label="Regenerate">
-        Regenerate
-      </button>
+<div class="local-aireader local-aireader-player" data-state="loading" role="region" aria-label="Listen to this content">
+  <div class="local-aireader-row">
+    <button type="button"
+            class="local-aireader-playpause"
+            data-action="playpause"
+            disabled
+            aria-label="Play">
+      <svg class="local-aireader-icon-play" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M8 5v14l11-7z"/>
+      </svg>
+      <svg class="local-aireader-icon-pause d-none" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M6 4h4v16H6zM14 4h4v16h-4z"/>
+      </svg>
+    </button>
+    <div class="local-aireader-body">
+      <div class="local-aireader-title-row">
+        <svg class="local-aireader-headphones" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 18v-6a9 9 0 0 1 18 0v6"/>
+          <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/>
+        </svg>
+        <span class="local-aireader-title">Listen to this content</span>
+        <span class="local-aireader-meta" data-region="status" aria-live="polite">Loading&hellip;</span>
+      </div>
+      <div class="local-aireader-meta-row">
+        <span class="local-aireader-time" data-region="time">--:-- / --:--</span>
+        <button type="button"
+                class="local-aireader-iconbtn local-aireader-restart"
+                data-action="restart"
+                disabled
+                aria-label="Restart">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="1 4 1 10 7 10"/>
+            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+          </svg>
+        </button>
+        <button type="button"
+                class="local-aireader-iconbtn local-aireader-regen d-none"
+                data-action="regen"
+                aria-label="Regenerate audio">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M23 4v6h-6"/>
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+          </svg>
+        </button>
+      </div>
     </div>
-    <div class="local-aireader-status flex-grow-1 small" data-region="status" aria-live="polite">
-      Loading audio&hellip;
-    </div>
-    <div class="local-aireader-time small text-muted ml-2" data-region="time">--:-- / --:--</div>
-    <div class="local-aireader-manager d-none ml-2" data-region="manager">
+    <div class="local-aireader-manager d-none" data-region="manager">
       <button type="button"
-              class="btn btn-outline-secondary btn-sm"
+              class="local-aireader-managerbtn"
               data-action="toggle-enabled"
               aria-pressed="true">
         <span data-region="manager-label">{{managerlabelon}}</span>
       </button>
     </div>
   </div>
-  <div class="local-aireader-disclosure px-3 pb-2 small text-muted">
-    {{disclosure}}
-  </div>
+  <div class="local-aireader-disclosure">{{disclosure}}</div>
   <audio data-region="audio" preload="none" class="d-none"></audio>
 </div>
