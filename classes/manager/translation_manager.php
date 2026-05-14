@@ -34,7 +34,6 @@ namespace local_aireader\manager;
  * @package local_aireader
  */
 class translation_manager {
-
     /**
      * Compute the lookup key for a piece of cleaned source text.
      *

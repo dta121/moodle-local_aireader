@@ -1,7 +1,7 @@
 # local_aireader
 
 A Moodle local plugin that adds a "Listen to this content" player at the top of
-supported course resources. v1 supports:
+supported course resources:
 
 - `mod_page` — reads the full page
 - `mod_book` — reads the **current chapter** only
@@ -10,6 +10,12 @@ Audio is generated once via OpenAI's speech endpoint, cached as an MP3 in the
 Moodle file store, and reused for every learner who can access the source
 activity. Generation runs in a background ad hoc task; the page never blocks
 on TTS.
+
+**Multi-language narration.** Set an allowlist of language codes in admin and
+learners see a language picker on the player. Translation happens once per
+(content, target-language) pair via OpenAI chat-completions, cached in a
+separate table, and reused across every voice and TTS model — five Spanish
+voices = one translation + five audios.
 
 ## Requirements
 
@@ -26,17 +32,18 @@ on TTS.
    - `Enable plugin`
    - `OpenAI API key`
    - `Voice` (default `marin`) and `TTS model` (default `gpt-4o-mini-tts`)
+   - (Optional) `Languages offered to learners` — e.g. `en,es,fr,pt,zh_cn`
 4. Ensure cron is running. The first time a Page or Book chapter is viewed,
    a `local_aireader\task\generate_audio` task is queued.
 
 ## Architecture
 
 ```
-hook (top of body) ──► AMD player.js ──► AJAX get_status
+hook (top of body) ──► AMD player.js ──► AJAX get_status(lang)
                                               │
                                               ▼
                                      content_extractor
-                                              │ sourcehash
+                                              │ sourcehash (includes lang)
                                               ▼
                                        asset_manager
                                        ├─ ready?  → return URL
@@ -44,10 +51,39 @@ hook (top of body) ──► AMD player.js ──► AJAX get_status
                                                        │
                                                        ▼
                                                 generate_audio
-                                                  → openai_client (chunked)
+                                                  → if lang ≠ $CFG->lang:
+                                                      translation_manager
+                                                        ↳ openai_translator
+                                                  → openai_client (chunked TTS)
                                                   → storage (Moodle File API)
                                                   → record_generated
 ```
+
+## Multi-language narration
+
+Set `Site administration → Plugins → Local plugins → AI Reader →
+Languages offered to learners` to a comma-separated list of Moodle language
+codes (e.g. `en,es,fr,pt,zh_cn`). Learners see a language picker on the player
+listing exactly those.
+
+- The site's `$CFG->lang` is treated as the **source** language and never
+  translated.
+- Every other code in the allowlist triggers a one-time translation pass via
+  the configured chat-completion model (default `gpt-4o-mini`). The translated
+  text is cached in `local_aireader_translation` keyed on
+  `sha256(cleantext) + targetlang + model` — one translation pass serves
+  every voice and TTS model variant.
+- Translation is **lazy by default**: each language is synthesized the first
+  time a learner requests it. Turn on
+  `Pre-generate every enabled language on save` to eagerly seed all enabled
+  languages whenever a teacher saves a Page or Book chapter (cron then
+  synthesizes them in the background).
+- Variants of the same base language are not re-translated. `en_us` and
+  `en_gb` share one row; `zh_cn` and `zh-tw` share another.
+
+**Costs:** ~$0.0003 per 1000-word translation + ~$0.06 per 1000-word TTS,
+both one-time. After first render, every student in every language streams
+the same cached MP3 for free.
 
 The "ready" lookup is keyed on
 `sha256(module|cmid|chapterid|lang|voice|model|cleantext)`. If the cleaned

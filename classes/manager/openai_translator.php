@@ -35,7 +35,6 @@ namespace local_aireader\manager;
  * @package local_aireader
  */
 class openai_translator {
-
     /** @var string */
     private $apikey;
     /** @var string */
@@ -95,7 +94,7 @@ class openai_translator {
             'model'    => $this->model,
             'messages' => [
                 ['role' => 'system', 'content' => $systemprompt],
-                ['role' => 'user',   'content' => $cleantext],
+                ['role' => 'user', 'content' => $cleantext],
             ],
             'temperature' => 0.2,
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
