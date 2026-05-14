@@ -326,4 +326,43 @@ class asset_manager {
         $fs->delete_area_files($asset->contextid, 'local_aireader', 'audio', $asset->id);
         $DB->delete_records('local_aireader_asset', ['id' => $asset->id]);
     }
+
+    /**
+     * Purge stale asset rows (and their stored mp3s) older than the given age.
+     *
+     * Stale rows are produced when source content changes and a fresh asset row
+     * is created in its place. They sit around so the audit trail is preserved
+     * and so an in-flight regeneration task doesn't suddenly find its row gone,
+     * but they are otherwise unreferenced and safe to remove once cold.
+     *
+     * @param int $olderthanseconds Maximum age in seconds (rows with timemodified
+     *                               more than this many seconds in the past are
+     *                               eligible for deletion).
+     * @param int $batchlimit Soft cap on how many rows to delete in one run, to
+     *                       avoid long-running cron jobs on backlogged sites.
+     *                       0 means "no cap".
+     * @return int Number of asset rows purged.
+     */
+    public static function purge_stale_older_than(int $olderthanseconds, int $batchlimit = 500): int {
+        global $DB;
+        if ($olderthanseconds <= 0) {
+            return 0;
+        }
+        $cutoff = time() - $olderthanseconds;
+        $rows = $DB->get_records_select(
+            'local_aireader_asset',
+            'status = :status AND timemodified < :cutoff',
+            ['status' => self::STATUS_STALE, 'cutoff' => $cutoff],
+            'timemodified ASC',
+            '*',
+            0,
+            $batchlimit > 0 ? $batchlimit : 0
+        );
+        $purged = 0;
+        foreach ($rows as $row) {
+            self::purge_asset($row);
+            $purged++;
+        }
+        return $purged;
+    }
 }

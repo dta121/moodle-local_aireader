@@ -103,6 +103,14 @@ if ($hassiteconfig) {
         1
     ));
 
+    $settings->add(new admin_setting_configtext(
+        'local_aireader/stale_retention_days',
+        get_string('setting_staleretention', 'local_aireader'),
+        get_string('setting_staleretention_desc', 'local_aireader'),
+        14,
+        PARAM_INT
+    ));
+
     $settings->add(new admin_setting_configtextarea(
         'local_aireader/disclosure',
         get_string('setting_disclosure', 'local_aireader'),

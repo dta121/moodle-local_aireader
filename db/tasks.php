@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Version information for local_aireader.
+ * Scheduled task registrations for local_aireader.
  *
  * @package    local_aireader
  * @copyright  2026 Saylor Academy
@@ -24,8 +24,14 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->component = 'local_aireader';
-$plugin->version   = 2026051401;
-$plugin->requires  = 2024100700;
-$plugin->maturity  = MATURITY_ALPHA;
-$plugin->release   = '0.3.0';
+$tasks = [
+    [
+        'classname' => 'local_aireader\task\purge_stale_assets',
+        'blocking'  => 0,
+        'minute'    => '17',
+        'hour'      => '3',
+        'day'       => '*',
+        'dayofweek' => '*',
+        'month'     => '*',
+    ],
+];

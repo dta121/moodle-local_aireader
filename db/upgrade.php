@@ -53,5 +53,12 @@ function xmldb_local_aireader_upgrade(int $oldversion): bool {
         upgrade_plugin_savepoint(true, 2026051400, 'local', 'aireader');
     }
 
+    if ($oldversion < 2026051401) {
+        // No schema change; new scheduled task class shipped in db/tasks.php
+        // and a stale_retention_days admin setting. core_plugin handles task
+        // registration on upgrade.
+        upgrade_plugin_savepoint(true, 2026051401, 'local', 'aireader');
+    }
+
     return true;
 }
