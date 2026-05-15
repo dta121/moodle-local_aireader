@@ -21,10 +21,13 @@ const STATE = {
 };
 
 const SPEED_STORAGE_KEY = 'local_aireader_playbackrate';
+const TRANSCRIPT_OPEN_KEY = 'local_aireader_transcriptopen';
 const SKIP_SECONDS = 15;
 const POSITION_WRITE_INTERVAL_MS = 5000;
 const RESUME_MIN_SECONDS = 5;
 const RESUME_TAIL_BUFFER = 5;
+const HANDS_OFF_WINDOW_MS = 10000;
+const IN_PLACE_MATCH_THRESHOLD = 0.9;
 
 const formatTime = (seconds) => {
     if (!Number.isFinite(seconds) || seconds < 0) {
@@ -116,6 +119,20 @@ class Player {
         this.appliedResume = false;
         this.lastPositionWriteAt = 0;
 
+        // Karaoke / transcript state.
+        this.segments = [];
+        this.transcriptFetched = false;
+        this.useInPlace = false;
+        this.inPlaceMarks = [];
+        this.paneSegments = [];
+        this.activeSegIdx = -1;
+        this.lastUserScrollAt = 0;
+        this.transcriptToggleBtn = root.querySelector('[data-action="toggle-transcript"]');
+        this.transcriptPane = root.querySelector('[data-region="transcript-pane"]');
+        this.transcriptList = root.querySelector('[data-region="transcript-list"]');
+        this.transcriptEmpty = root.querySelector('[data-region="transcript-empty"]');
+        this.transcriptToggleLabel = root.querySelector('[data-region="transcript-toggle-label"]');
+
         if (config.canmanage) {
             this.regenBtn.classList.remove('d-none');
             this.managerBox.classList.remove('d-none');
@@ -190,6 +207,7 @@ class Player {
         this.audio.addEventListener('timeupdate', () => {
             this.renderTime();
             this.maybeWritePosition();
+            this.updateActiveSegment();
         });
         this.audio.addEventListener('loadedmetadata', () => {
             this.renderTime();
@@ -212,6 +230,19 @@ class Player {
         if (this.langSelect) {
             this.langSelect.addEventListener('change', () => this.changeLanguage(this.langSelect.value));
         }
+
+        if (this.transcriptToggleBtn) {
+            this.transcriptToggleBtn.addEventListener('click', () => this.toggleTranscript());
+        }
+
+        // Track human-initiated scrolls so we suspend auto-scroll briefly afterward.
+        const onUserScroll = (e) => {
+            if (e.isTrusted) {
+                this.lastUserScrollAt = Date.now();
+            }
+        };
+        window.addEventListener('wheel', onUserScroll, {passive: true});
+        window.addEventListener('touchmove', onUserScroll, {passive: true});
 
         this.bindProgressEvents();
     }
@@ -426,6 +457,7 @@ class Player {
             this.setStatus(STATE.READY, 'Ready to play.');
             this.updateMediaSessionMetadata();
             this.polling = false;
+            this.fetchTranscriptIfNeeded();
             return;
         }
 
@@ -605,6 +637,23 @@ class Player {
         this.pendingResumePosition = 0;
         this.appliedResume = false;
         this.lastPositionWriteAt = 0;
+        // Tear down any prior transcript so the new language's transcript loads cleanly.
+        this.transcriptFetched = false;
+        this.segments = [];
+        this.activeSegIdx = -1;
+        this.inPlaceMarks.forEach(unwrapMark);
+        this.inPlaceMarks = [];
+        this.useInPlace = false;
+        if (this.transcriptList) {
+            this.transcriptList.innerHTML = '';
+        }
+        if (this.transcriptEmpty) {
+            this.transcriptEmpty.classList.remove('d-none');
+            this.transcriptEmpty.textContent = 'Preparing transcript…';
+        }
+        if (this.transcriptToggleBtn) {
+            this.transcriptToggleBtn.classList.add('d-none');
+        }
         this.renderTime();
         this.setStatus(STATE.LOADING, 'Preparing in selected language…');
         this.polling = false;
@@ -615,6 +664,180 @@ class Player {
         this.iconPlay.classList.toggle('d-none', isPlaying);
         this.iconPause.classList.toggle('d-none', !isPlaying);
         this.playBtn.setAttribute('aria-label', isPlaying ? 'Pause' : 'Play');
+    }
+
+    // -- Transcript + karaoke --
+
+    async fetchTranscriptIfNeeded() {
+        if (this.transcriptFetched || !this.assetId) {
+            return;
+        }
+        this.transcriptFetched = true;
+        try {
+            const result = await Ajax.call([{
+                methodname: 'local_aireader_get_transcript',
+                args: {assetid: this.assetId},
+            }])[0];
+            const segs = Array.isArray(result.segments) ? result.segments : [];
+            if (!result.aligned || !segs.length) {
+                // No alignment yet (or not enabled). Toggle stays hidden.
+                return;
+            }
+            this.segments = segs.map((s) => ({
+                idx: Number(s.idx) || 0,
+                startms: Number(s.startms) || 0,
+                endms: Number(s.endms) || 0,
+                text: String(s.text || ''),
+            }));
+            this.useInPlace = false;
+            this.inPlaceMarks = [];
+
+            if (this.config.highlightinplace) {
+                const placed = tryInPlaceWrap(this.segments, this.config.module);
+                if (placed.matchedCount / this.segments.length >= IN_PLACE_MATCH_THRESHOLD) {
+                    this.useInPlace = true;
+                    this.inPlaceMarks = placed.marks;
+                    placed.marks.forEach((m) => {
+                        if (!m) {
+                            return;
+                        }
+                        m.addEventListener('click', () => {
+                            const idx = parseInt(m.dataset.segmentIdx, 10);
+                            this.seekToSegment(idx);
+                        });
+                    });
+                } else {
+                    // Roll back partial marks if we're going to use the pane.
+                    placed.marks.forEach(unwrapMark);
+                }
+            }
+            this.renderTranscriptPane();
+            this.revealTranscriptToggle();
+            this.restoreTranscriptOpen();
+        } catch (e) {
+            // Transcript is best-effort; ignore network errors.
+            this.transcriptFetched = false;
+        }
+    }
+
+    revealTranscriptToggle() {
+        if (this.transcriptToggleBtn) {
+            this.transcriptToggleBtn.classList.remove('d-none');
+        }
+    }
+
+    restoreTranscriptOpen() {
+        let open = false;
+        try {
+            open = window.localStorage.getItem(TRANSCRIPT_OPEN_KEY) === '1';
+        } catch (e) {
+            // LocalStorage may be blocked; default closed.
+        }
+        if (open) {
+            this.setTranscriptOpen(true);
+        }
+    }
+
+    toggleTranscript() {
+        const isOpen = !this.transcriptPane.classList.contains('d-none');
+        this.setTranscriptOpen(!isOpen);
+        try {
+            window.localStorage.setItem(TRANSCRIPT_OPEN_KEY, isOpen ? '0' : '1');
+        } catch (e) {
+            // Ignore.
+        }
+    }
+
+    setTranscriptOpen(open) {
+        if (!this.transcriptPane) {
+            return;
+        }
+        this.transcriptPane.classList.toggle('d-none', !open);
+        this.transcriptToggleBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (open && !this.useInPlace && this.segments.length) {
+            // Pane was just opened; make sure the current segment is in view.
+            this.updateActiveSegment(true);
+        }
+    }
+
+    renderTranscriptPane() {
+        if (!this.transcriptList) {
+            return;
+        }
+        this.transcriptList.innerHTML = '';
+        this.paneSegments = [];
+        if (!this.segments.length) {
+            this.transcriptEmpty.classList.remove('d-none');
+            return;
+        }
+        this.transcriptEmpty.classList.add('d-none');
+        this.segments.forEach((seg) => {
+            const li = document.createElement('li');
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'local-aireader-transcript-segment';
+            btn.dataset.segmentIdx = String(seg.idx);
+            btn.textContent = seg.text;
+            btn.addEventListener('click', () => this.seekToSegment(seg.idx));
+            li.appendChild(btn);
+            this.transcriptList.appendChild(li);
+            this.paneSegments.push(btn);
+        });
+    }
+
+    seekToSegment(idx) {
+        const seg = this.segments.find((s) => s.idx === idx);
+        if (!seg || !this.audio.src) {
+            return;
+        }
+        this.audio.currentTime = Math.max(0, seg.startms / 1000);
+        this.audio.play().catch(() => { /* User gesture required. */ });
+    }
+
+    updateActiveSegment(force) {
+        if (!this.segments.length) {
+            return;
+        }
+        const ms = (this.audio.currentTime || 0) * 1000;
+        const idx = findActiveSegmentIdx(this.segments, ms);
+        if (idx === this.activeSegIdx && !force) {
+            return;
+        }
+        this.activeSegIdx = idx;
+
+        // In-place marks.
+        if (this.useInPlace) {
+            this.inPlaceMarks.forEach((m, i) => {
+                if (!m) {
+                    return;
+                }
+                m.classList.toggle('is-current', this.segments[i] && this.segments[i].idx === idx);
+            });
+        }
+
+        // Pane spans.
+        let activeBtn = null;
+        this.paneSegments.forEach((btn) => {
+            const isCurrent = parseInt(btn.dataset.segmentIdx, 10) === idx;
+            btn.classList.toggle('is-current', isCurrent);
+            if (isCurrent) {
+                activeBtn = btn;
+            }
+        });
+
+        // Auto-scroll the current segment into view, but only if the user
+        // hasn't manually scrolled in the last HANDS_OFF_WINDOW_MS.
+        if (Date.now() - this.lastUserScrollAt < HANDS_OFF_WINDOW_MS) {
+            return;
+        }
+        if (this.useInPlace) {
+            const m = this.inPlaceMarks[idx];
+            if (m) {
+                m.scrollIntoView({behavior: 'smooth', block: 'center'});
+            }
+        } else if (activeBtn && !this.transcriptPane.classList.contains('d-none')) {
+            activeBtn.scrollIntoView({behavior: 'smooth', block: 'center'});
+        }
     }
 
     renderTime() {
@@ -656,6 +879,224 @@ const findInsertionTarget = (module) => {
         document.querySelector('#page-content'),
     ];
     return candidates.find((el) => el) || document.body;
+};
+
+/**
+ * Binary-search the active segment index for a given timestamp.
+ *
+ * @param {Array} segments Sorted by startms ascending.
+ * @param {number} ms Current playback time in milliseconds.
+ * @returns {number} segments[i].idx of the active segment, or -1 if none.
+ */
+const findActiveSegmentIdx = (segments, ms) => {
+    let lo = 0;
+    let hi = segments.length - 1;
+    let result = -1;
+    while (lo <= hi) {
+        const mid = Math.floor((lo + hi) / 2);
+        if (segments[mid].startms <= ms) {
+            result = mid;
+            lo = mid + 1;
+        } else {
+            hi = mid - 1;
+        }
+    }
+    if (result === -1) {
+        return -1;
+    }
+    if (ms > segments[result].endms + 250) {
+        // 250ms grace; otherwise treat as a gap between segments.
+        return -1;
+    }
+    return segments[result].idx;
+};
+
+/**
+ * Unwrap a previously-placed <mark>, leaving its text content in place.
+ *
+ * @param {HTMLElement} mark
+ */
+const unwrapMark = (mark) => {
+    if (!mark || !mark.parentNode) {
+        return;
+    }
+    while (mark.firstChild) {
+        mark.parentNode.insertBefore(mark.firstChild, mark);
+    }
+    mark.parentNode.removeChild(mark);
+};
+
+/**
+ * Locate the page's main content region and find every segment's text inside it.
+ * Returns an array of <mark> elements (or nulls for misses) in segment order,
+ * plus a count of how many were successfully matched.
+ *
+ * Strategy: build a normalized flat string from all text nodes (whitespace
+ * collapsed), search for each segment's normalized text, and use the Range API
+ * to wrap that span in a <mark>. If the matched range crosses an element
+ * boundary, surroundContents will fail; we count that segment as a miss and
+ * fall back to the transcript pane.
+ *
+ * @param {Array} segments
+ * @param {string} module 'page' or 'book'.
+ * @returns {{marks: Array<HTMLElement|null>, matchedCount: number}}
+ */
+const tryInPlaceWrap = (segments, module) => {
+    const target = findInsertionTarget(module);
+    if (!target) {
+        return {marks: [], matchedCount: 0};
+    }
+
+    // Find the content container, narrower than our own mount.
+    const container = target.closest('.book_content, [role="main"], #region-main, #page-content') || target;
+
+    const marks = new Array(segments.length).fill(null);
+    let matched = 0;
+
+    segments.forEach((seg, i) => {
+        const m = wrapSegmentInContainer(container, seg);
+        marks[i] = m;
+        if (m) {
+            matched++;
+        }
+    });
+
+    return {marks, matchedCount: matched};
+};
+
+/**
+ * Search for a segment's text in `container` and wrap the matching range in
+ * a <mark>. Returns the new <mark> or null on miss.
+ *
+ * @param {Element} container
+ * @param {{idx:number, text:string}} seg
+ * @returns {HTMLElement|null}
+ */
+const wrapSegmentInContainer = (container, seg) => {
+    const needle = normalizeForMatch(seg.text);
+    if (!needle) {
+        return null;
+    }
+
+    // Build a flat string + position map across all text nodes, skipping our
+    // own player and any scripts/styles.
+    const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
+        acceptNode: (n) => {
+            if (!n.parentNode) {
+                return NodeFilter.FILTER_REJECT;
+            }
+            const parent = n.parentNode;
+            if (parent.closest && parent.closest('.local-aireader, script, style, noscript')) {
+                return NodeFilter.FILTER_REJECT;
+            }
+            return NodeFilter.FILTER_ACCEPT;
+        },
+    });
+
+    const nodes = [];
+    let raw = '';
+    let node;
+    while ((node = walker.nextNode())) {
+        nodes.push({node, start: raw.length});
+        raw += node.nodeValue;
+    }
+    if (!raw) {
+        return null;
+    }
+
+    // Build normalized text + reverse map (normIdx -> rawIdx).
+    let norm = '';
+    const normToRaw = [];
+    let prevSpace = true;
+    for (let i = 0; i < raw.length; i++) {
+        const ch = raw[i];
+        if (/\s/.test(ch)) {
+            if (!prevSpace) {
+                norm += ' ';
+                normToRaw.push(i);
+                prevSpace = true;
+            }
+        } else {
+            const lower = ch.toLowerCase();
+            if (/[\p{L}\p{N}]/u.test(lower)) {
+                norm += lower;
+                normToRaw.push(i);
+                prevSpace = false;
+            }
+            // Otherwise (punctuation), skip — Whisper transcripts often differ
+            // on punctuation; matching letters/digits is more robust.
+        }
+    }
+    if (norm.endsWith(' ')) {
+        norm = norm.slice(0, -1);
+        normToRaw.pop();
+    }
+
+    const startNorm = norm.indexOf(needle);
+    if (startNorm === -1) {
+        return null;
+    }
+    const endNorm = startNorm + needle.length - 1;
+    if (endNorm >= normToRaw.length) {
+        return null;
+    }
+    const rawStart = normToRaw[startNorm];
+    const rawEnd = normToRaw[endNorm];
+
+    // Map raw offsets back to (node, offset).
+    const locate = (rawIdx) => {
+        for (let i = 0; i < nodes.length; i++) {
+            const entry = nodes[i];
+            const end = entry.start + entry.node.nodeValue.length;
+            if (rawIdx >= entry.start && rawIdx < end) {
+                return {node: entry.node, offset: rawIdx - entry.start};
+            }
+        }
+        return null;
+    };
+    const startPos = locate(rawStart);
+    const endPos = locate(rawEnd);
+    if (!startPos || !endPos) {
+        return null;
+    }
+
+    const range = document.createRange();
+    try {
+        range.setStart(startPos.node, startPos.offset);
+        range.setEnd(endPos.node, endPos.offset + 1);
+    } catch (e) {
+        return null;
+    }
+
+    const mark = document.createElement('mark');
+    mark.className = 'local-aireader-mark';
+    mark.dataset.segmentIdx = String(seg.idx);
+    try {
+        range.surroundContents(mark);
+    } catch (e) {
+        // Range crosses an element boundary; can't wrap cleanly. Caller will
+        // count this as a miss and either accept partial coverage or fall back.
+        return null;
+    }
+    return mark;
+};
+
+/**
+ * Normalize text for fuzzy matching: lowercase, strip punctuation,
+ * collapse whitespace.
+ *
+ * @param {string} s
+ * @returns {string}
+ */
+const normalizeForMatch = (s) => {
+    if (!s) {
+        return '';
+    }
+    return String(s)
+        .toLowerCase()
+        .replace(/[^\p{L}\p{N}\s]/gu, '')
+        .replace(/\s+/g, ' ')
+        .trim();
 };
 
 const renderOffline = async(mount, config) => {

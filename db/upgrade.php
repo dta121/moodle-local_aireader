@@ -164,5 +164,11 @@ function xmldb_local_aireader_upgrade(int $oldversion): bool {
         upgrade_plugin_savepoint(true, 2026051702, 'local', 'aireader');
     }
 
+    if ($oldversion < 2026051703) {
+        // Transcript pane + in-place <mark> highlighting + get_transcript wiring
+        // in the AMD module; no schema change. Bump so jsrev/themerev increments.
+        upgrade_plugin_savepoint(true, 2026051703, 'local', 'aireader');
+    }
+
     return true;
 }

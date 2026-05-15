@@ -110,16 +110,19 @@ class hook_callbacks {
         }
 
         $PAGE->requires->js_call_amd('local_aireader/player', 'init', [[
-            'cmid'          => (int)$PAGE->cm->id,
-            'contextid'     => $modulecontext->id,
-            'module'        => $modname,
-            'chapterid'     => $chapterid,
-            'lang'          => $defaultlang,
-            'languages'     => $languages,
-            'pollinterval'  => $pollinterval,
-            'disclosure'    => $disclosure,
-            'enabled'       => $enabled,
-            'canmanage'     => $canmanage,
+            'cmid'             => (int)$PAGE->cm->id,
+            'contextid'        => $modulecontext->id,
+            'module'           => $modname,
+            'chapterid'        => $chapterid,
+            'lang'             => $defaultlang,
+            'languages'        => $languages,
+            'pollinterval'     => $pollinterval,
+            'disclosure'       => $disclosure,
+            'enabled'          => $enabled,
+            'canmanage'        => $canmanage,
+            'sourcelang'       => (string)($GLOBALS['CFG']->lang ?? 'en'),
+            'alignmentenabled' => (bool)get_config('local_aireader', 'enable_alignment'),
+            'highlightinplace' => (bool)get_config('local_aireader', 'highlight_in_place'),
         ]]);
 
         $hook->add_html('<div id="local-aireader-mount" data-region="local_aireader-player"></div>');
