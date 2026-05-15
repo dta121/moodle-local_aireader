@@ -503,24 +503,27 @@
 }
 
 /* In-page <mark> spans wrapped around segments in the rendered page text.
- * Default browser <mark> is bright yellow — we override to a subtle tint so
- * we don't visually shout when sitting inside a teacher's carefully-styled
- * paragraph. */
+ * Default browser <mark> is bright yellow; we make ours invisible at rest
+ * so the page looks normal, with the orange tint only appearing when the
+ * audio is actually narrating that sentence. Click-to-seek still works,
+ * with a soft hover tint signalling interactivity. */
 mark.local-aireader-mark {
-    background: rgba(248, 106, 1, 0.07);
+    background: transparent;
     color: inherit;
-    padding: 0 2px;
+    padding: 0;
     border-radius: 2px;
-    cursor: pointer;
+    cursor: default;
     transition: background-color 0.15s ease;
 }
 
 mark.local-aireader-mark:hover {
-    background: rgba(248, 106, 1, 0.15);
+    background: rgba(248, 106, 1, 0.10);
+    cursor: pointer;
 }
 
 mark.local-aireader-mark.is-current {
     background: rgba(248, 106, 1, 0.30);
+    cursor: pointer;
 }
 
 /* Error state colours the status text but keeps layout. */
@@ -642,7 +645,7 @@ mark.local-aireader-mark.is-current {
         background: rgba(255, 255, 255, 0.02);
     }
 
-    mark.local-aireader-mark {
+    mark.local-aireader-mark:hover {
         background: rgba(248, 106, 1, 0.18);
     }
 

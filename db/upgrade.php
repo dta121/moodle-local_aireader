@@ -184,5 +184,21 @@ function xmldb_local_aireader_upgrade(int $oldversion): bool {
         upgrade_plugin_savepoint(true, 2026051705, 'local', 'aireader');
     }
 
+    if ($oldversion < 2026051706) {
+        // Keep partial in-place marks alongside the transcript pane: lower
+        // the threshold to 50% and stop rolling back successful marks when
+        // ratio falls below it. Active-segment highlight now ticks marks
+        // regardless of whether in-place is the "primary" visual.
+        upgrade_plugin_savepoint(true, 2026051706, 'local', 'aireader');
+    }
+
+    if ($oldversion < 2026051707) {
+        // CSS only: <mark> spans are now invisible at rest, with subtle
+        // hover tint and full highlight only when the audio is narrating
+        // that segment. Version bump so themerev rolls and clients pull
+        // the fresh styles.css.
+        upgrade_plugin_savepoint(true, 2026051707, 'local', 'aireader');
+    }
+
     return true;
 }

@@ -27,7 +27,7 @@ const POSITION_WRITE_INTERVAL_MS = 5000;
 const RESUME_MIN_SECONDS = 5;
 const RESUME_TAIL_BUFFER = 5;
 const HANDS_OFF_WINDOW_MS = 10000;
-const IN_PLACE_MATCH_THRESHOLD = 0.9;
+const IN_PLACE_MATCH_THRESHOLD = 0.5;
 
 const formatTime = (seconds) => {
     if (!Number.isFinite(seconds) || seconds < 0) {
@@ -695,29 +695,28 @@ class Player {
             if (this.config.highlightinplace) {
                 const placed = tryInPlaceWrap(this.segments, this.config.module);
                 const ratio = this.segments.length ? placed.matchedCount / this.segments.length : 0;
-                if (ratio >= IN_PLACE_MATCH_THRESHOLD) {
-                    this.useInPlace = true;
-                    this.inPlaceMarks = placed.marks;
-                    placed.marks.forEach((m) => {
-                        if (!m) {
-                            return;
-                        }
-                        m.addEventListener('click', () => {
-                            const idx = parseInt(m.dataset.segmentIdx, 10);
-                            this.seekToSegment(idx);
-                        });
+                // Keep every successful mark regardless of ratio: partial
+                // in-page highlighting is still useful, and the transcript
+                // pane is rendered alongside as a complementary view for
+                // segments that couldn't be wrapped. useInPlace is now just
+                // a hint for whether auto-scroll should prefer the in-page
+                // marks (when most segments matched) or the pane buttons.
+                this.useInPlace = ratio >= IN_PLACE_MATCH_THRESHOLD;
+                this.inPlaceMarks = placed.marks;
+                placed.marks.forEach((m) => {
+                    if (!m) {
+                        return;
+                    }
+                    m.addEventListener('click', () => {
+                        const idx = parseInt(m.dataset.segmentIdx, 10);
+                        this.seekToSegment(idx);
                     });
-                    window.console.info(
-                        `[local_aireader] in-place highlight: ${placed.matchedCount}/${this.segments.length} segments matched`
-                    );
-                } else {
-                    // Roll back partial marks if we're going to use the pane.
-                    placed.marks.forEach(unwrapMark);
-                    window.console.info(
-                        `[local_aireader] in-place wrap below ${Math.round(IN_PLACE_MATCH_THRESHOLD * 100)}% threshold ` +
-                        `(${placed.matchedCount}/${this.segments.length} matched). Falling back to transcript pane.`
-                    );
-                }
+                });
+                window.console.info(
+                    `[local_aireader] in-place highlight: ${placed.matchedCount}/${this.segments.length} ` +
+                    `segments wrapped` +
+                    (this.useInPlace ? ' (primary visual)' : ' (partial — transcript pane covers the rest)')
+                );
             }
             this.renderTranscriptPane();
             this.revealTranscriptToggle();
@@ -813,15 +812,19 @@ class Player {
         }
         this.activeSegIdx = idx;
 
-        // In-place marks.
-        if (this.useInPlace) {
-            this.inPlaceMarks.forEach((m, i) => {
-                if (!m) {
-                    return;
-                }
-                m.classList.toggle('is-current', this.segments[i] && this.segments[i].idx === idx);
-            });
-        }
+        // Toggle in-place marks whenever any exist — even partial coverage
+        // should light up as the audio plays.
+        let activeMark = null;
+        this.inPlaceMarks.forEach((m, i) => {
+            if (!m) {
+                return;
+            }
+            const isCurrent = this.segments[i] && this.segments[i].idx === idx;
+            m.classList.toggle('is-current', isCurrent);
+            if (isCurrent) {
+                activeMark = m;
+            }
+        });
 
         // Pane spans.
         let activeBtn = null;
@@ -834,16 +837,15 @@ class Player {
         });
 
         // Auto-scroll the current segment into view, but only if the user
-        // hasn't manually scrolled in the last HANDS_OFF_WINDOW_MS.
+        // hasn't manually scrolled in the last HANDS_OFF_WINDOW_MS. Prefer
+        // the in-page mark if it exists for this segment; otherwise fall
+        // back to the pane button (when the pane is open).
         if (Date.now() - this.lastUserScrollAt < HANDS_OFF_WINDOW_MS) {
             return;
         }
-        if (this.useInPlace) {
-            const m = this.inPlaceMarks[idx];
-            if (m) {
-                m.scrollIntoView({behavior: 'smooth', block: 'center'});
-            }
-        } else if (activeBtn && !this.transcriptPane.classList.contains('d-none')) {
+        if (activeMark) {
+            activeMark.scrollIntoView({behavior: 'smooth', block: 'center'});
+        } else if (activeBtn && this.transcriptPane && !this.transcriptPane.classList.contains('d-none')) {
             activeBtn.scrollIntoView({behavior: 'smooth', block: 'center'});
         }
     }
