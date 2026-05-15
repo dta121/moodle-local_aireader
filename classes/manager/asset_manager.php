@@ -428,6 +428,7 @@ class asset_manager {
         $fs = get_file_storage();
         $fs->delete_area_files($asset->contextid, 'local_aireader', 'audio', $asset->id);
         position_manager::purge_for_asset((int)$asset->id);
+        segment_manager::purge_for_asset((int)$asset->id);
         $DB->delete_records('local_aireader_asset', ['id' => $asset->id]);
     }
 

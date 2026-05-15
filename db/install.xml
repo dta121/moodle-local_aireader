@@ -105,5 +105,24 @@
         <INDEX NAME="assetid" UNIQUE="false" FIELDS="assetid"/>
       </INDEXES>
     </TABLE>
+    <TABLE NAME="local_aireader_segment" COMMENT="Whisper-aligned sentence segments for audio assets, used for karaoke-style highlighting.">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="assetid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="idx" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"
+            COMMENT="Position of this segment within the asset's audio (0-based)."/>
+        <FIELD NAME="startms" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"
+            COMMENT="Start time in milliseconds from the beginning of the audio."/>
+        <FIELD NAME="endms" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="segtext" TYPE="text" NOTNULL="true" SEQUENCE="false"
+            COMMENT="The transcribed segment text (Whisper output)."/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="asset_idx" UNIQUE="true" FIELDS="assetid, idx"/>
+      </INDEXES>
+    </TABLE>
   </TABLES>
 </XMLDB>
