@@ -61,4 +61,13 @@ $functions = [
         'capabilities'  => 'local/aireader:listen',
         'loginrequired' => true,
     ],
+    'local_aireader_get_transcript' => [
+        'classname'     => 'local_aireader\external\get_transcript',
+        'methodname'    => 'execute',
+        'description'   => 'Return the Whisper-aligned sentence segments for an asset.',
+        'type'          => 'read',
+        'ajax'          => true,
+        'capabilities'  => 'local/aireader:listen',
+        'loginrequired' => true,
+    ],
 ];

@@ -171,4 +171,40 @@ if ($hassiteconfig) {
         get_string('default_translation_prompt', 'local_aireader'),
         PARAM_TEXT
     ));
+
+    $settings->add(new admin_setting_heading(
+        'local_aireader/heading_alignment',
+        get_string('setting_heading_alignment', 'local_aireader'),
+        ''
+    ));
+
+    $settings->add(new admin_setting_configcheckbox(
+        'local_aireader/enable_alignment',
+        get_string('setting_enablealignment', 'local_aireader'),
+        get_string('setting_enablealignment_desc', 'local_aireader'),
+        0
+    ));
+
+    $settings->add(new admin_setting_configcheckbox(
+        'local_aireader/highlight_in_place',
+        get_string('setting_highlightinplace', 'local_aireader'),
+        get_string('setting_highlightinplace_desc', 'local_aireader'),
+        1
+    ));
+
+    $settings->add(new admin_setting_configtext(
+        'local_aireader/alignment_model',
+        get_string('setting_alignmentmodel', 'local_aireader'),
+        get_string('setting_alignmentmodel_desc', 'local_aireader'),
+        'whisper-1',
+        PARAM_TEXT
+    ));
+
+    $settings->add(new admin_setting_configtext(
+        'local_aireader/alignment_endpoint',
+        get_string('setting_alignmentendpoint', 'local_aireader'),
+        get_string('setting_alignmentendpoint_desc', 'local_aireader'),
+        'https://api.openai.com/v1/audio/transcriptions',
+        PARAM_URL
+    ));
 }

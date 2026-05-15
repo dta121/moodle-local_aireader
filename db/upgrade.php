@@ -153,5 +153,11 @@ function xmldb_local_aireader_upgrade(int $oldversion): bool {
         upgrade_plugin_savepoint(true, 2026051700, 'local', 'aireader');
     }
 
+    if ($oldversion < 2026051701) {
+        // Whisper alignment admin settings + get_transcript web service shipped;
+        // bump so admin_apply_default_settings() registers the new defaults.
+        upgrade_plugin_savepoint(true, 2026051701, 'local', 'aireader');
+    }
+
     return true;
 }
