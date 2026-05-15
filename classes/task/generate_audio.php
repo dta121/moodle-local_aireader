@@ -25,12 +25,14 @@
 namespace local_aireader\task;
 
 use core\task\adhoc_task;
+use core\task\manager as task_manager;
 use local_aireader\manager\asset_manager;
 use local_aireader\manager\content_extractor;
 use local_aireader\manager\openai_client;
 use local_aireader\manager\openai_translator;
 use local_aireader\manager\storage;
 use local_aireader\manager\translation_manager;
+use local_aireader\task\align_audio;
 
 /**
  * Ad hoc task that turns a pending or stale asset row into a stored mp3.
@@ -139,6 +141,15 @@ class generate_audio extends adhoc_task {
                 null
             );
             mtrace("local_aireader: asset {$asset->id} generated ({$file->get_filesize()} bytes)");
+
+            // Chain Whisper alignment as a separate task so the audio is
+            // immediately playable; karaoke lights up as soon as alignment finishes.
+            if (get_config('local_aireader', 'enable_alignment')) {
+                $aligntask = new align_audio();
+                $aligntask->set_custom_data(['assetid' => (int)$asset->id]);
+                task_manager::queue_adhoc_task($aligntask, true);
+                mtrace("local_aireader: queued align_audio for asset {$asset->id}");
+            }
         } catch (\Throwable $e) {
             $message = $e->getMessage();
             mtrace("local_aireader: generation failed for asset {$asset->id}: {$message}");

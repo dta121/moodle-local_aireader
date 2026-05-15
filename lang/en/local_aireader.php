@@ -116,5 +116,6 @@ $string['status_generating'] = 'Generating audio…';
 $string['status_pending'] = 'Audio is being prepared…';
 $string['status_ready'] = 'Ready to play.';
 $string['status_stale'] = 'Content updated; refreshing audio…';
+$string['task_align_audio'] = 'Align AI narration audio with Whisper';
 $string['task_generate_audio'] = 'Generate AI narration audio';
 $string['task_purge_stale'] = 'Purge stale AI narration assets';
