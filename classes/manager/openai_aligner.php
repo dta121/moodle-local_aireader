@@ -33,7 +33,6 @@ namespace local_aireader\manager;
  * @package local_aireader
  */
 class openai_aligner {
-
     /** @var string */
     private $apikey;
     /** @var string */

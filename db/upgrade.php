@@ -160,7 +160,7 @@ function xmldb_local_aireader_upgrade(int $oldversion): bool {
     }
 
     if ($oldversion < 2026051702) {
-        // align_audio adhoc task class shipped; no schema change.
+        // The align_audio adhoc task class shipped; no schema change.
         upgrade_plugin_savepoint(true, 2026051702, 'local', 'aireader');
     }
 
