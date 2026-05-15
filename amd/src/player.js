@@ -927,28 +927,30 @@ const unwrapMark = (mark) => {
 };
 
 /**
- * Locate the page's main content region and find every segment's text inside it.
- * Returns an array of <mark> elements (or nulls for misses) in segment order,
- * plus a count of how many were successfully matched.
+ * Locate the activity body and find every segment's text inside it. Returns
+ * an array of <mark> elements (or nulls for misses) in segment order plus a
+ * count of how many were successfully matched.
  *
  * Strategy: build a normalized flat string from all text nodes (whitespace
- * collapsed), search for each segment's normalized text, and use the Range API
- * to wrap that span in a <mark>. If the matched range crosses an element
- * boundary, surroundContents will fail; we count that segment as a miss and
- * fall back to the transcript pane.
+ * collapsed, punctuation dropped), search for each segment's normalized text,
+ * and use the Range API to wrap the match in a <mark>. If the range crosses
+ * an element boundary, surroundContents throws and we count the segment as
+ * a miss.
+ *
+ * Container selection is intentionally narrow. We deliberately do NOT fall
+ * back to [role="main"] because that includes breadcrumbs, secondary
+ * navigation, the page header, and other Moodle chrome which we must never
+ * mutate. Misses are preferable to wrapping chrome text.
  *
  * @param {Array} segments
  * @param {string} module 'page' or 'book'.
  * @returns {{marks: Array<HTMLElement|null>, matchedCount: number}}
  */
 const tryInPlaceWrap = (segments, module) => {
-    const target = findInsertionTarget(module);
-    if (!target) {
+    const container = findWrapContainer(module);
+    if (!container) {
         return {marks: [], matchedCount: 0};
     }
-
-    // Find the content container, narrower than our own mount.
-    const container = target.closest('.book_content, [role="main"], #region-main, #page-content') || target;
 
     const marks = new Array(segments.length).fill(null);
     let matched = 0;
@@ -965,6 +967,51 @@ const tryInPlaceWrap = (segments, module) => {
 };
 
 /**
+ * The set of ancestor selectors a text node may NOT live under to be eligible
+ * for in-place wrapping. Anything in the breadcrumb, nav, header, footer,
+ * buttons, our own player mount, or script/style tags is off limits — we
+ * mustn't visually mark those even if the segment text matches by chance.
+ *
+ * Kept as a string so it goes through one closest() call per text node.
+ */
+const WRAP_REJECT_SELECTOR =
+    'nav, header, footer, aside, button, ' +
+    '[role="navigation"], [role="banner"], [role="contentinfo"], ' +
+    '.breadcrumb, .navbar, .nav, ' +
+    '.primary-navigation, .secondary-navigation, .secondary-tabs, ' +
+    '.local-aireader, script, style, noscript';
+
+/**
+ * Pick the narrowest plausible container inside the rendered activity body.
+ * Returns null if we can't find a suitable region — caller falls back to the
+ * transcript pane.
+ *
+ * @param {string} module 'page' or 'book'.
+ * @returns {Element|null}
+ */
+const findWrapContainer = (module) => {
+    if (module === 'book') {
+        return document.querySelector('.book_content');
+    }
+    // For mod_page (and any other activity rendered the standard way) Moodle
+    // 4.x puts the body content inside the activity description region or a
+    // generalbox inside region-main. Try those in order, narrowest first.
+    const candidates = [
+        '[role="main"] .activity-description',
+        '#region-main .box.generalbox',
+        '#region-main article',
+        '#region-main [data-region="activity-content"]',
+    ];
+    for (const sel of candidates) {
+        const el = document.querySelector(sel);
+        if (el) {
+            return el;
+        }
+    }
+    return null;
+};
+
+/**
  * Search for a segment's text in `container` and wrap the matching range in
  * a <mark>. Returns the new <mark> or null on miss.
  *
@@ -978,15 +1025,15 @@ const wrapSegmentInContainer = (container, seg) => {
         return null;
     }
 
-    // Build a flat string + position map across all text nodes, skipping our
-    // own player and any scripts/styles.
+    // Build a flat string + position map across text nodes, rejecting any
+    // text that lives under chrome we must not mutate (nav, breadcrumbs,
+    // buttons, our own player, etc).
     const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
         acceptNode: (n) => {
-            if (!n.parentNode) {
+            if (!n.parentNode || !n.parentNode.closest) {
                 return NodeFilter.FILTER_REJECT;
             }
-            const parent = n.parentNode;
-            if (parent.closest && parent.closest('.local-aireader, script, style, noscript')) {
+            if (n.parentNode.closest(WRAP_REJECT_SELECTOR)) {
                 return NodeFilter.FILTER_REJECT;
             }
             return NodeFilter.FILTER_ACCEPT;
