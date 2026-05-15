@@ -989,31 +989,30 @@ const WRAP_REJECT_SELECTOR =
     '[role="navigation"], [role="banner"], [role="contentinfo"], ' +
     '.breadcrumb, .navbar, .nav, ' +
     '.primary-navigation, .secondary-navigation, .secondary-tabs, ' +
+    '.activity-header, .activity-information, .completion-info, ' +
+    '[data-region="activity-information"], [data-region="completion-info"], ' +
+    '[data-for="page-activity-header"], .badge, ' +
     '.local-aireader, script, style, noscript';
 
 /**
  * Pick the narrowest plausible container inside the rendered activity body.
  * Returns null if we can't find any candidate.
  *
- * We try a series of selectors narrowest-first. The walker's WRAP_REJECT_SELECTOR
- * is the real safety net — it rejects text under nav, header, footer, aside,
- * buttons, breadcrumbs etc. — so falling back to broader containers like
- * #region-main is safe: chrome text inside them won't get wrapped.
+ * Only narrow body selectors — never #region-main or [role="main"], which
+ * sweep in the activity-header / completion widgets whose JS we must not touch.
  *
  * @param {string} module 'page' or 'book'.
  * @returns {Element|null}
  */
 const findWrapContainer = (module) => {
     if (module === 'book') {
-        return document.querySelector('.book_content') || document.querySelector('#region-main');
+        return document.querySelector('.book_content');
     }
     const candidates = [
         '[role="main"] .activity-description',
         '#region-main .box.generalbox',
         '#region-main article',
         '#region-main [data-region="activity-content"]',
-        '#region-main',
-        '[role="main"]',
     ];
     for (const sel of candidates) {
         const el = document.querySelector(sel);

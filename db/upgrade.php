@@ -200,5 +200,16 @@ function xmldb_local_aireader_upgrade(int $oldversion): bool {
         upgrade_plugin_savepoint(true, 2026051707, 'local', 'aireader');
     }
 
+    if ($oldversion < 2026051708) {
+        // Hotfix: drop #region-main / [role="main"] fallbacks from the
+        // in-place wrap container picker and add Moodle activity-chrome
+        // (activity-header, completion-info, activity-information, badges)
+        // to WRAP_REJECT_SELECTOR. Without this, the walker descended into
+        // completion widgets whose JS broke when their text was wrapped,
+        // cascading into nav/menu/player disappearing. JS-only change;
+        // version bump so browsers fetch the fixed AMD bundle.
+        upgrade_plugin_savepoint(true, 2026051708, 'local', 'aireader');
+    }
+
     return true;
 }
