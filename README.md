@@ -85,6 +85,42 @@ listing exactly those.
 both one-time. After first render, every student in every language streams
 the same cached MP3 for free.
 
+## Transcript and karaoke highlighting (optional)
+
+When `Enable Whisper alignment (karaoke highlighting)` is on, every generated
+mp3 is also sent through Whisper (`/v1/audio/transcriptions` with
+`timestamp_granularities=['segment']`) by a separate `align_audio` ad hoc
+task. The segments are cached in `local_aireader_segment` keyed on the
+asset id, so every learner shares the same alignment.
+
+Learners then see a **"Transcript"** toggle on the player. Two display
+modes, chosen automatically:
+
+- **In-place** (default, `highlight_in_place` admin setting on): the player
+  searches for each segment's text in the rendered page DOM and wraps the
+  matching range in `<mark class="local-aireader-mark">`. As the audio
+  plays the current segment gets the `is-current` class. The page text
+  itself "lights up" — no duplicated transcript. Requires at least 90% of
+  segments to match the page DOM; falls back to the pane otherwise.
+
+- **Transcript pane**: a collapsible panel below the player listing every
+  segment as a clickable button. Used automatically when in-place matching
+  fails — typically on translated narrations (Spanish audio cannot
+  highlight an English page), pages with video-cue insertions ("A video
+  appears here..."), or pages where Moodle filters mangle the DOM enough
+  to break range matching. Also used when `highlight_in_place` is off.
+
+Both modes support **click-to-seek** (clicking a segment jumps the audio
+there) and **auto-scroll** to keep the current segment in view, suspended
+for 10 seconds after any user-initiated scroll so we don't fight someone
+re-reading a paragraph.
+
+The transcript pane open/closed preference is persisted per-browser in
+`localStorage` under `local_aireader_transcriptopen`.
+
+**Costs:** ~$0.006 per minute of audio (Whisper), one-time per asset.
+Cached forever; deleted when the asset is purged.
+
 The "ready" lookup is keyed on
 `sha256(module|cmid|chapterid|lang|voice|model|cleantext)`. If the cleaned
 content changes, the hash changes, the old row is marked `stale`, and a new
