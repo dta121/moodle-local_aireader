@@ -694,7 +694,8 @@ class Player {
 
             if (this.config.highlightinplace) {
                 const placed = tryInPlaceWrap(this.segments, this.config.module);
-                if (placed.matchedCount / this.segments.length >= IN_PLACE_MATCH_THRESHOLD) {
+                const ratio = this.segments.length ? placed.matchedCount / this.segments.length : 0;
+                if (ratio >= IN_PLACE_MATCH_THRESHOLD) {
                     this.useInPlace = true;
                     this.inPlaceMarks = placed.marks;
                     placed.marks.forEach((m) => {
@@ -706,9 +707,16 @@ class Player {
                             this.seekToSegment(idx);
                         });
                     });
+                    window.console.info(
+                        `[local_aireader] in-place highlight: ${placed.matchedCount}/${this.segments.length} segments matched`
+                    );
                 } else {
                     // Roll back partial marks if we're going to use the pane.
                     placed.marks.forEach(unwrapMark);
+                    window.console.info(
+                        `[local_aireader] in-place wrap below ${Math.round(IN_PLACE_MATCH_THRESHOLD * 100)}% threshold ` +
+                        `(${placed.matchedCount}/${this.segments.length} matched). Falling back to transcript pane.`
+                    );
                 }
             }
             this.renderTranscriptPane();
@@ -983,24 +991,27 @@ const WRAP_REJECT_SELECTOR =
 
 /**
  * Pick the narrowest plausible container inside the rendered activity body.
- * Returns null if we can't find a suitable region — caller falls back to the
- * transcript pane.
+ * Returns null if we can't find any candidate.
+ *
+ * We try a series of selectors narrowest-first. The walker's WRAP_REJECT_SELECTOR
+ * is the real safety net — it rejects text under nav, header, footer, aside,
+ * buttons, breadcrumbs etc. — so falling back to broader containers like
+ * #region-main is safe: chrome text inside them won't get wrapped.
  *
  * @param {string} module 'page' or 'book'.
  * @returns {Element|null}
  */
 const findWrapContainer = (module) => {
     if (module === 'book') {
-        return document.querySelector('.book_content');
+        return document.querySelector('.book_content') || document.querySelector('#region-main');
     }
-    // For mod_page (and any other activity rendered the standard way) Moodle
-    // 4.x puts the body content inside the activity description region or a
-    // generalbox inside region-main. Try those in order, narrowest first.
     const candidates = [
         '[role="main"] .activity-description',
         '#region-main .box.generalbox',
         '#region-main article',
         '#region-main [data-region="activity-content"]',
+        '#region-main',
+        '[role="main"]',
     ];
     for (const sel of candidates) {
         const el = document.querySelector(sel);

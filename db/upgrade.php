@@ -177,5 +177,12 @@ function xmldb_local_aireader_upgrade(int $oldversion): bool {
         upgrade_plugin_savepoint(true, 2026051704, 'local', 'aireader');
     }
 
+    if ($oldversion < 2026051705) {
+        // Broaden in-place wrap container fallbacks (now safe because the
+        // walker's WRAP_REJECT_SELECTOR strictly excludes chrome). Adds
+        // console.info diagnostics so we can see why in-place falls back.
+        upgrade_plugin_savepoint(true, 2026051705, 'local', 'aireader');
+    }
+
     return true;
 }
