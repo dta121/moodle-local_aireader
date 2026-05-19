@@ -47,11 +47,11 @@ const formatEstimateMinutes = (seconds) => {
     return `${m} min`;
 };
 
-const scopeLabel = (config) => {
-    if (config.module === 'book' && config.chapterid) {
-        return 'chapter';
+const str = (config, key, fallback) => {
+    if (config && config.strings && typeof config.strings[key] === 'string') {
+        return config.strings[key];
     }
-    return config.module === 'book' ? 'book' : 'page';
+    return fallback || '';
 };
 
 const setOverride = (config, enabled) => Ajax.call([{
@@ -144,7 +144,7 @@ class Player {
         this.bindKeyboard();
         this.setupMediaSession();
 
-        this.setStatus(STATE.LOADING, 'Loading audio…');
+        this.setStatus(STATE.LOADING, str(this.config, 'loadingaudio', 'Loading audio…'));
         this.refresh();
     }
 
@@ -215,7 +215,7 @@ class Player {
         });
         this.audio.addEventListener('durationchange', () => this.renderTime());
         this.audio.addEventListener('error', () => {
-            this.setStatus(STATE.ERROR, 'Audio playback failed.');
+            this.setStatus(STATE.ERROR, str(this.config, 'playbackfailed', 'Audio playback failed.'));
         });
 
         document.addEventListener('visibilitychange', () => {
@@ -394,8 +394,8 @@ class Player {
         }
         try {
             navigator.mediaSession.metadata = new window.MediaMetadata({
-                title: document.title || 'Listen to this content',
-                artist: 'AI narration',
+                title: document.title || str(this.config, 'listentitle', 'Listen to this content'),
+                artist: str(this.config, 'listentitle', 'AI narration'),
             });
         } catch (e) {
             // MediaMetadata is best-effort; ignore unsupported browsers.
@@ -431,7 +431,7 @@ class Player {
             const result = await this.callStatus();
             this.handleStatus(result);
         } catch (e) {
-            this.setStatus(STATE.ERROR, e.message || 'Could not load audio.');
+            this.setStatus(STATE.ERROR, e.message || str(this.config, 'couldnotload', 'Could not load audio.'));
         }
     }
 
@@ -454,7 +454,7 @@ class Player {
             this.restartBtn.disabled = false;
             this.skipBackBtn.disabled = false;
             this.skipFwdBtn.disabled = false;
-            this.setStatus(STATE.READY, 'Ready to play.');
+            this.setStatus(STATE.READY, str(this.config, 'ready', 'Ready to play.'));
             this.updateMediaSessionMetadata();
             this.polling = false;
             this.fetchTranscriptIfNeeded();
@@ -462,13 +462,13 @@ class Player {
         }
 
         if (result.status === 'error') {
-            this.setStatus(STATE.ERROR, result.message || 'Audio generation failed.');
+            this.setStatus(STATE.ERROR, result.message || str(this.config, 'generationfailed', 'Audio generation failed.'));
             this.polling = false;
             return;
         }
 
         // Pending, generating, or stale — keep polling.
-        this.setStatus(result.status, result.message || 'Audio is being prepared…');
+        this.setStatus(result.status, result.message || str(this.config, 'beingprepared', 'Audio is being prepared…'));
         this.schedulePoll();
     }
 
@@ -497,7 +497,7 @@ class Player {
         }
         if (this.audio.paused) {
             this.audio.play().catch((e) => {
-                this.setStatus(STATE.ERROR, e.message || 'Playback blocked.');
+                this.setStatus(STATE.ERROR, e.message || str(this.config, 'playbackblocked', 'Playback blocked.'));
             });
         } else {
             this.audio.pause();
@@ -600,7 +600,7 @@ class Player {
 
     async regen() {
         try {
-            this.setStatus(STATE.PENDING, 'Queued for regeneration…');
+            this.setStatus(STATE.PENDING, str(this.config, 'queuedforregen', 'Queued for regeneration…'));
             this.playBtn.disabled = true;
             this.restartBtn.disabled = true;
             this.skipBackBtn.disabled = true;
@@ -649,13 +649,13 @@ class Player {
         }
         if (this.transcriptEmpty) {
             this.transcriptEmpty.classList.remove('d-none');
-            this.transcriptEmpty.textContent = 'Preparing transcript…';
+            this.transcriptEmpty.textContent = str(this.config, 'preparingtranscript', 'Preparing transcript…');
         }
         if (this.transcriptToggleBtn) {
             this.transcriptToggleBtn.classList.add('d-none');
         }
         this.renderTime();
-        this.setStatus(STATE.LOADING, 'Preparing in selected language…');
+        this.setStatus(STATE.LOADING, str(this.config, 'preparinglang', 'Preparing in selected language…'));
         this.polling = false;
         this.refresh();
     }
@@ -663,7 +663,10 @@ class Player {
     renderPlaying(isPlaying) {
         this.iconPlay.classList.toggle('d-none', isPlaying);
         this.iconPause.classList.toggle('d-none', !isPlaying);
-        this.playBtn.setAttribute('aria-label', isPlaying ? 'Pause' : 'Play');
+        this.playBtn.setAttribute(
+            'aria-label',
+            isPlaying ? str(this.config, 'pause', 'Pause') : str(this.config, 'play', 'Play')
+        );
     }
 
     // -- Transcript + karaoke --
@@ -712,11 +715,6 @@ class Player {
                         this.seekToSegment(idx);
                     });
                 });
-                window.console.info(
-                    `[local_aireader] in-place highlight: ${placed.matchedCount}/${this.segments.length} ` +
-                    `segments wrapped` +
-                    (this.useInPlace ? ' (primary visual)' : ' (partial — transcript pane covers the rest)')
-                );
             }
             this.renderTranscriptPane();
             this.revealTranscriptToggle();
@@ -1160,11 +1158,10 @@ const normalizeForMatch = (s) => {
 
 const renderOffline = async(mount, config) => {
     try {
-        const message = `AI narration is turned off for this ${scopeLabel(config)}.`;
-        const actionLabel = `Turn on for this ${scopeLabel(config)}`;
         const {html, js} = await Templates.renderForPromise('local_aireader/manager_offline', {
-            message,
-            actionlabel: actionLabel,
+            message: str(config, 'offheremsg', 'AI narration is turned off here.'),
+            actionlabel: str(config, 'turnonhere', 'Turn on'),
+            regionlabel: str(config, 'offlinedisabled', 'AI narration disabled'),
         });
         Templates.replaceNodeContents(mount, html, js);
         const btn = mount.querySelector('[data-action="enable"]');
@@ -1189,8 +1186,22 @@ const renderPlayer = async(mount, config) => {
     try {
         const {html, js} = await Templates.renderForPromise('local_aireader/player', {
             disclosure: config.disclosure || '',
-            managerlabelon: `Turn off for this ${scopeLabel(config)}`,
-            managerlabeloff: `Turn on for this ${scopeLabel(config)}`,
+            managerlabelon: str(config, 'turnoffhere', 'Turn off'),
+            managerlabeloff: str(config, 'turnonhere', 'Turn on'),
+            stringListen: str(config, 'listentitle', 'Listen to this content'),
+            stringLoading: str(config, 'loading', 'Loading…'),
+            stringPlay: str(config, 'play', 'Play'),
+            stringSkipBack: str(config, 'skipback', 'Skip back 15 seconds'),
+            stringSkipForward: str(config, 'skipforward', 'Skip forward 15 seconds'),
+            stringLanguage: str(config, 'language', 'Language'),
+            stringProgress: str(config, 'progress', 'Playback position'),
+            stringSpeed: str(config, 'speed', 'Speed'),
+            stringPlaybackSpeed: str(config, 'playbackspeed', 'Playback speed'),
+            stringRestart: str(config, 'restart', 'Restart from beginning'),
+            stringRegenerate: str(config, 'regenerate', 'Regenerate audio'),
+            stringShowTranscript: str(config, 'showtranscript', 'Show transcript'),
+            stringTranscript: str(config, 'transcriptlabel', 'Transcript'),
+            stringPreparingTranscript: str(config, 'preparingtranscript', 'Preparing transcript…'),
         });
         Templates.replaceNodeContents(mount, html, js);
         const root = mount.querySelector('.local-aireader-player');

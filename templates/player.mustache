@@ -5,23 +5,54 @@
     with podcast-style scrubber, skip ±15s, speed control, MediaSession + key
     shortcuts.
 
+    Every user-visible string is passed in from PHP so that lang-pack
+    translations apply to the player UI as well as to admin settings.
+
     Context variables:
-      * disclosure - text shown beneath the player
-      * managerlabelon - manager toggle label when narration is enabled
+      * disclosure       - text shown beneath the player
+      * managerlabelon   - manager toggle label when narration is enabled
+      * stringListen     - region label and visible title ("Listen to this content")
+      * stringLoading    - initial status placeholder
+      * stringPlay       - aria-label / MediaSession when paused
+      * stringSkipBack   - aria-label for the back-15s button
+      * stringSkipForward - aria-label for the forward-15s button
+      * stringLanguage   - aria-label for the language picker
+      * stringProgress   - aria-label for the scrubber
+      * stringSpeed      - visible "Speed" label
+      * stringPlaybackSpeed - aria-label for the speed select
+      * stringRestart    - aria-label for the restart button
+      * stringRegenerate - aria-label for the regenerate button
+      * stringShowTranscript - aria-label for the transcript toggle
+      * stringTranscript - visible label on the transcript toggle
+      * stringPreparingTranscript - placeholder shown while transcript loads
 
     Example context (json):
     {
       "disclosure": "Audio narration is AI-generated.",
-      "managerlabelon": "Turn off for this page"
+      "managerlabelon": "Turn off for this page",
+      "stringListen": "Listen to this content",
+      "stringLoading": "Loading…",
+      "stringPlay": "Play",
+      "stringSkipBack": "Skip back 15 seconds",
+      "stringSkipForward": "Skip forward 15 seconds",
+      "stringLanguage": "Language",
+      "stringProgress": "Playback position",
+      "stringSpeed": "Speed",
+      "stringPlaybackSpeed": "Playback speed",
+      "stringRestart": "Restart from beginning",
+      "stringRegenerate": "Regenerate audio",
+      "stringShowTranscript": "Show transcript",
+      "stringTranscript": "Transcript",
+      "stringPreparingTranscript": "Preparing transcript…"
     }
 }}
-<div class="local-aireader local-aireader-player" data-state="loading" role="region" aria-label="Listen to this content" tabindex="-1">
+<div class="local-aireader local-aireader-player" data-state="loading" role="region" aria-label="{{stringListen}}" tabindex="-1">
   <div class="local-aireader-row">
     <button type="button"
             class="local-aireader-iconbtn local-aireader-skipback"
             data-action="skipback"
             disabled
-            aria-label="Skip back 15 seconds">
+            aria-label="{{stringSkipBack}}">
       <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <polyline points="1 4 1 10 7 10"/>
         <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
@@ -32,7 +63,7 @@
             class="local-aireader-playpause"
             data-action="playpause"
             disabled
-            aria-label="Play">
+            aria-label="{{stringPlay}}">
       <svg class="local-aireader-icon-play" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
         <path d="M8 5v14l11-7z"/>
       </svg>
@@ -44,7 +75,7 @@
             class="local-aireader-iconbtn local-aireader-skipfwd"
             data-action="skipfwd"
             disabled
-            aria-label="Skip forward 15 seconds">
+            aria-label="{{stringSkipForward}}">
       <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <polyline points="23 4 23 10 17 10"/>
         <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
@@ -57,8 +88,8 @@
           <path d="M3 18v-6a9 9 0 0 1 18 0v6"/>
           <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/>
         </svg>
-        <span class="local-aireader-title">Listen to this content</span>
-        <span class="local-aireader-meta" data-region="status" aria-live="polite">Loading&hellip;</span>
+        <span class="local-aireader-title">{{stringListen}}</span>
+        <span class="local-aireader-meta" data-region="status" aria-live="polite">{{stringLoading}}</span>
       </div>
     </div>
     <div class="local-aireader-right">
@@ -68,7 +99,7 @@
           <line x1="2" y1="12" x2="22" y2="12"/>
           <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
         </svg>
-        <select class="local-aireader-langselect" data-action="set-lang" aria-label="Language"></select>
+        <select class="local-aireader-langselect" data-action="set-lang" aria-label="{{stringLanguage}}"></select>
       </div>
       <div class="local-aireader-manager d-none" data-region="manager">
         <button type="button"
@@ -85,7 +116,7 @@
     <div class="local-aireader-progress"
          data-region="progress"
          role="slider"
-         aria-label="Playback position"
+         aria-label="{{stringProgress}}"
          aria-valuemin="0"
          aria-valuemax="100"
          aria-valuenow="0"
@@ -98,8 +129,8 @@
 
   <div class="local-aireader-controls-row">
     <div class="local-aireader-speed" data-region="speed">
-      <span class="local-aireader-speed-label">Speed</span>
-      <select class="local-aireader-speed-select" data-action="set-speed" aria-label="Playback speed">
+      <span class="local-aireader-speed-label">{{stringSpeed}}</span>
+      <select class="local-aireader-speed-select" data-action="set-speed" aria-label="{{stringPlaybackSpeed}}">
         <option value="0.75">0.75&times;</option>
         <option value="1" selected>1&times;</option>
         <option value="1.25">1.25&times;</option>
@@ -113,7 +144,7 @@
             class="local-aireader-iconbtn local-aireader-restart"
             data-action="restart"
             disabled
-            aria-label="Restart from beginning">
+            aria-label="{{stringRestart}}">
       <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" stroke="none">
         <polygon points="19 20 9 12 19 4"/>
         <rect x="5" y="4" width="2" height="16"/>
@@ -122,7 +153,7 @@
     <button type="button"
             class="local-aireader-iconbtn local-aireader-regen d-none"
             data-action="regen"
-            aria-label="Regenerate audio">
+            aria-label="{{stringRegenerate}}">
       <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M23 4v6h-6"/>
         <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
@@ -132,19 +163,19 @@
             class="local-aireader-transcript-toggle d-none"
             data-action="toggle-transcript"
             aria-expanded="false"
-            aria-label="Show transcript">
+            aria-label="{{stringShowTranscript}}">
       <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
         <polyline points="14 2 14 8 20 8"/>
         <line x1="8" y1="13" x2="16" y2="13"/>
         <line x1="8" y1="17" x2="14" y2="17"/>
       </svg>
-      <span data-region="transcript-toggle-label">Transcript</span>
+      <span data-region="transcript-toggle-label">{{stringTranscript}}</span>
     </button>
   </div>
 
   <div class="local-aireader-transcript-pane d-none" data-region="transcript-pane" aria-live="off">
-    <p class="local-aireader-transcript-empty" data-region="transcript-empty">Preparing transcript&hellip;</p>
+    <p class="local-aireader-transcript-empty" data-region="transcript-empty">{{stringPreparingTranscript}}</p>
     <ol class="local-aireader-transcript-list" data-region="transcript-list"></ol>
   </div>
 

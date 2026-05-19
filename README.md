@@ -50,10 +50,36 @@ The plugin is CI-tested on every push against:
 
 You'll also need:
 
-- An **OpenAI API key** (or any drop-in compatible endpoint).
+- **An OpenAI account and API key** — see *Getting an OpenAI API key* below.
 - **Moodle cron running** — audio is generated in the background, not
   while a learner is staring at the page.
 - **Outbound HTTPS** from the Moodle server to your API endpoint.
+
+## Getting an OpenAI API key
+
+This plugin uses OpenAI for three things: text-to-speech, translation
+(optional), and Whisper alignment for the karaoke highlighting (optional).
+All three are paid API services, billed to your OpenAI account by usage —
+**there is no free tier the plugin can rely on**.
+
+To set up an account:
+
+1. Create an account at **https://platform.openai.com/signup**.
+2. Add a payment method under **Billing**, then add a credit balance.
+   $10 is plenty to evaluate the plugin against a few dozen pages; see
+   the cost table below for realistic per-asset numbers.
+3. Open **Dashboard → API keys**, click **Create new secret key**, and
+   copy the `sk-…` value somewhere safe — OpenAI only shows it once.
+4. Paste it into *Site administration → Plugins → Local plugins →
+   AI Reader → OpenAI API key*.
+
+The same key is reused for TTS, translation, and Whisper unless you
+override the endpoint settings to point at a proxy.
+
+The plugin works with any OpenAI-API-compatible gateway as well (Azure
+OpenAI Service, LiteLLM, OpenRouter, vLLM, etc.) — just change the three
+endpoint settings to point at your gateway. Outbound calls are locked to
+HTTPS; loopback, private, and link-local addresses are blocked.
 
 ## Install
 

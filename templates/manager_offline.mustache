@@ -5,16 +5,18 @@
     scope, styled to match the main player.
 
     Context variables:
-      * message - explanatory text
-      * actionlabel - button label to enable narration here
+      * message     - explanatory text (already localized)
+      * actionlabel - button label to enable narration here (already localized)
+      * regionlabel - aria-label for the region wrapper
 
     Example context (json):
     {
       "message": "AI narration is turned off for this page.",
-      "actionlabel": "Turn on for this page"
+      "actionlabel": "Turn on for this page",
+      "regionlabel": "AI narration disabled"
     }
 }}
-<div class="local-aireader local-aireader-offline" role="region" aria-label="AI narration disabled">
+<div class="local-aireader local-aireader-offline" role="region" aria-label="{{regionlabel}}">
   <svg class="local-aireader-offline-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <path d="M3 18v-6a9 9 0 0 1 18 0v6"/>
     <line x1="2" y1="2" x2="22" y2="22"/>

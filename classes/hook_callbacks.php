@@ -109,6 +109,14 @@ class hook_callbacks {
             $defaultlang = $enabledcodes[0];
         }
 
+        // Resolve the human-readable scope label so the manager-toggle UI can
+        // be properly localised: "Turn off for this page" / "...chapter" / "...book".
+        $scopekey = 'page';
+        if ($modname === 'book') {
+            $scopekey = $chapterid > 0 ? 'chapter' : 'book';
+        }
+        $scopelabel = get_string('scope_' . $scopekey, 'local_aireader');
+
         $PAGE->requires->js_call_amd('local_aireader/player', 'init', [[
             'cmid'             => (int)$PAGE->cm->id,
             'contextid'        => $modulecontext->id,
@@ -123,9 +131,52 @@ class hook_callbacks {
             'sourcelang'       => (string)($GLOBALS['CFG']->lang ?? 'en'),
             'alignmentenabled' => (bool)get_config('local_aireader', 'enable_alignment'),
             'highlightinplace' => (bool)get_config('local_aireader', 'highlight_in_place'),
+            'strings'          => self::player_strings($scopelabel),
         ]]);
 
         $hook->add_html('<div id="local-aireader-mount" data-region="local_aireader-player"></div>');
+    }
+
+    /**
+     * Collect every user-visible string the player needs into one bag, so the
+     * AMD module never has to call core/str at runtime. Keeps the player
+     * fully translatable through standard Moodle language packs.
+     *
+     * @param string $scopelabel Localized scope noun (page / chapter / book)
+     *                           used for the manager-toggle messages.
+     * @return array<string,string>
+     */
+    private static function player_strings(string $scopelabel): array {
+        return [
+            'listentitle'        => get_string('player_listen_title', 'local_aireader'),
+            'loading'            => get_string('player_loading', 'local_aireader'),
+            'loadingaudio'       => get_string('player_loading_audio', 'local_aireader'),
+            'ready'              => get_string('player_ready', 'local_aireader'),
+            'couldnotload'       => get_string('player_could_not_load', 'local_aireader'),
+            'playbackfailed'     => get_string('player_playback_failed', 'local_aireader'),
+            'playbackblocked'    => get_string('player_playback_blocked', 'local_aireader'),
+            'generationfailed'   => get_string('player_generation_failed', 'local_aireader'),
+            'beingprepared'      => get_string('player_being_prepared', 'local_aireader'),
+            'queuedforregen'     => get_string('player_queued_for_regen', 'local_aireader'),
+            'preparingtranscript' => get_string('player_preparing_transcript', 'local_aireader'),
+            'preparinglang'      => get_string('player_preparing_lang', 'local_aireader'),
+            'play'               => get_string('player_play', 'local_aireader'),
+            'pause'              => get_string('player_pause', 'local_aireader'),
+            'skipback'           => get_string('player_skip_back', 'local_aireader'),
+            'skipforward'        => get_string('player_skip_forward', 'local_aireader'),
+            'speed'              => get_string('player_speed', 'local_aireader'),
+            'playbackspeed'      => get_string('player_playback_speed', 'local_aireader'),
+            'restart'            => get_string('player_restart', 'local_aireader'),
+            'regenerate'         => get_string('player_regenerate', 'local_aireader'),
+            'showtranscript'     => get_string('player_show_transcript', 'local_aireader'),
+            'transcriptlabel'    => get_string('player_transcript_label', 'local_aireader'),
+            'language'           => get_string('player_language', 'local_aireader'),
+            'progress'           => get_string('player_progress', 'local_aireader'),
+            'offlinedisabled'    => get_string('player_offline_disabled', 'local_aireader'),
+            'turnonhere'         => get_string('player_turn_on_here', 'local_aireader', $scopelabel),
+            'turnoffhere'        => get_string('player_turn_off_here', 'local_aireader', $scopelabel),
+            'offheremsg'         => get_string('player_off_here', 'local_aireader', $scopelabel),
+        ];
     }
 
     /**
