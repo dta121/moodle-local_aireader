@@ -134,10 +134,20 @@ jobs:
       - name: Lint AMD source (eslint, fail on warning)
         if: ${{ !cancelled() }}
         run: |
-          cd moodle/local/aireader
-          if [ -d amd/src ]; then
-            npx --yes eslint --max-warnings=0 amd/src
+          # Locate the plugin inside the moodle install. moodle-plugin-ci's
+          # default layout is moodle/local/aireader, but the path shifts on
+          # newer stable branches (e.g. 5.1), so resolve it dynamically.
+          PLUGIN_DIR=$(find . -maxdepth 5 -type d -path '*/local/aireader' \
+            -not -path '*/node_modules/*' -not -path '*/.git/*' \
+            -not -path './plugin' -not -path './plugin/*' \
+            -print -quit)
+          if [ -z "$PLUGIN_DIR" ] || [ ! -d "$PLUGIN_DIR/amd/src" ]; then
+            echo "::warning::Could not locate installed plugin amd/src; skipping dedicated ESLint step."
+            exit 0
           fi
+          echo "Linting $PLUGIN_DIR/amd/src"
+          cd "$PLUGIN_DIR"
+          npx --yes eslint --max-warnings=0 amd/src
 
       - name: PHPUnit tests
         if: ${{ !cancelled() }}
