@@ -13,7 +13,8 @@ jobs:
 
     services:
       postgres:
-        image: postgres:14
+        # Moodle 5.1+ requires PostgreSQL 15+. 16 covers every branch we test.
+        image: postgres:16
         env:
           POSTGRES_USER: postgres
           POSTGRES_HOST_AUTH_METHOD: trust
