@@ -68,7 +68,12 @@ class asset_manager {
      * share one gate. Book chapters carry their own visibility flag separate
      * from cm-level uservisible, so cm-level access alone is not enough.
      *
-     * @param \stdClass $cm Course module record (must include id/instance).
+     * Accepts either a raw cm record (`stdClass` from
+     * `get_coursemodule_from_id`) or a `cm_info` (as returned by
+     * `get_course_and_cm_from_cmid`); both expose the `instance` property
+     * we need to scope the chapter lookup to the right book.
+     *
+     * @param \cm_info|\stdClass $cm Course module record or cm_info.
      * @param int $chapterid Book chapter id.
      * @param \context_module $context Module context for the capability check.
      * @throws \required_capability_exception When the chapter is hidden and
@@ -76,7 +81,7 @@ class asset_manager {
      * @throws \dml_exception When the chapter does not belong to the cm's book.
      */
     public static function assert_chapter_visible(
-        \stdClass $cm,
+        \cm_info|\stdClass $cm,
         int $chapterid,
         \context_module $context
     ): void {
