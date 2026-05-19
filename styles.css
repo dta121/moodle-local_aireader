@@ -8,7 +8,7 @@
     --la-text: rgba(0, 0, 0, 0.86);
     --la-muted: rgba(0, 0, 0, 0.56);
     --la-border: rgba(0, 0, 0, 0.08);
-    --la-bg: #ffffff;
+    --la-bg: #fff;
     --la-bg-hover: rgba(0, 0, 0, 0.04);
     --la-error: #c93030;
 
@@ -70,7 +70,7 @@
     transform: translateY(-50%);
     width: 0;
     pointer-events: none;
-    transition: width 0.08s linear;
+    transition: width 0.1s linear;
 }
 
 .local-aireader-progress-thumb {
@@ -152,8 +152,9 @@
     padding: 0 14px 0 4px;
     cursor: pointer;
     line-height: 1.4;
-    background-image: linear-gradient(45deg, transparent 45%, currentColor 45%, currentColor 55%, transparent 55%),
-                      linear-gradient(-45deg, transparent 45%, currentColor 45%, currentColor 55%, transparent 55%);
+    background-image:
+        linear-gradient(45deg, transparent 45%, currentColor 45%, currentColor 55%, transparent 55%),
+        linear-gradient(-45deg, transparent 45%, currentColor 45%, currentColor 55%, transparent 55%);
     background-position: calc(100% - 7px) 50%, calc(100% - 2px) 50%;
     background-size: 5px 5px;
     background-repeat: no-repeat;
@@ -171,13 +172,13 @@
     border-radius: 50%;
     border: none;
     background: var(--la-orange);
-    color: #ffffff;
+    color: #fff;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     padding: 0;
-    transition: background-color 0.15s ease, transform 0.05s ease, box-shadow 0.15s ease;
+    transition: background-color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
     box-shadow: 0 1px 2px rgba(248, 106, 1, 0.25);
 }
 
@@ -357,8 +358,9 @@
     padding: 0 14px 0 2px;
     cursor: pointer;
     line-height: 1.4;
-    background-image: linear-gradient(45deg, transparent 45%, currentColor 45%, currentColor 55%, transparent 55%),
-                      linear-gradient(-45deg, transparent 45%, currentColor 45%, currentColor 55%, transparent 55%);
+    background-image:
+        linear-gradient(45deg, transparent 45%, currentColor 45%, currentColor 55%, transparent 55%),
+        linear-gradient(-45deg, transparent 45%, currentColor 45%, currentColor 55%, transparent 55%);
     background-position: calc(100% - 7px) 50%, calc(100% - 2px) 50%;
     background-size: 5px 5px;
     background-repeat: no-repeat;
@@ -651,6 +653,6 @@ mark.local-aireader-mark.is-current {
 
     mark.local-aireader-mark.is-current {
         background: rgba(248, 106, 1, 0.45);
-        color: #ffffff;
+        color: #fff;
     }
 }
