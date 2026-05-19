@@ -38,6 +38,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # Moodle 4.5 LTS — the floor declared by version.php ($plugin->requires).
           - php: '8.1'
             moodle-branch: 'MOODLE_405_STABLE'
             database: pgsql
@@ -47,6 +48,20 @@ jobs:
           - php: '8.3'
             moodle-branch: 'MOODLE_405_STABLE'
             database: pgsql
+          # Moodle 5.0 — first non-LTS after 4.5.
+          - php: '8.2'
+            moodle-branch: 'MOODLE_500_STABLE'
+            database: pgsql
+          - php: '8.3'
+            moodle-branch: 'MOODLE_500_STABLE'
+            database: mariadb
+          # Moodle 5.1 — current development tip's stable line.
+          - php: '8.3'
+            moodle-branch: 'MOODLE_501_STABLE'
+            database: pgsql
+          - php: '8.4'
+            moodle-branch: 'MOODLE_501_STABLE'
+            database: mariadb
 
     steps:
       - name: Check out plugin
