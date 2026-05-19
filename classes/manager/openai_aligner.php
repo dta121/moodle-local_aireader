@@ -24,6 +24,8 @@
 
 namespace local_aireader\manager;
 
+use local_aireader\manager\http_guard;
+
 /**
  * Thin client over POST /v1/audio/transcriptions with verbose_json + segment
  * timestamps.
@@ -75,6 +77,7 @@ class openai_aligner {
         if ($audiobytes === '') {
             throw new \moodle_exception('error_alignment_empty_input', 'local_aireader');
         }
+        http_guard::assert_safe_url($this->endpoint);
 
         // Stage the audio in a tmp file so curl can attach it as multipart/form-data.
         $tmppath = make_request_directory() . '/' . $filename;
@@ -102,6 +105,8 @@ class openai_aligner {
             'CURLOPT_TIMEOUT'        => 180,
             'CURLOPT_CONNECTTIMEOUT' => 20,
             'CURLOPT_RETURNTRANSFER' => 1,
+            'CURLOPT_PROTOCOLS'      => CURLPROTO_HTTPS,
+            'CURLOPT_REDIR_PROTOCOLS' => CURLPROTO_HTTPS,
         ]);
 
         $response = $curl->post($this->endpoint, $postdata);
@@ -109,12 +114,11 @@ class openai_aligner {
         $status = (int)($info['http_code'] ?? 0);
 
         if ($status < 200 || $status >= 300) {
-            $snippet = is_string($response) ? substr($response, 0, 500) : '';
             throw new \moodle_exception(
                 'error_alignment_http',
                 'local_aireader',
                 '',
-                (object)['status' => $status, 'body' => $snippet]
+                http_guard::sanitize_error($status, $response)
             );
         }
 

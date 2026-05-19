@@ -66,7 +66,7 @@ class get_transcript extends external_api {
                     'idx'     => new external_value(PARAM_INT, '0-based position in the audio'),
                     'startms' => new external_value(PARAM_INT, 'Start time in milliseconds'),
                     'endms'   => new external_value(PARAM_INT, 'End time in milliseconds'),
-                    'text'    => new external_value(PARAM_RAW, 'Segment text'),
+                    'text'    => new external_value(PARAM_NOTAGS, 'Segment text'),
                 ])
             ),
         ]);

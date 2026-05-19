@@ -59,7 +59,7 @@ class request_regen extends external_api {
         return new external_single_structure([
             'status'  => new external_value(PARAM_ALPHA, 'pending|generating|ready|error|stale'),
             'queued'  => new external_value(PARAM_BOOL, 'Whether a generation task was queued'),
-            'message' => new external_value(PARAM_RAW, 'Human-readable status'),
+            'message' => new external_value(PARAM_TEXT, 'Human-readable status'),
         ]);
     }
 
@@ -80,6 +80,13 @@ class request_regen extends external_api {
             'lang'      => $lang,
         ]);
 
+        if (!in_array($params['module'], ['page', 'book'], true)) {
+            throw new \invalid_parameter_exception('Unsupported module');
+        }
+        if (!in_array($params['lang'], asset_manager::enabled_languages(), true)) {
+            throw new \invalid_parameter_exception('Language not enabled on this site');
+        }
+
         [$course, $cm] = get_course_and_cm_from_cmid($params['cmid'], $params['module']);
         $context = \context_module::instance($cm->id);
         self::validate_context($context);
@@ -88,6 +95,9 @@ class request_regen extends external_api {
         $chapterid = $params['module'] === 'book' && $params['chapterid'] > 0
             ? (int)$params['chapterid']
             : null;
+        if ($chapterid !== null) {
+            asset_manager::assert_chapter_visible($cm, $chapterid, $context);
+        }
 
         $voice = (string)(get_config('local_aireader', 'voice') ?: 'marin');
         $model = (string)(get_config('local_aireader', 'model') ?: 'gpt-4o-mini-tts');

@@ -44,11 +44,4 @@ $capabilities = [
             'manager'        => CAP_ALLOW,
         ],
     ],
-    'local/aireader:purge' => [
-        'captype'      => 'write',
-        'contextlevel' => CONTEXT_SYSTEM,
-        'archetypes'   => [
-            'manager' => CAP_ALLOW,
-        ],
-    ],
 ];

@@ -24,6 +24,8 @@
 
 namespace local_aireader\manager;
 
+use local_aireader\manager\http_guard;
+
 /**
  * Minimal OpenAI Audio (speech) client.
  *
@@ -66,6 +68,7 @@ class openai_client {
         if ($this->apikey === '') {
             throw new \moodle_exception('error_no_apikey', 'local_aireader');
         }
+        http_guard::assert_safe_url($this->endpoint);
 
         $payload = json_encode([
             'model'        => $model,
@@ -85,6 +88,8 @@ class openai_client {
             'CURLOPT_TIMEOUT'        => 120,
             'CURLOPT_CONNECTTIMEOUT' => 15,
             'CURLOPT_RETURNTRANSFER' => 1,
+            'CURLOPT_PROTOCOLS'      => CURLPROTO_HTTPS,
+            'CURLOPT_REDIR_PROTOCOLS' => CURLPROTO_HTTPS,
         ]);
 
         $response = $curl->post($this->endpoint, $payload);
@@ -92,12 +97,11 @@ class openai_client {
         $status = (int)($info['http_code'] ?? 0);
 
         if ($status < 200 || $status >= 300) {
-            $snippet = is_string($response) ? substr($response, 0, 500) : '';
             throw new \moodle_exception(
                 'error_tts_http',
                 'local_aireader',
                 '',
-                (object)['status' => $status, 'body' => $snippet]
+                http_guard::sanitize_error($status, $response)
             );
         }
 

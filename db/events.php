@@ -31,11 +31,6 @@ $observers = [
         'internal'  => false,
     ],
     [
-        'eventname' => '\core\event\course_module_created',
-        'callback'  => '\local_aireader\observer::course_module_created',
-        'internal'  => false,
-    ],
-    [
         'eventname' => '\core\event\course_module_deleted',
         'callback'  => '\local_aireader\observer::course_module_deleted',
         'internal'  => false,

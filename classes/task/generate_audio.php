@@ -98,6 +98,18 @@ class generate_audio extends adhoc_task {
                 return;
             }
 
+            // Refuse runaway pages before we start spending OpenAI budget: a
+            // teacher can otherwise queue an arbitrarily large synthesis job
+            // (megabytes of HTML → hours of cron + dollars in API calls).
+            $maxchars = asset_manager::max_narration_chars();
+            $textlen = mb_strlen($extracted['text']);
+            if ($maxchars > 0 && $textlen > $maxchars) {
+                $msg = "Narration text exceeds max ({$textlen} > {$maxchars} chars)";
+                mtrace("local_aireader: asset {$asset->id} {$msg}; refusing to generate");
+                asset_manager::update_status($asset->id, asset_manager::STATUS_ERROR, $msg);
+                return;
+            }
+
             // Translate before TTS when the asset's language doesn't match the site source.
             global $CFG;
             $sourcelang = (string)($CFG->lang ?? 'en');

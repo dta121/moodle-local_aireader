@@ -47,15 +47,6 @@ class observer {
     }
 
     /**
-     * No-op on create; first view triggers generation.
-     *
-     * @param \core\event\course_module_created $event
-     */
-    public static function course_module_created(\core\event\course_module_created $event): void {
-        unset($event);
-    }
-
-    /**
      * Purge metadata, stored files, and overrides when the source module is deleted.
      *
      * @param \core\event\course_module_deleted $event

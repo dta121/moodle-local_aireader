@@ -211,5 +211,17 @@ function xmldb_local_aireader_upgrade(int $oldversion): bool {
         upgrade_plugin_savepoint(true, 2026051708, 'local', 'aireader');
     }
 
+    if ($oldversion < 2026051900) {
+        // v1.0.0: security hardening pass — chapter-visibility gates, lang
+        // allowlist enforcement on the external API, course/cm-scoped
+        // require_login in the pluginfile handler, per-asset content size
+        // cap (max_narration_chars), HTTPS-only outbound calls with private
+        // IP / loopback blocking, sanitized OpenAI error snippets, narrower
+        // PARAM types on web service returns, and removal of the unused
+        // local/aireader:purge capability. No schema change; version bump
+        // registers the new max_narration_chars admin default.
+        upgrade_plugin_savepoint(true, 2026051900, 'local', 'aireader');
+    }
+
     return true;
 }

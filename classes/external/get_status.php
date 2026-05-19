@@ -68,7 +68,7 @@ class get_status extends external_api {
             'audiourl'       => new external_value(PARAM_URL, 'mp3 URL or empty', VALUE_OPTIONAL),
             'durationsecs'   => new external_value(PARAM_INT, 'Duration in seconds', VALUE_OPTIONAL),
             'canregenerate'  => new external_value(PARAM_BOOL, 'Whether the caller may force regen'),
-            'message'        => new external_value(PARAM_RAW, 'Human-readable status'),
+            'message'        => new external_value(PARAM_TEXT, 'Human-readable status'),
             'lastgenerated'  => new external_value(PARAM_INT, 'UNIX timestamp', VALUE_OPTIONAL),
             'assetid'        => new external_value(PARAM_INT, 'Asset row id (for set_position)', VALUE_OPTIONAL),
             'resumeposition' => new external_value(PARAM_INT, 'Saved playback position in seconds', VALUE_OPTIONAL),
@@ -97,6 +97,13 @@ class get_status extends external_api {
             throw new \invalid_parameter_exception('Unsupported module');
         }
 
+        // Server-side allowlist on the lang parameter. Without this any learner
+        // with the listen capability could iterate ISO codes and force the plugin
+        // to spend the OpenAI translation+TTS budget on hundreds of variants.
+        if (!in_array($params['lang'], asset_manager::enabled_languages(), true)) {
+            throw new \invalid_parameter_exception('Language not enabled on this site');
+        }
+
         [$course, $cm] = get_course_and_cm_from_cmid($params['cmid'], $params['module']);
         $context = \context_module::instance($cm->id);
         self::validate_context($context);
@@ -107,6 +114,9 @@ class get_status extends external_api {
             : null;
         if ($params['module'] === 'book' && $chapterid === null) {
             throw new \invalid_parameter_exception('chapterid required for mod_book');
+        }
+        if ($chapterid !== null) {
+            asset_manager::assert_chapter_visible($cm, $chapterid, $context);
         }
 
         $voice = (string)(get_config('local_aireader', 'voice') ?: 'marin');

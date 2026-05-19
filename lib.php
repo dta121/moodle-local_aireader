@@ -41,16 +41,31 @@ function local_aireader_pluginfile($course, $cm, $context, $filearea, $args, $fo
         send_file_not_found();
     }
 
-    require_login();
-
     $itemid = (int)array_shift($args);
     $filename = array_pop($args);
     $filepath = '/';
 
     $asset = $DB->get_record('local_aireader_asset', ['id' => $itemid], '*', MUST_EXIST);
 
+    // Resolve the asset's source course and cm so require_login can enforce
+    // enrolment, course visibility, and activity availability (date restrictions,
+    // group membership, completion gates) — not just session login.
+    $sourcecourse = get_course($asset->courseid);
+    $sourcecm = get_coursemodule_from_id('', $asset->cmid, 0, false, MUST_EXIST);
+    require_login($sourcecourse, false, $sourcecm);
+
     $sourcecontext = \context_module::instance($asset->cmid);
     require_capability('local/aireader:listen', $sourcecontext);
+
+    // Hidden-chapter gate for book assets: cm-level access doesn't imply the
+    // user can see every chapter, so re-check the chapter the audio belongs to.
+    if (!empty($asset->chapterid)) {
+        \local_aireader\manager\asset_manager::assert_chapter_visible(
+            $sourcecm,
+            (int)$asset->chapterid,
+            $sourcecontext
+        );
+    }
 
     $modinfo = get_fast_modinfo($asset->courseid);
     if (!isset($modinfo->cms[$asset->cmid]) || !$modinfo->cms[$asset->cmid]->uservisible) {

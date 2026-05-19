@@ -111,6 +111,14 @@ if ($hassiteconfig) {
         PARAM_INT
     ));
 
+    $settings->add(new admin_setting_configtext(
+        'local_aireader/max_narration_chars',
+        get_string('setting_maxnarrationchars', 'local_aireader'),
+        get_string('setting_maxnarrationchars_desc', 'local_aireader'),
+        50000,
+        PARAM_INT
+    ));
+
     $settings->add(new admin_setting_configtextarea(
         'local_aireader/disclosure',
         get_string('setting_disclosure', 'local_aireader'),

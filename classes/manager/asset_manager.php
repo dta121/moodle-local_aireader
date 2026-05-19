@@ -44,6 +44,62 @@ class asset_manager {
     /** Stale - content changed; superseded by a new row. */
     public const STATUS_STALE = 'stale';
 
+    /** Default hard cap (characters) on cleaned narration text per asset. */
+    public const DEFAULT_MAX_NARRATION_CHARS = 50000;
+
+    /**
+     * Resolve the configured hard cap on cleaned narration text length.
+     *
+     * @return int Max characters allowed before generation is refused. 0 disables.
+     */
+    public static function max_narration_chars(): int {
+        $value = (int)get_config('local_aireader', 'max_narration_chars');
+        if ($value <= 0) {
+            return self::DEFAULT_MAX_NARRATION_CHARS;
+        }
+        return $value;
+    }
+
+    /**
+     * Throw a capability exception if the chapter is hidden and the caller
+     * lacks `mod/book:viewhiddenchapters` on the supplied module context.
+     *
+     * Centralized so `get_status`, `request_regen`, and the pluginfile handler
+     * share one gate. Book chapters carry their own visibility flag separate
+     * from cm-level uservisible, so cm-level access alone is not enough.
+     *
+     * @param \stdClass $cm Course module record (must include id/instance).
+     * @param int $chapterid Book chapter id.
+     * @param \context_module $context Module context for the capability check.
+     * @throws \required_capability_exception When the chapter is hidden and
+     *                                        the caller lacks the override cap.
+     * @throws \dml_exception When the chapter does not belong to the cm's book.
+     */
+    public static function assert_chapter_visible(
+        \stdClass $cm,
+        int $chapterid,
+        \context_module $context
+    ): void {
+        global $DB;
+        if ($chapterid <= 0) {
+            return;
+        }
+        $chapter = $DB->get_record(
+            'book_chapters',
+            ['id' => $chapterid, 'bookid' => $cm->instance],
+            'id, hidden',
+            MUST_EXIST
+        );
+        if (!empty($chapter->hidden) && !has_capability('mod/book:viewhiddenchapters', $context)) {
+            throw new \required_capability_exception(
+                $context,
+                'mod/book:viewhiddenchapters',
+                'nopermissions',
+                ''
+            );
+        }
+    }
+
     /**
      * Compute the canonical source hash for the (cm, chapter, voice, model, lang) variant.
      *
@@ -331,6 +387,7 @@ class asset_manager {
             }
         }
 
+        $maxchars = self::max_narration_chars();
         foreach ($tuples as [$thiscmid, $chapterid]) {
             try {
                 $extracted = \local_aireader\manager\content_extractor::extract(
@@ -339,6 +396,11 @@ class asset_manager {
                     $chapterid > 0 ? $chapterid : null
                 );
             } catch (\Throwable $e) {
+                continue;
+            }
+            // Skip eager pre-generation for over-cap content; the per-asset
+            // task will surface a clean error on the source-language asset.
+            if ($maxchars > 0 && mb_strlen($extracted['text']) > $maxchars) {
                 continue;
             }
             foreach ($enabled as $lang) {
