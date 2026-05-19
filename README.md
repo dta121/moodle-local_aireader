@@ -9,6 +9,24 @@ Audio is generated once by AI, cached on your Moodle site, and reused for
 every student who visits the same activity afterwards. There's no
 per-student cost and no waiting on the API at page-load time.
 
+## Screenshots
+
+### Player with karaoke highlighting
+
+![Player playing a mod_page resource with the active sentence highlighted in orange inside the page body](screenshots/player-with-highlight.jpg)
+
+The player sits at the top of the activity. As audio plays, the
+currently-narrated sentence lights up inside the original page text —
+no duplicated transcript, no layout shift.
+
+### Transcript pane open
+
+![Transcript pane open below the player showing Whisper-aligned segment list with clickable entries](screenshots/player-transcript.jpg)
+
+Learners can also expand a click-to-seek transcript pane below the
+player. Used automatically when in-place matching falls below 50% —
+typically on translated narrations or pages with embedded video.
+
 ## What learners get
 
 - A clean podcast-style player at the top of every Page and Book chapter.
