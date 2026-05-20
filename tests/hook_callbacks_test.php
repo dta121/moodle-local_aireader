@@ -108,6 +108,11 @@ final class hook_callbacks_test extends \advanced_testcase {
     /**
      * Create a Book whose first chapter is hidden and second chapter is visible.
      *
+     * mod_book's create_chapter generator inserts new chapters at pagenum=1 by
+     * default and bumps every existing chapter with `pagenum >= 1` up by one,
+     * which would silently invert the order this test cares about. Pin both
+     * pagenums explicitly so iteration order matches the test's intent.
+     *
      * @return array{\stdClass,\stdClass,\stdClass,\stdClass} Course, cm, hidden, visible.
      */
     private function create_book_with_hidden_first(): array {
@@ -115,8 +120,8 @@ final class hook_callbacks_test extends \advanced_testcase {
         $course = $gen->create_course();
         $bookgen = $gen->get_plugin_generator('mod_book');
         $book = $bookgen->create_instance(['course' => $course->id]);
-        $hidden = $bookgen->create_chapter(['bookid' => $book->id, 'hidden' => 1]);
-        $visible = $bookgen->create_chapter(['bookid' => $book->id]);
+        $hidden = $bookgen->create_chapter(['bookid' => $book->id, 'pagenum' => 1, 'hidden' => 1]);
+        $visible = $bookgen->create_chapter(['bookid' => $book->id, 'pagenum' => 2]);
         $cm = get_coursemodule_from_instance('book', $book->id, $course->id, false, MUST_EXIST);
         return [$course, $cm, $hidden, $visible];
     }
