@@ -83,6 +83,12 @@ class request_regen extends external_api {
         if (!in_array($params['module'], ['page', 'book'], true)) {
             throw new \invalid_parameter_exception('Unsupported module');
         }
+        if ($params['module'] === 'page' && $params['chapterid'] !== 0) {
+            throw new \invalid_parameter_exception('chapterid must be 0 for mod_page');
+        }
+        if ($params['module'] === 'book' && $params['chapterid'] <= 0) {
+            throw new \invalid_parameter_exception('chapterid required for mod_book');
+        }
         if (!in_array($params['lang'], asset_manager::enabled_languages(), true)) {
             throw new \invalid_parameter_exception('Language not enabled on this site');
         }
@@ -92,9 +98,7 @@ class request_regen extends external_api {
         self::validate_context($context);
         require_capability('local/aireader:manage', $context);
 
-        $chapterid = $params['module'] === 'book' && $params['chapterid'] > 0
-            ? (int)$params['chapterid']
-            : null;
+        $chapterid = $params['module'] === 'book' ? (int)$params['chapterid'] : null;
         if ($chapterid !== null) {
             asset_manager::assert_chapter_visible($cm, $chapterid, $context);
         }

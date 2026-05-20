@@ -28,6 +28,7 @@ use core_external\external_api;
 use core_external\external_function_parameters;
 use core_external\external_single_structure;
 use core_external\external_value;
+use local_aireader\manager\asset_manager;
 use local_aireader\manager\override_manager;
 
 /**
@@ -90,6 +91,10 @@ class set_override extends external_api {
         $context = \context_module::instance($cm->id);
         self::validate_context($context);
         require_capability('local/aireader:manage', $context);
+
+        if ($params['module'] === 'book' && $params['chapterid'] > 0) {
+            asset_manager::assert_chapter_visible($cm, (int)$params['chapterid'], $context);
+        }
 
         override_manager::set(
             (int)$course->id,

@@ -35,6 +35,9 @@ use local_aireader\manager\http_guard;
  * @package local_aireader
  */
 class openai_client {
+    /** @var int Safe fallback when the configured chunk size is invalid. */
+    public const DEFAULT_CHUNK_SIZE = 3800;
+
     /** @var string Bearer API key. */
     private $apikey;
     /** @var string Endpoint URL. */
@@ -122,6 +125,9 @@ class openai_client {
         $text = trim($text);
         if ($text === '') {
             return [];
+        }
+        if ($maxchars <= 0) {
+            $maxchars = self::DEFAULT_CHUNK_SIZE;
         }
         if (mb_strlen($text) <= $maxchars) {
             return [$text];

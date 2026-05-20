@@ -80,9 +80,17 @@ class hook_callbacks {
 
         $chapterid = 0;
         if ($modname === 'book') {
-            $chapterid = (int)optional_param('chapterid', 0, PARAM_INT);
-            if ($chapterid === 0) {
-                $chapterid = (int)self::resolve_default_book_chapter($PAGE->cm->instance);
+            try {
+                $chapterid = self::resolve_book_chapter_for_player(
+                    $PAGE->cm,
+                    $modulecontext,
+                    (int)optional_param('chapterid', 0, PARAM_INT)
+                );
+            } catch (\Throwable $e) {
+                return;
+            }
+            if ($chapterid <= 0) {
+                return;
             }
         }
 
@@ -180,25 +188,52 @@ class hook_callbacks {
     }
 
     /**
-     * Best-effort lookup of the first visible chapter for a book instance.
+     * Resolve the Book chapter the player should target.
      *
-     * @param int $bookid The book id.
+     * @param \cm_info|\stdClass $cm Book course module record.
+     * @param \context_module $context Book module context.
+     * @param int $requestedchapterid Chapter id from the request, or 0.
      * @return int Chapter id, or 0 when the book has no visible chapters.
      */
-    private static function resolve_default_book_chapter(int $bookid): int {
+    public static function resolve_book_chapter_for_player(
+        \cm_info|\stdClass $cm,
+        \context_module $context,
+        int $requestedchapterid
+    ): int {
+        if ($requestedchapterid > 0) {
+            asset_manager::assert_chapter_visible($cm, $requestedchapterid, $context);
+            return $requestedchapterid;
+        }
+
+        return self::resolve_default_book_chapter((int)$cm->instance, $context);
+    }
+
+    /**
+     * Best-effort lookup of the first chapter visible to the current user.
+     *
+     * @param int $bookid The book id.
+     * @param \context_module $context Book module context.
+     * @return int Chapter id, or 0 when the user has no visible chapter.
+     */
+    private static function resolve_default_book_chapter(int $bookid, \context_module $context): int {
         global $DB;
-        $chapter = $DB->get_records(
+        $chapters = $DB->get_records(
             'book_chapters',
-            ['bookid' => $bookid, 'hidden' => 0],
+            ['bookid' => $bookid],
             'pagenum ASC',
-            'id',
-            0,
-            1
+            'id, hidden'
         );
-        if (!$chapter) {
+        if (!$chapters) {
             return 0;
         }
-        $row = reset($chapter);
-        return (int)$row->id;
+
+        $canviewhidden = has_capability('mod/book:viewhiddenchapters', $context)
+            || has_capability('mod/book:edit', $context);
+        foreach ($chapters as $chapter) {
+            if (empty($chapter->hidden) || $canviewhidden) {
+                return (int)$chapter->id;
+            }
+        }
+        return 0;
     }
 }

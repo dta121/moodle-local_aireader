@@ -129,7 +129,10 @@ class generate_audio extends adhoc_task {
                 );
             }
 
-            $chunksize = (int)(get_config('local_aireader', 'chunk_size') ?: 3800);
+            $chunksize = (int)get_config('local_aireader', 'chunk_size');
+            if ($chunksize <= 0) {
+                $chunksize = openai_client::DEFAULT_CHUNK_SIZE;
+            }
             $chunks = openai_client::chunk_text($narrationtext, $chunksize);
             if (!$chunks) {
                 throw new \moodle_exception('error_empty_content', 'local_aireader');
