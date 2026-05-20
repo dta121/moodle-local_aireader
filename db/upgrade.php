@@ -281,8 +281,32 @@ function xmldb_local_aireader_upgrade(int $oldversion): bool {
             }
 
             $DB->execute('UPDATE {local_aireader_asset} SET chapterid = 0 WHERE chapterid IS NULL');
+
+            // chapterid participates in two indexes; the DDL engine refuses to
+            // tighten the column's NOT NULL constraint while either is in place.
+            // Drop them, alter the column, then re-create the indexes.
+            $variantindex = new xmldb_index(
+                'unique_variant',
+                XMLDB_INDEX_UNIQUE,
+                ['cmid', 'chapterid', 'lang', 'voice', 'model', 'sourcehash']
+            );
+            if ($dbman->index_exists($table, $variantindex)) {
+                $dbman->drop_index($table, $variantindex);
+            }
+            $cmchapterindex = new xmldb_index(
+                'cmid_chapter',
+                XMLDB_INDEX_NOTUNIQUE,
+                ['cmid', 'chapterid']
+            );
+            if ($dbman->index_exists($table, $cmchapterindex)) {
+                $dbman->drop_index($table, $cmchapterindex);
+            }
+
             $dbman->change_field_notnull($table, $field);
             $dbman->change_field_default($table, $field);
+
+            $dbman->add_index($table, $variantindex);
+            $dbman->add_index($table, $cmchapterindex);
         }
 
         upgrade_plugin_savepoint(true, 2026052000, 'local', 'aireader');
