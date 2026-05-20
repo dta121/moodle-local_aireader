@@ -282,9 +282,9 @@ function xmldb_local_aireader_upgrade(int $oldversion): bool {
 
             $DB->execute('UPDATE {local_aireader_asset} SET chapterid = 0 WHERE chapterid IS NULL');
 
-            // chapterid participates in two indexes; the DDL engine refuses to
-            // tighten the column's NOT NULL constraint while either is in place.
-            // Drop them, alter the column, then re-create the indexes.
+            // The chapterid column participates in two indexes; the DDL engine
+            // refuses to tighten its NOT NULL constraint while either is in
+            // place. Drop them, alter the column, then re-create the indexes.
             $variantindex = new xmldb_index(
                 'unique_variant',
                 XMLDB_INDEX_UNIQUE,
