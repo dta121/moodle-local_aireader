@@ -57,15 +57,7 @@ function local_aireader_pluginfile($course, $cm, $context, $filearea, $args, $fo
     $sourcecontext = \context_module::instance($asset->cmid);
     require_capability('local/aireader:listen', $sourcecontext);
 
-    // Hidden-chapter gate for book assets: cm-level access doesn't imply the
-    // user can see every chapter, so re-check the chapter the audio belongs to.
-    if (!empty($asset->chapterid)) {
-        \local_aireader\manager\asset_manager::assert_chapter_visible(
-            $sourcecm,
-            (int)$asset->chapterid,
-            $sourcecontext
-        );
-    }
+    \local_aireader\manager\asset_manager::assert_asset_visible($asset, $sourcecontext);
 
     $modinfo = get_fast_modinfo($asset->courseid);
     if (!isset($modinfo->cms[$asset->cmid]) || !$modinfo->cms[$asset->cmid]->uservisible) {

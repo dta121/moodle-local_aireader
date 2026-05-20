@@ -90,6 +90,7 @@ class set_position extends external_api {
         $context = \context_module::instance((int)$asset->cmid);
         self::validate_context($context);
         require_capability('local/aireader:listen', $context);
+        asset_manager::assert_asset_visible($asset, $context);
 
         $position = max(0, (int)$params['position']);
         position_manager::set((int)$USER->id, (int)$asset->id, $position);

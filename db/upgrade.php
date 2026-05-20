@@ -223,5 +223,70 @@ function xmldb_local_aireader_upgrade(int $oldversion): bool {
         upgrade_plugin_savepoint(true, 2026051900, 'local', 'aireader');
     }
 
+    if ($oldversion < 2026052000) {
+        // Normalise page/no-chapter asset rows from NULL to 0 so the unique
+        // variant index prevents duplicate page assets across all supported DBs.
+        $table = new xmldb_table('local_aireader_asset');
+        $field = new xmldb_field('chapterid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0', 'instanceid');
+
+        if ($dbman->field_exists($table, 'chapterid')) {
+            $rows = $DB->get_records_select(
+                'local_aireader_asset',
+                'chapterid IS NULL OR chapterid = :zero',
+                ['zero' => 0],
+                'cmid ASC, lang ASC, voice ASC, model ASC, sourcehash ASC, status ASC, timemodified DESC, id DESC'
+            );
+            $groups = [];
+            foreach ($rows as $row) {
+                $key = implode('|', [
+                    (int)$row->cmid,
+                    (string)$row->lang,
+                    (string)$row->voice,
+                    (string)$row->model,
+                    (string)$row->sourcehash,
+                ]);
+                $groups[$key][] = $row;
+            }
+
+            $fs = get_file_storage();
+            $priority = [
+                'ready' => 5,
+                'generating' => 4,
+                'pending' => 3,
+                'stale' => 2,
+                'error' => 1,
+            ];
+            foreach ($groups as $group) {
+                if (count($group) <= 1) {
+                    continue;
+                }
+                usort($group, static function ($a, $b) use ($priority): int {
+                    $ap = $priority[$a->status] ?? 0;
+                    $bp = $priority[$b->status] ?? 0;
+                    if ($ap !== $bp) {
+                        return $bp <=> $ap;
+                    }
+                    if ((int)$a->timemodified !== (int)$b->timemodified) {
+                        return (int)$b->timemodified <=> (int)$a->timemodified;
+                    }
+                    return (int)$b->id <=> (int)$a->id;
+                });
+                array_shift($group);
+                foreach ($group as $duplicate) {
+                    $fs->delete_area_files((int)$duplicate->contextid, 'local_aireader', 'audio', (int)$duplicate->id);
+                    $DB->delete_records('local_aireader_position', ['assetid' => $duplicate->id]);
+                    $DB->delete_records('local_aireader_segment', ['assetid' => $duplicate->id]);
+                    $DB->delete_records('local_aireader_asset', ['id' => $duplicate->id]);
+                }
+            }
+
+            $DB->execute('UPDATE {local_aireader_asset} SET chapterid = 0 WHERE chapterid IS NULL');
+            $dbman->change_field_notnull($table, $field);
+            $dbman->change_field_default($table, $field);
+        }
+
+        upgrade_plugin_savepoint(true, 2026052000, 'local', 'aireader');
+    }
+
     return true;
 }

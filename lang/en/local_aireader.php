@@ -32,6 +32,7 @@ $string['default_translation_prompt'] = 'You are an academic translator. Transla
 $string['error_alignment_empty_input'] = 'Alignment was given empty audio input.';
 $string['error_alignment_empty_response'] = 'Whisper returned no segments.';
 $string['error_alignment_http'] = 'Whisper alignment request failed: {$a}';
+$string['error_asset_lock_timeout'] = 'Could not reserve the narration asset for generation. Please try again.';
 $string['error_empty_content'] = 'Activity content is empty after extraction.';
 $string['error_endpoint_invalid'] = 'Configured OpenAI endpoint is not a safe HTTPS URL.';
 $string['error_no_apikey'] = 'OpenAI API key is not configured for local_aireader.';

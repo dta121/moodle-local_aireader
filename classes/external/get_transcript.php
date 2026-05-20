@@ -89,6 +89,7 @@ class get_transcript extends external_api {
         $context = \context_module::instance((int)$asset->cmid);
         self::validate_context($context);
         require_capability('local/aireader:listen', $context);
+        asset_manager::assert_asset_visible($asset, $context);
 
         $rows = segment_manager::get_for_asset((int)$asset->id);
         $segments = [];

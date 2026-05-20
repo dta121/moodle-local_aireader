@@ -106,11 +106,43 @@ class asset_manager {
     }
 
     /**
+     * Re-check visibility for an already-created asset row.
+     *
+     * Asset-id web service calls do not receive the source chapter id directly,
+     * so they must derive it from the asset before returning derived content
+     * such as transcripts or accepting playback positions.
+     *
+     * @param \stdClass $asset Asset row.
+     * @param \context_module $context Module context already validated by the caller.
+     * @throws \invalid_parameter_exception When the asset no longer belongs to
+     *                                      the supplied context.
+     * @throws \required_capability_exception When the asset is a hidden Book
+     *                                        chapter and the caller cannot view it.
+     */
+    public static function assert_asset_visible(\stdClass $asset, \context_module $context): void {
+        $module = (string)($asset->module ?? '');
+        if (!in_array($module, ['page', 'book'], true)) {
+            throw new \invalid_parameter_exception('Unsupported asset module');
+        }
+
+        $sourcecm = get_coursemodule_from_id($module, (int)$asset->cmid, (int)$asset->courseid, false, MUST_EXIST);
+        if ((int)$sourcecm->id !== (int)$context->instanceid || (int)$asset->contextid !== (int)$context->id) {
+            throw new \invalid_parameter_exception('Asset context mismatch');
+        }
+
+        if ($module === 'book' && !empty($asset->chapterid)) {
+            self::assert_chapter_visible($sourcecm, (int)$asset->chapterid, $context);
+        } else if ($module !== 'book' && !empty($asset->chapterid)) {
+            throw new \invalid_parameter_exception('Asset chapter mismatch');
+        }
+    }
+
+    /**
      * Compute the canonical source hash for the (cm, chapter, voice, model, lang) variant.
      *
      * @param string $module Module name.
      * @param int $cmid Course module id.
-     * @param int|null $chapterid Book chapter id, or null.
+     * @param int|null $chapterid Book chapter id, or null/0 for no chapter.
      * @param string $lang Language code.
      * @param string $voice Voice name.
      * @param string $model Model id.
@@ -129,7 +161,7 @@ class asset_manager {
         $payload = implode('|', [
             $module,
             (string)$cmid,
-            $chapterid === null ? '' : (string)$chapterid,
+            $chapterid === null || $chapterid <= 0 ? '' : (string)$chapterid,
             $lang,
             $voice,
             $model,
@@ -139,10 +171,23 @@ class asset_manager {
     }
 
     /**
-     * Look up the asset row for the requested variant, ignoring stale ones.
+     * Normalise the nullable historical chapter id representation.
+     *
+     * Fresh rows store 0 for Page/no-chapter assets so the unique variant index
+     * is portable and actually prevents duplicate Page assets.
+     *
+     * @param int|null $chapterid Raw chapter id.
+     * @return int Positive Book chapter id, or 0 for Page/no chapter.
+     */
+    private static function normalise_chapterid(?int $chapterid): int {
+        return $chapterid !== null && $chapterid > 0 ? $chapterid : 0;
+    }
+
+    /**
+     * Look up the newest asset row for the requested variant.
      *
      * @param int $cmid Course module id.
-     * @param int|null $chapterid Book chapter id, or null for non-book modules.
+     * @param int|null $chapterid Book chapter id, or null/0 for non-book modules.
      * @param string $lang Language code.
      * @param string $voice Voice name.
      * @param string $model Model id.
@@ -156,21 +201,17 @@ class asset_manager {
         string $model
     ): ?\stdClass {
         global $DB;
+        $chapterid = self::normalise_chapterid($chapterid);
         $params = [
-            'cmid'  => $cmid,
-            'lang'  => $lang,
-            'voice' => $voice,
-            'model' => $model,
+            'cmid'      => $cmid,
+            'chapterid' => $chapterid,
+            'lang'      => $lang,
+            'voice'     => $voice,
+            'model'     => $model,
         ];
-        if ($chapterid === null) {
-            $chaptercond = 'chapterid IS NULL';
-        } else {
-            $chaptercond = 'chapterid = :chapterid';
-            $params['chapterid'] = $chapterid;
-        }
         $sql = "SELECT * FROM {local_aireader_asset}
                  WHERE cmid = :cmid
-                   AND {$chaptercond}
+                   AND chapterid = :chapterid
                    AND lang = :lang
                    AND voice = :voice
                    AND model = :model
@@ -201,50 +242,67 @@ class asset_manager {
      */
     public static function ensure_row(array $fields): array {
         global $DB;
-
-        $existing = self::find_current(
-            $fields['cmid'],
-            $fields['chapterid'],
-            $fields['lang'],
-            $fields['voice'],
-            $fields['model']
-        );
-
-        $now = time();
-
-        if ($existing && $existing->sourcehash === $fields['sourcehash']) {
-            $DB->set_field('local_aireader_asset', 'lastrequested', $now, ['id' => $existing->id]);
-            $existing->lastrequested = $now;
-            return [$existing, true];
+        $chapterid = self::normalise_chapterid($fields['chapterid'] ?? null);
+        $lockkey = sha1(implode('|', [
+            (string)$fields['cmid'],
+            (string)$chapterid,
+            (string)$fields['lang'],
+            (string)$fields['voice'],
+            (string)$fields['model'],
+        ]));
+        $lockfactory = \core\lock\lock_config::get_lock_factory('local_aireader_asset');
+        $lock = $lockfactory->get_lock($lockkey, 10);
+        if (!$lock) {
+            throw new \moodle_exception('error_asset_lock_timeout', 'local_aireader');
         }
 
-        if ($existing) {
-            $DB->set_field('local_aireader_asset', 'status', self::STATUS_STALE, ['id' => $existing->id]);
-        }
+        try {
+            $existing = self::find_current(
+                $fields['cmid'],
+                $chapterid,
+                $fields['lang'],
+                $fields['voice'],
+                $fields['model']
+            );
 
-        $row = (object)[
-            'courseid'      => $fields['courseid'],
-            'cmid'          => $fields['cmid'],
-            'contextid'     => $fields['contextid'],
-            'module'        => $fields['module'],
-            'instanceid'    => $fields['instanceid'],
-            'chapterid'     => $fields['chapterid'],
-            'lang'          => $fields['lang'],
-            'voice'         => $fields['voice'],
-            'model'         => $fields['model'],
-            'sourcehash'    => $fields['sourcehash'],
-            'status'        => self::STATUS_PENDING,
-            'fileid'        => null,
-            'bytesize'      => null,
-            'durationsecs'  => null,
-            'lasterror'     => null,
-            'timecreated'   => $now,
-            'timemodified'  => $now,
-            'lastgenerated' => null,
-            'lastrequested' => $now,
-        ];
-        $row->id = $DB->insert_record('local_aireader_asset', $row);
-        return [$row, false];
+            $now = time();
+
+            if ($existing && $existing->sourcehash === $fields['sourcehash']) {
+                $DB->set_field('local_aireader_asset', 'lastrequested', $now, ['id' => $existing->id]);
+                $existing->lastrequested = $now;
+                return [$existing, true];
+            }
+
+            if ($existing) {
+                $DB->set_field('local_aireader_asset', 'status', self::STATUS_STALE, ['id' => $existing->id]);
+            }
+
+            $row = (object)[
+                'courseid'      => $fields['courseid'],
+                'cmid'          => $fields['cmid'],
+                'contextid'     => $fields['contextid'],
+                'module'        => $fields['module'],
+                'instanceid'    => $fields['instanceid'],
+                'chapterid'     => $chapterid,
+                'lang'          => $fields['lang'],
+                'voice'         => $fields['voice'],
+                'model'         => $fields['model'],
+                'sourcehash'    => $fields['sourcehash'],
+                'status'        => self::STATUS_PENDING,
+                'fileid'        => null,
+                'bytesize'      => null,
+                'durationsecs'  => null,
+                'lasterror'     => null,
+                'timecreated'   => $now,
+                'timemodified'  => $now,
+                'lastgenerated' => null,
+                'lastrequested' => $now,
+            ];
+            $row->id = $DB->insert_record('local_aireader_asset', $row);
+            return [$row, false];
+        } finally {
+            $lock->release();
+        }
     }
 
     /**
@@ -428,7 +486,7 @@ class asset_manager {
                     'contextid'  => (int)$context->id,
                     'module'     => $modname,
                     'instanceid' => (int)$cm->instance,
-                    'chapterid'  => $chapterid > 0 ? $chapterid : null,
+                    'chapterid'  => $chapterid,
                     'lang'       => $lang,
                     'voice'      => $voice,
                     'model'      => $model,
