@@ -104,7 +104,7 @@ class cost_report {
         global $DB;
 
         $sql = 'SELECT a.id, a.courseid, c.fullname AS coursename, a.module, a.status,
-                       a.inputchars, a.lastgenerated, a.timecreated
+                       a.model, a.inputchars, a.lastgenerated, a.timecreated
                   FROM {local_aireader_asset} a
                   JOIN {course} c ON c.id = a.courseid
               ORDER BY a.courseid';
