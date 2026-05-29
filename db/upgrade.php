@@ -312,5 +312,18 @@ function xmldb_local_aireader_upgrade(int $oldversion): bool {
         upgrade_plugin_savepoint(true, 2026052000, 'local', 'aireader');
     }
 
+    if ($oldversion < 2026053000) {
+        // Add inputchars to the asset table: the narration character count
+        // captured at generation, used as the basis for per-asset cost
+        // estimation on the new audio log report. Nullable, so historical rows
+        // (generated before this release) simply report an unknown cost.
+        $table = new xmldb_table('local_aireader_asset');
+        $field = new xmldb_field('inputchars', XMLDB_TYPE_INTEGER, '10', null, null, null, null, 'durationsecs');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+        upgrade_plugin_savepoint(true, 2026053000, 'local', 'aireader');
+    }
+
     return true;
 }

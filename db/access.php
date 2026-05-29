@@ -44,4 +44,11 @@ $capabilities = [
             'manager'        => CAP_ALLOW,
         ],
     ],
+    'local/aireader:viewlog' => [
+        'captype'      => 'read',
+        'contextlevel' => CONTEXT_SYSTEM,
+        'archetypes'   => [
+            'manager' => CAP_ALLOW,
+        ],
+    ],
 ];

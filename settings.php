@@ -24,6 +24,16 @@
 
 defined('MOODLE_INTERNAL') || die();
 
+// Audio generation log report. Registered outside the $hassiteconfig block and
+// guarded by its own capability so managers can view it without full site
+// configuration access.
+$ADMIN->add('reports', new admin_externalpage(
+    'local_aireader_log',
+    get_string('report_pluginname', 'local_aireader'),
+    new moodle_url('/local/aireader/report.php'),
+    'local/aireader:viewlog'
+));
+
 if ($hassiteconfig) {
     $settings = new admin_settingpage('local_aireader', get_string('pluginname', 'local_aireader'));
     $ADMIN->add('localplugins', $settings);

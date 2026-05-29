@@ -153,7 +153,8 @@ class generate_audio extends adhoc_task {
                 (int)$asset->id,
                 (int)$file->get_id(),
                 (int)$file->get_filesize(),
-                null
+                null,
+                \core_text::strlen($narrationtext)
             );
             mtrace("local_aireader: asset {$asset->id} generated ({$file->get_filesize()} bytes)");
 

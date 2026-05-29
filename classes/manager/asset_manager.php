@@ -336,8 +336,16 @@ class asset_manager {
      * @param int $fileid files.id of the stored mp3.
      * @param int $bytesize File size in bytes.
      * @param int|null $duration Duration in seconds, or null if unknown.
+     * @param int|null $inputchars Narration character count sent to the model,
+     *                             or null if unknown. Basis for cost estimation.
      */
-    public static function record_generated(int $id, int $fileid, int $bytesize, ?int $duration): void {
+    public static function record_generated(
+        int $id,
+        int $fileid,
+        int $bytesize,
+        ?int $duration,
+        ?int $inputchars = null
+    ): void {
         global $DB;
         $now = time();
         $DB->update_record('local_aireader_asset', (object)[
@@ -345,6 +353,7 @@ class asset_manager {
             'fileid'        => $fileid,
             'bytesize'      => $bytesize,
             'durationsecs'  => $duration,
+            'inputchars'    => $inputchars,
             'status'        => self::STATUS_READY,
             'lasterror'     => null,
             'timemodified'  => $now,

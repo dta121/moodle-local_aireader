@@ -4,6 +4,29 @@ All notable changes to `local_aireader` are documented in this file.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.1.0] — 2026-05-29
+
+### Added
+
+- **Audio generation log report.** New page under *Site administration →
+  Reports → AI Reader audio log* listing every narration asset: the course and
+  activity (page, or book + chapter) it was generated for, language, model and
+  voice, status, when it was generated, file size, and an estimated cost. Failed
+  generations are listed with their failure reason. The table is sortable,
+  paged, filterable by status, and downloadable (CSV, Excel, etc.). A summary
+  header shows counts by status and the estimated total spend.
+  - Gated by a new `local/aireader:viewlog` capability (granted to managers by
+    default), so it is visible to managers as well as site admins.
+  - **Cost estimation** (`cost_calculator`) is derived from the narration
+    character count and the model used: tts-1 ($15) and tts-1-hd ($30) use
+    OpenAI's published per-million-character rates; gpt-4o-mini-tts uses a
+    blended $10 per-million-character estimate. Translation and Whisper
+    alignment are billed separately and excluded. Figures are budgeting
+    estimates, not an invoice.
+  - New nullable `inputchars` column on `local_aireader_asset`, captured at
+    generation, drives the estimate. Assets generated before this release have
+    no character count and report an unknown cost (shown as "—").
+
 ## [1.0.5] — 2026-05-29
 
 ### CI
