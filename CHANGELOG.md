@@ -4,6 +4,54 @@ All notable changes to `local_aireader` are documented in this file.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.0.2] — 2026-05-29
+
+### Fixed
+
+- **Fatal in the `generate_audio` ad hoc task.** Six global Moodle functions in
+  `content_extractor` (`file_rewrite_pluginfile_urls`,
+  `get_coursemodule_from_id`, `format_string`, `html_to_text`, `get_string`,
+  `get_string_manager`) were called unqualified from inside the
+  `local_aireader\manager` namespace, so PHP resolved them as undefined
+  namespaced functions and every generation failed with *Call to undefined
+  function local_aireader\manager\file_rewrite_pluginfile_urls()*. All are now
+  fully qualified with a leading `\`.
+
+### Added
+
+- **Backup / Restore API support.** New module-level `backup_local_plugin` /
+  `restore_local_plugin` classes (`backup/moodle2/`) carry the per-resource
+  narration overrides (`local_aireader_override`, both activity-level and
+  per-chapter) with a backed-up `mod_page` / `mod_book` activity. Restore is
+  deferred to `after_restore_module()` so `book_chapter` id mappings exist
+  before chapter-level overrides are remapped; stale chapter overrides are
+  skipped, `usermodified` is remapped when users are included, and existing
+  `(cmid, chapterid)` rows are not duplicated.
+
+### Packaging
+
+- Added the standard Moodle GPL boilerplate header to
+  `templates/manager_offline.mustache`, `templates/player.mustache`, and
+  `amd/src/player.js` (the latter also gains a proper
+  `@module`/`@copyright`/`@license` docblock) for plugin-directory submission.
+
+## [1.0.1] — 2026-05-28
+
+### Fixed
+
+- Upgrade step `2026052000` now drops the dependent indexes before altering
+  `chapterid`, fixing a failed upgrade on sites with the older schema.
+- Tightened `mod_book` chapter validation and TTS chunk sizing.
+- Hardened asset-visibility checks and normalized `mod_page` asset keys.
+- Stabilized a flaky hidden-chapter test by pinning pagenums in the generator
+  helper.
+
+### Added
+
+- Prep for the Moodle plugin directory: `LICENSE` file, full UI
+  internationalization, expanded docs, and player/transcript screenshots in the
+  README.
+
 ## [1.0.0] — 2026-05-19
 
 First stable release. Plugin is now `MATURITY_STABLE`.
