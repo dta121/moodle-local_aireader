@@ -4,6 +4,19 @@ All notable changes to `local_aireader` are documented in this file.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.0.3] — 2026-05-29
+
+### Fixed
+
+- **`generate_audio` still fatalled after 1.0.2** — *Call to undefined function
+  file_rewrite_pluginfile_urls()*. That function is defined in
+  `lib/filelib.php`, which Moodle does **not** auto-load in the cron / adhoc-task
+  context the extractor runs in, so the global was genuinely undefined there
+  (the 1.0.2 namespace qualification only changed the error text, not the
+  outcome). `content_extractor::extract()` now `require_once`s
+  `$CFG->libdir/filelib.php` before use. The namespace qualifications from 1.0.2
+  are retained.
+
 ## [1.0.2] — 2026-05-29
 
 ### Fixed

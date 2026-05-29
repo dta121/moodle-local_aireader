@@ -39,6 +39,11 @@ class content_extractor {
      * @return array Shape: ['title' => string, 'subtitle' => ?string, 'text' => string]
      */
     public static function extract(string $module, int $cmid, ?int $chapterid = null): array {
+        global $CFG;
+        // file_rewrite_pluginfile_urls() lives in filelib.php, which is not
+        // auto-loaded in the cron/adhoc-task context this extractor runs in.
+        require_once($CFG->libdir . '/filelib.php');
+
         switch ($module) {
             case 'page':
                 return self::extract_page($cmid);
