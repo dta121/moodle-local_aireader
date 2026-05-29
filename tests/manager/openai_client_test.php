@@ -53,4 +53,44 @@ final class openai_client_test extends \advanced_testcase {
 
         $this->assertSame(['abc', 'def', 'ghi', 'j'], $chunks);
     }
+
+    /**
+     * CJK text well under the character cap can still blow the token cap; every
+     * chunk must respect both ceilings. Regression for the gpt-4o-mini-tts
+     * "over the maximum input limit of 2000 tokens" failure.
+     *
+     * @covers ::chunk_text
+     * @covers ::estimate_tokens
+     */
+    public function test_chunk_text_respects_token_cap_for_cjk(): void {
+        // ~4800 wide chars: under the 3800 char cap only after splitting, and
+        // far over a single chunk's token budget.
+        $text = str_repeat('これはテストの文章です。', 400);
+        $maxtokens = 1800;
+
+        $chunks = openai_client::chunk_text($text, 3800, $maxtokens);
+
+        $this->assertGreaterThan(1, count($chunks));
+        foreach ($chunks as $chunk) {
+            $this->assertNotSame('', trim($chunk));
+            $this->assertLessThanOrEqual($maxtokens, openai_client::estimate_tokens($chunk));
+            $this->assertLessThanOrEqual(3800, mb_strlen($chunk));
+        }
+        // No characters are lost (whitespace at join boundaries aside).
+        $strip = static fn(string $s): string => preg_replace('/\s+/u', '', $s);
+        $this->assertSame($strip($text), $strip(implode('', $chunks)));
+    }
+
+    /**
+     * Token estimation counts wide (CJK) characters near 1:1 and Latin text at
+     * roughly four characters per token.
+     *
+     * @covers ::estimate_tokens
+     */
+    public function test_estimate_tokens(): void {
+        $this->assertSame(0, openai_client::estimate_tokens(''));
+        $this->assertSame(20, openai_client::estimate_tokens(str_repeat('あ', 20)));
+        // 12 Latin chars -> ceil(12/4) = 3 tokens.
+        $this->assertSame(3, openai_client::estimate_tokens('hello world!'));
+    }
 }

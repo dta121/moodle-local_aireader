@@ -35,8 +35,19 @@ use local_aireader\manager\http_guard;
  * @package local_aireader
  */
 class openai_client {
-    /** @var int Safe fallback when the configured chunk size is invalid. */
+    /** @var int Safe fallback when the configured chunk size is invalid (chars). */
     public const DEFAULT_CHUNK_SIZE = 3800;
+
+    /**
+     * @var int Per-chunk token ceiling.
+     *
+     * The `gpt-4o-mini-tts` model rejects input over 2000 tokens; older
+     * `tts-1`/`tts-1-hd` models cap on 4096 characters instead. We apply both
+     * caps so a chunk that is comfortably under the character limit but
+     * token-dense (e.g. CJK after translation) is still split. 1800 leaves
+     * headroom under the 2000-token hard limit.
+     */
+    public const DEFAULT_MAX_TOKENS = 1800;
 
     /** @var string Bearer API key. */
     private $apikey;
@@ -115,13 +126,20 @@ class openai_client {
     }
 
     /**
-     * Split input into chunks at sentence boundaries, preferring to stay under $maxchars.
+     * Split input into chunks at sentence boundaries, staying under both the
+     * character and the token ceiling.
+     *
+     * Sentence detection handles Western terminators (. ? !) and CJK ones
+     * (。．！？), the latter often having no trailing whitespace — without this
+     * an unspaced Japanese/Chinese narration is treated as one giant "sentence"
+     * and only the hard cut keeps it in bounds.
      *
      * @param string $text Input text.
-     * @param int $maxchars Soft maximum chars per chunk.
+     * @param int $maxchars Maximum chars per chunk (<=0 uses {@see DEFAULT_CHUNK_SIZE}).
+     * @param int $maxtokens Maximum estimated tokens per chunk (<=0 uses {@see DEFAULT_MAX_TOKENS}).
      * @return string[]
      */
-    public static function chunk_text(string $text, int $maxchars): array {
+    public static function chunk_text(string $text, int $maxchars, int $maxtokens = self::DEFAULT_MAX_TOKENS): array {
         $text = trim($text);
         if ($text === '') {
             return [];
@@ -129,30 +147,89 @@ class openai_client {
         if ($maxchars <= 0) {
             $maxchars = self::DEFAULT_CHUNK_SIZE;
         }
-        if (mb_strlen($text) <= $maxchars) {
+        if ($maxtokens <= 0) {
+            $maxtokens = self::DEFAULT_MAX_TOKENS;
+        }
+
+        $fits = static function (string $s) use ($maxchars, $maxtokens): bool {
+            return mb_strlen($s) <= $maxchars && self::estimate_tokens($s) <= $maxtokens;
+        };
+        if ($fits($text)) {
             return [$text];
         }
 
-        $sentences = preg_split('/(?<=[\.\?\!])\s+/u', $text) ?: [$text];
+        $sentences = preg_split('/(?<=[\.\?\!。．！？])\s*/u', $text, -1, PREG_SPLIT_NO_EMPTY) ?: [$text];
         $chunks = [];
         $buffer = '';
         foreach ($sentences as $sentence) {
             $candidate = $buffer === '' ? $sentence : ($buffer . ' ' . $sentence);
-            if (mb_strlen($candidate) > $maxchars && $buffer !== '') {
+            if (!$fits($candidate) && $buffer !== '') {
                 $chunks[] = $buffer;
                 $buffer = $sentence;
             } else {
                 $buffer = $candidate;
             }
-            while (mb_strlen($buffer) > $maxchars) {
-                $cut = mb_strrpos(mb_substr($buffer, 0, $maxchars), ' ') ?: $maxchars;
+            // Hard-split a buffer that on its own exceeds a ceiling: a very long
+            // sentence, or an unbroken CJK run with no sentence terminators.
+            while (!$fits($buffer)) {
+                $cut = self::hard_cut_index($buffer, $maxchars, $maxtokens);
                 $chunks[] = trim(mb_substr($buffer, 0, $cut));
                 $buffer = trim(mb_substr($buffer, $cut));
+                if ($buffer === '') {
+                    break;
+                }
             }
         }
-        if ($buffer !== '') {
+        if (trim($buffer) !== '') {
             $chunks[] = $buffer;
         }
-        return $chunks;
+        return array_values(array_filter($chunks, static function ($c) {
+            return trim($c) !== '';
+        }));
+    }
+
+    /**
+     * Estimate the OpenAI token count of a string without a tokenizer dependency.
+     *
+     * "Wide" scripts (CJK ideographs, kana, Hangul, fullwidth forms) tokenize at
+     * roughly one token per character; other text averages ~4 characters per
+     * token. Rounded up, and biased to over- rather than under-count so the
+     * result is a safe ceiling for chunking.
+     *
+     * @param string $text
+     * @return int
+     */
+    public static function estimate_tokens(string $text): int {
+        if ($text === '') {
+            return 0;
+        }
+        $wide = preg_match_all(
+            '/[\x{3000}-\x{303F}\x{3040}-\x{30FF}\x{3400}-\x{4DBF}\x{4E00}-\x{9FFF}\x{F900}-\x{FAFF}\x{AC00}-\x{D7AF}\x{FF00}-\x{FFEF}]/u',
+            $text
+        ) ?: 0;
+        $rest = max(0, mb_strlen($text) - $wide);
+        return (int)ceil($wide + $rest / 4);
+    }
+
+    /**
+     * Find the largest prefix length (in characters) of $s that fits both ceilings,
+     * preferring to break on whitespace.
+     *
+     * @param string $s
+     * @param int $maxchars
+     * @param int $maxtokens
+     * @return int Character offset to cut at (always >= 1).
+     */
+    private static function hard_cut_index(string $s, int $maxchars, int $maxtokens): int {
+        $limit = min(mb_strlen($s), $maxchars);
+        // Shrink until the token estimate of the prefix fits, then refine.
+        while ($limit > 1 && self::estimate_tokens(mb_substr($s, 0, $limit)) > $maxtokens) {
+            $limit = (int)floor($limit * 0.9);
+        }
+        $space = mb_strrpos(mb_substr($s, 0, $limit), ' ');
+        if ($space !== false && $space > 0) {
+            return $space;
+        }
+        return max(1, $limit);
     }
 }

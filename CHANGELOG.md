@@ -4,6 +4,22 @@ All notable changes to `local_aireader` are documented in this file.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.0.4] — 2026-05-29
+
+### Fixed
+
+- **TTS failed with *Input of N tokens is over the maximum input limit of 2000
+  tokens*** on `gpt-4o-mini-tts`, especially for translated (CJK) narration.
+  `chunk_text()` split purely on character count (3800), which suits the
+  `tts-1` family's 4096-**character** limit but ignores the newer model's
+  2000-**token** cap — and 3800 dense CJK characters are ~3000 tokens. Chunking
+  is now token-aware (`estimate_tokens()` + a 1800-token default ceiling applied
+  alongside the character cap), and sentence splitting now recognises CJK
+  terminators (`。．！？`) which carry no trailing whitespace, so unspaced
+  Japanese/Chinese narration is split at real sentence boundaries instead of
+  falling through to a single oversized hard cut. Added unit tests for the
+  token cap and the estimator.
+
 ## [1.0.3] — 2026-05-29
 
 ### Fixed
