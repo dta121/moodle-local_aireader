@@ -81,10 +81,11 @@ if (!$table->is_downloading()) {
         get_string('report_cost_note', 'local_aireader'),
         ['class' => 'text-muted small']
     );
-    $summary .= html_writer::tag('p', html_writer::link(
+    $costslink = html_writer::link(
         new moodle_url('/local/aireader/costs.php'),
         get_string('report_costbycourse_link', 'local_aireader')
-    ));
+    );
+    $summary .= html_writer::tag('p', $costslink);
     echo $OUTPUT->box($summary, 'generalbox');
 
     // Status filter.

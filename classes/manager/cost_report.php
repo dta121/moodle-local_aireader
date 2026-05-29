@@ -65,8 +65,12 @@ class cost_report {
 
         $cost = 0.0;
         $hasunknown = false;
-        $rs = $DB->get_recordset('local_aireader_asset', ['status' => asset_manager::STATUS_READY],
-            '', 'id, model, inputchars, lastgenerated, timecreated');
+        $rs = $DB->get_recordset(
+            'local_aireader_asset',
+            ['status' => asset_manager::STATUS_READY],
+            '',
+            'id, model, inputchars, lastgenerated, timecreated'
+        );
         foreach ($rs as $r) {
             $usd = self::asset_cost($r);
             if ($usd === null) {
