@@ -4,6 +4,29 @@ All notable changes to `local_aireader` are documented in this file.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.2.0] — 2026-05-29
+
+### Added
+
+- **Admin-editable, date-effective TTS pricing.** A new *TTS pricing* setting
+  (Site admin → Plugins → AI Reader) holds per-model rates as
+  `model, rate, date` lines. The optional effective-from date means each asset
+  is priced at the rate that was in force when it was generated: to raise a
+  price going forward you add a new dated line, and historical costs stay
+  unchanged. `*` is supported as a catch-all model. Rates default to the
+  previously hard-coded values, so nothing changes until an admin overrides
+  them. (There is no OpenAI pricing API to pull from, so rates are maintained
+  here rather than fetched live.)
+- **Cost-by-course report.** A new page under *Site administration → Reports →
+  AI Reader cost by course* lists every course that has generated narration,
+  the number of audios, and the estimated total cost, ordered by spend, with a
+  grand total. Linked from the audio log report.
+
+### Changed
+
+- The audio log's per-asset cost and the summary total now use the configured,
+  date-effective rates (previously hard-coded constants).
+
 ## [1.1.0] — 2026-05-29
 
 ### Added

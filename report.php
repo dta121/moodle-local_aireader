@@ -29,6 +29,7 @@ require_once($CFG->libdir . '/tablelib.php');
 
 use local_aireader\manager\asset_manager;
 use local_aireader\manager\cost_calculator;
+use local_aireader\manager\cost_report;
 use local_aireader\output\log_table;
 
 $status   = optional_param('status', '', PARAM_ALPHA);
@@ -59,44 +60,19 @@ if (!$table->is_downloading()) {
 
     // Headline summary: counts by status and total estimated spend across all
     // assets (independent of the table's status filter).
-    $sql = 'SELECT model, status, COUNT(*) AS cnt, SUM(COALESCE(inputchars, 0)) AS chars
-              FROM {local_aireader_asset}
-          GROUP BY model, status';
-    $aggregates = $DB->get_recordset_sql($sql);
-
-    $counts = array_fill_keys($validstatuses, 0);
-    $total = 0;
-    $totalcost = 0.0;
-    $hasunknowncost = false;
-    foreach ($aggregates as $agg) {
-        $cnt = (int)$agg->cnt;
-        $total += $cnt;
-        if (isset($counts[$agg->status])) {
-            $counts[$agg->status] += $cnt;
-        }
-        if ($agg->status === asset_manager::STATUS_READY) {
-            $chars = (int)$agg->chars;
-            if ($chars > 0) {
-                $totalcost += (float)cost_calculator::estimate_usd($agg->model, $chars);
-            } else if ($cnt > 0) {
-                $hasunknowncost = true;
-            }
-        }
-    }
-    $aggregates->close();
-
+    $totals = cost_report::grand_totals();
     $a = (object)[
-        'total'   => $total,
-        'ready'   => $counts[asset_manager::STATUS_READY],
-        'failed'  => $counts[asset_manager::STATUS_ERROR],
-        'pending' => $counts[asset_manager::STATUS_PENDING] + $counts[asset_manager::STATUS_GENERATING],
-        'stale'   => $counts[asset_manager::STATUS_STALE],
-        'cost'    => cost_calculator::format_usd($totalcost),
+        'total'   => $totals->total,
+        'ready'   => $totals->ready,
+        'failed'  => $totals->failed,
+        'pending' => $totals->pending,
+        'stale'   => $totals->stale,
+        'cost'    => cost_calculator::format_usd($totals->cost),
     ];
 
     $summary = html_writer::tag('p', get_string('report_summary_counts', 'local_aireader', $a));
     $costline = get_string('report_summary_cost', 'local_aireader', $a);
-    if ($hasunknowncost) {
+    if ($totals->hasunknowncost) {
         $costline .= ' ' . get_string('report_summary_cost_partial', 'local_aireader');
     }
     $summary .= html_writer::tag('p', $costline);
@@ -105,6 +81,10 @@ if (!$table->is_downloading()) {
         get_string('report_cost_note', 'local_aireader'),
         ['class' => 'text-muted small']
     );
+    $summary .= html_writer::tag('p', html_writer::link(
+        new moodle_url('/local/aireader/costs.php'),
+        get_string('report_costbycourse_link', 'local_aireader')
+    ));
     echo $OUTPUT->box($summary, 'generalbox');
 
     // Status filter.

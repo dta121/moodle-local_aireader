@@ -216,7 +216,8 @@ class log_table extends \table_sql {
         if ($row->status !== 'ready') {
             return '—';
         }
-        $usd = cost_calculator::estimate_usd($row->model, $row->inputchars !== null ? (int)$row->inputchars : null);
+        $chars = $row->inputchars !== null ? (int)$row->inputchars : null;
+        $usd = cost_calculator::estimate_usd($row->model, $chars, (int)$row->timegenerated);
         return cost_calculator::format_usd($usd);
     }
 

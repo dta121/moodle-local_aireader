@@ -325,5 +325,12 @@ function xmldb_local_aireader_upgrade(int $oldversion): bool {
         upgrade_plugin_savepoint(true, 2026053000, 'local', 'aireader');
     }
 
+    if ($oldversion < 2026053001) {
+        // No schema change: adds the admin-editable, date-effective pricing
+        // setting and the cost-by-course report. The version bump registers the
+        // new "pricing" admin default via admin_apply_default_settings().
+        upgrade_plugin_savepoint(true, 2026053001, 'local', 'aireader');
+    }
+
     return true;
 }

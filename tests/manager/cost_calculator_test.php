@@ -59,16 +59,51 @@ final class cost_calculator_test extends \advanced_testcase {
     }
 
     /**
-     * Unknown models fall back to the default rate, not null.
+     * Unknown models have no rate and therefore an unknown cost.
      *
      * @covers ::estimate_usd
      * @covers ::has_known_rate
      */
-    public function test_unknown_model_uses_fallback(): void {
+    public function test_unknown_model_is_unknown(): void {
         $this->assertFalse(cost_calculator::has_known_rate('some-future-model'));
-        $cost = cost_calculator::estimate_usd('some-future-model', 1000000);
-        $this->assertNotNull($cost);
-        $this->assertGreaterThan(0, $cost);
+        $this->assertNull(cost_calculator::estimate_usd('some-future-model', 1000000));
+    }
+
+    /**
+     * A "*" line provides a catch-all rate for otherwise-unknown models.
+     *
+     * @covers ::rate_for_model
+     * @covers ::estimate_usd
+     */
+    public function test_wildcard_rate(): void {
+        $this->resetAfterTest();
+        set_config('pricing', "tts-1, 15.00\n*, 20.00", 'local_aireader');
+
+        $this->assertTrue(cost_calculator::has_known_rate('brand-new-model'));
+        $this->assertEqualsWithDelta(20.0, cost_calculator::estimate_usd('brand-new-model', 1000000), 0.0001);
+        // An explicit model line still wins over the wildcard.
+        $this->assertEqualsWithDelta(15.0, cost_calculator::estimate_usd('tts-1', 1000000), 0.0001);
+    }
+
+    /**
+     * Effective-from dates price each asset at the rate in force when it was
+     * generated: an older rate stays applied to older audio.
+     *
+     * @covers ::rate_for_model
+     * @covers ::pricing_schedule
+     */
+    public function test_effective_dated_rates(): void {
+        $this->resetAfterTest();
+        set_config('pricing', "gpt-4o-mini-tts, 10.00\ngpt-4o-mini-tts, 12.00, 2026-07-01", 'local_aireader');
+
+        $before = make_timestamp(2026, 5, 1);
+        $after  = make_timestamp(2026, 8, 1);
+
+        $this->assertEqualsWithDelta(10.0, cost_calculator::rate_for_model('gpt-4o-mini-tts', $before), 0.0001);
+        $this->assertEqualsWithDelta(12.0, cost_calculator::rate_for_model('gpt-4o-mini-tts', $after), 0.0001);
+        // The cost of an asset generated before the increase keeps the old rate.
+        $this->assertEqualsWithDelta(0.5, cost_calculator::estimate_usd('gpt-4o-mini-tts', 50000, $before), 0.0001);
+        $this->assertEqualsWithDelta(0.6, cost_calculator::estimate_usd('gpt-4o-mini-tts', 50000, $after), 0.0001);
     }
 
     /**

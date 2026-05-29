@@ -34,6 +34,13 @@ $ADMIN->add('reports', new admin_externalpage(
     'local/aireader:viewlog'
 ));
 
+$ADMIN->add('reports', new admin_externalpage(
+    'local_aireader_costs',
+    get_string('report_costbycourse_pluginname', 'local_aireader'),
+    new moodle_url('/local/aireader/costs.php'),
+    'local/aireader:viewlog'
+));
+
 if ($hassiteconfig) {
     $settings = new admin_settingpage('local_aireader', get_string('pluginname', 'local_aireader'));
     $ADMIN->add('localplugins', $settings);
@@ -143,6 +150,20 @@ if ($hassiteconfig) {
         get_string('setting_prompt_desc', 'local_aireader'),
         get_string('default_prompt', 'local_aireader'),
         PARAM_TEXT
+    ));
+
+    $settings->add(new admin_setting_heading(
+        'local_aireader/heading_cost',
+        get_string('setting_heading_cost', 'local_aireader'),
+        get_string('setting_heading_cost_desc', 'local_aireader')
+    ));
+
+    $settings->add(new admin_setting_configtextarea(
+        'local_aireader/pricing',
+        get_string('setting_pricing', 'local_aireader'),
+        get_string('setting_pricing_desc', 'local_aireader'),
+        \local_aireader\manager\cost_calculator::default_pricing(),
+        PARAM_RAW
     ));
 
     $settings->add(new admin_setting_heading(

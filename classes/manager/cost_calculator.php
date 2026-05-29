@@ -25,70 +25,150 @@
 namespace local_aireader\manager;
 
 /**
- * Per-model cost estimation for text-to-speech narration.
+ * Per-model, date-effective cost estimation for text-to-speech narration.
  *
  * Costs are estimated from the narration character count captured at
- * generation time. The published OpenAI pricing differs by billing unit
- * (characters for the tts-1 family, tokens/minutes for gpt-4o-mini-tts); we
- * normalise everything to a USD-per-million-characters rate so a single stored
- * quantity (inputchars) drives the estimate for every model. These are
- * estimates for budgeting, not an invoice — translation and Whisper alignment,
- * billed separately, are not included.
+ * generation time multiplied by an admin-maintained USD-per-million-characters
+ * rate. The rate schedule supports effective-from dates so that changing a
+ * price only affects audio generated on or after the change: an asset is always
+ * priced with the rate that was in effect when it was generated, keeping
+ * historical cost records stable while new prices apply going forward.
+ *
+ * These are budgeting estimates, not an invoice: there is no OpenAI pricing
+ * API to pull from, and translation and Whisper alignment are billed
+ * separately and excluded here.
  *
  * @package local_aireader
  */
 class cost_calculator {
+    /** @var string|null Raw config the cached schedule was parsed from. */
+    private static $cachedraw = null;
+
+    /** @var array<string,array<int,array{from:int,rate:float}>>|null Parsed schedule cache. */
+    private static $cachedschedule = null;
+
     /**
-     * @var array<string,float> USD per 1,000,000 narration characters, keyed by
-     * lower-cased model id. tts-1 / tts-1-hd are OpenAI's published per-character
-     * rates; gpt-4o-mini-tts is a blended per-character estimate consistent with
-     * the plugin's own ~$0.50-per-50,000-characters guidance.
+     * The built-in default pricing schedule, also used as the admin setting
+     * default. One model per line: "model, rate" (USD per 1,000,000 chars).
+     *
+     * @return string
      */
-    private const RATE_PER_MILLION_CHARS = [
-        'gpt-4o-mini-tts' => 10.00,
-        'tts-1'           => 15.00,
-        'tts-1-hd'        => 30.00,
-    ];
-
-    /** @var float Fallback per-million-character rate for unrecognised models. */
-    private const DEFAULT_RATE_PER_MILLION_CHARS = 15.00;
+    public static function default_pricing(): string {
+        return "gpt-4o-mini-tts, 10.00\n"
+            . "tts-1, 15.00\n"
+            . "tts-1-hd, 30.00";
+    }
 
     /**
-     * Estimate the USD cost of a single asset from its model and character count.
+     * Parse the configured pricing schedule into a per-model, date-sorted list.
+     *
+     * Each line is "model, rate[, YYYY-MM-DD]". The optional date is the
+     * effective-from date. "*" may be used as the model for a catch-all rate.
+     * Re-parses only when the underlying config string changes.
+     *
+     * @return array<string,array<int,array{from:int,rate:float}>>
+     */
+    public static function pricing_schedule(): array {
+        $raw = (string)get_config('local_aireader', 'pricing');
+        if (trim($raw) === '') {
+            $raw = self::default_pricing();
+        }
+        if (self::$cachedschedule !== null && self::$cachedraw === $raw) {
+            return self::$cachedschedule;
+        }
+
+        $schedule = [];
+        foreach (preg_split('/\R/', $raw) as $line) {
+            $line = trim($line);
+            if ($line === '' || $line[0] === '#') {
+                continue;
+            }
+            $parts = array_map('trim', explode(',', $line));
+            if (count($parts) < 2 || $parts[0] === '' || !is_numeric($parts[1])) {
+                continue;
+            }
+            $model = \core_text::strtolower($parts[0]);
+            $rate = (float)$parts[1];
+            $from = 0;
+            if (!empty($parts[2])) {
+                $ts = strtotime($parts[2]);
+                if ($ts !== false) {
+                    $from = $ts;
+                }
+            }
+            $schedule[$model][] = ['from' => $from, 'rate' => $rate];
+        }
+        foreach ($schedule as &$entries) {
+            usort($entries, static function (array $a, array $b): int {
+                return $a['from'] <=> $b['from'];
+            });
+        }
+        unset($entries);
+
+        self::$cachedraw = $raw;
+        self::$cachedschedule = $schedule;
+        return $schedule;
+    }
+
+    /**
+     * Resolve the per-million-character rate for a model at a point in time.
+     *
+     * @param string $model Model id (case-insensitive).
+     * @param int|null $attime Unix time the asset was generated; defaults to now.
+     * @return float|null USD per 1,000,000 characters, or null if no rate applies.
+     */
+    public static function rate_for_model(string $model, ?int $attime = null): ?float {
+        $attime = $attime ?? time();
+        $schedule = self::pricing_schedule();
+        $key = \core_text::strtolower(trim($model));
+        $entries = $schedule[$key] ?? $schedule['*'] ?? null;
+        if (empty($entries)) {
+            return null;
+        }
+        // Entries are sorted by effective date ascending. Use the latest one
+        // whose date has already arrived; fall back to the earliest for assets
+        // older than every dated entry.
+        $rate = $entries[0]['rate'];
+        foreach ($entries as $entry) {
+            if ($entry['from'] <= $attime) {
+                $rate = $entry['rate'];
+            } else {
+                break;
+            }
+        }
+        return $rate;
+    }
+
+    /**
+     * Estimate the USD cost of a single asset.
      *
      * @param string $model The TTS model id stored on the asset.
      * @param int|null $inputchars Narration character count, or null if unknown.
-     * @return float|null Estimated USD, or null when the cost cannot be estimated
-     *                    (no character count recorded, e.g. a historical row).
+     * @param int|null $attime Unix time the asset was generated; defaults to now.
+     * @return float|null Estimated USD, or null when it cannot be estimated (no
+     *                    character count recorded, or no rate for the model).
      */
-    public static function estimate_usd(string $model, ?int $inputchars): ?float {
+    public static function estimate_usd(string $model, ?int $inputchars, ?int $attime = null): ?float {
         if ($inputchars === null || $inputchars <= 0) {
             return null;
         }
-        return $inputchars / 1000000 * self::rate_for_model($model);
+        $rate = self::rate_for_model($model, $attime);
+        if ($rate === null) {
+            return null;
+        }
+        return $inputchars / 1000000 * $rate;
     }
 
     /**
-     * Resolve the per-million-character rate for a model, falling back when the
-     * model is not in the table.
-     *
-     * @param string $model Model id (case-insensitive).
-     * @return float USD per 1,000,000 characters.
-     */
-    public static function rate_for_model(string $model): float {
-        $key = \core_text::strtolower(trim($model));
-        return self::RATE_PER_MILLION_CHARS[$key] ?? self::DEFAULT_RATE_PER_MILLION_CHARS;
-    }
-
-    /**
-     * Whether the model id is one we have a published rate for (as opposed to
-     * the generic fallback).
+     * Whether a rate (model-specific or wildcard) is configured for the model.
      *
      * @param string $model Model id (case-insensitive).
      * @return bool
      */
     public static function has_known_rate(string $model): bool {
-        return isset(self::RATE_PER_MILLION_CHARS[\core_text::strtolower(trim($model))]);
+        $schedule = self::pricing_schedule();
+        $key = \core_text::strtolower(trim($model));
+        return isset($schedule[$key]) || isset($schedule['*']);
     }
 
     /**
