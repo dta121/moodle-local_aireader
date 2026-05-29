@@ -22,8 +22,6 @@
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Attaches local_aireader per-resource enable/disable overrides to each
  * supported activity (mod_page, mod_book) when it is backed up.
@@ -62,8 +60,8 @@ class backup_local_aireader_plugin extends backup_local_plugin {
         // always backed up, regardless of the "include user data" setting.
         $override->set_source_table('local_aireader_override', ['cmid' => backup::VAR_MODID]);
 
-        // usermodified points at a real user; annotate it so it can be remapped
-        // on restore when users are part of the backup.
+        // The usermodified column points at a real user; annotate it so it can
+        // be remapped on restore when users are part of the backup.
         $override->annotate_ids('user', 'usermodified');
 
         return $plugin;

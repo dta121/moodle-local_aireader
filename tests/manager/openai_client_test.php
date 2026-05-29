@@ -63,8 +63,8 @@ final class openai_client_test extends \advanced_testcase {
      * @covers ::estimate_tokens
      */
     public function test_chunk_text_respects_token_cap_for_cjk(): void {
-        // ~4800 wide chars: under the 3800 char cap only after splitting, and
-        // far over a single chunk's token budget.
+        // Roughly 4800 wide chars: under the 3800 char cap only after splitting,
+        // and far over a single chunk's token budget.
         $text = str_repeat('これはテストの文章です。', 400);
         $maxtokens = 1800;
 

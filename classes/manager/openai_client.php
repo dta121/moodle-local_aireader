@@ -203,10 +203,11 @@ class openai_client {
         if ($text === '') {
             return 0;
         }
-        $wide = preg_match_all(
-            '/[\x{3000}-\x{303F}\x{3040}-\x{30FF}\x{3400}-\x{4DBF}\x{4E00}-\x{9FFF}\x{F900}-\x{FAFF}\x{AC00}-\x{D7AF}\x{FF00}-\x{FFEF}]/u',
-            $text
-        ) ?: 0;
+        $pattern = '/['
+            . '\x{3000}-\x{303F}\x{3040}-\x{30FF}\x{3400}-\x{4DBF}\x{4E00}-\x{9FFF}'
+            . '\x{F900}-\x{FAFF}\x{AC00}-\x{D7AF}\x{FF00}-\x{FFEF}'
+            . ']/u';
+        $wide = preg_match_all($pattern, $text) ?: 0;
         $rest = max(0, mb_strlen($text) - $wide);
         return (int)ceil($wide + $rest / 4);
     }

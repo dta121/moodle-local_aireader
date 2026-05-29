@@ -22,8 +22,6 @@
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Restores local_aireader per-resource enable/disable overrides for a
  * supported activity (mod_page, mod_book).

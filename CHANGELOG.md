@@ -4,6 +4,20 @@ All notable changes to `local_aireader` are documented in this file.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.0.5] — 2026-05-29
+
+### CI
+
+- Cleared the Moodle Plugin CI failures introduced by the 1.0.2–1.0.4 work:
+  - **phpcs** — wrapped an over-length regex line in `openai_client`, capitalized
+    the lead word of three inline comments, and dropped the unnecessary
+    `MOODLE_INTERNAL` guard from the two class-only backup/restore files.
+  - **Grunt** — rebuilt `amd/build/player.min.js` (+ source map) from
+    `amd/src/player.js`, which had been edited (boilerplate header) without
+    regenerating the build. The minified bundle now carries the license banner.
+
+No functional change.
+
 ## [1.0.4] — 2026-05-29
 
 ### Fixed

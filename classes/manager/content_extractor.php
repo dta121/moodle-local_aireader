@@ -40,8 +40,8 @@ class content_extractor {
      */
     public static function extract(string $module, int $cmid, ?int $chapterid = null): array {
         global $CFG;
-        // file_rewrite_pluginfile_urls() lives in filelib.php, which is not
-        // auto-loaded in the cron/adhoc-task context this extractor runs in.
+        // The file_rewrite_pluginfile_urls() helper lives in filelib.php, which
+        // is not auto-loaded in the cron/adhoc-task context this runs in.
         require_once($CFG->libdir . '/filelib.php');
 
         switch ($module) {
