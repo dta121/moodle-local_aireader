@@ -4,6 +4,30 @@ All notable changes to `local_aireader` are documented in this file.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.2.1] — 2026-05-29
+
+### Fixed
+
+- **Karaoke highlighting skipped a number of segments.** The in-place
+  highlighter matched each Whisper segment as a single contiguous run inside
+  one element and wrapped it with `range.surroundContents()`, which silently
+  dropped any segment that (a) began with text not present in the body — the
+  prepended title or a heading Moodle renders as excluded chrome; (b) spanned
+  an element boundary (a heading into a paragraph, one list item into the next,
+  an inline `<em>`); or (c) appeared verbatim more than once (a body sentence
+  restated in the summary), where the search always resolved to the first copy.
+  Three changes lift coverage substantially:
+  - **Forward search cursor** — each segment is matched from where the previous
+    one ended, so verbatim duplicates resolve to the correct occurrence.
+  - **Suffix fallback** — when the whole segment can't be found, leading words
+    are dropped and the longest remaining run is matched, recovering
+    title/heading-glued segments.
+  - **Per-text-node wrapping** — a matched run that crosses element boundaries
+    is wrapped as several `<mark>`s (one per text node, sharing the segment
+    index) that highlight together, instead of being dropped.
+
+  JS-only; the version bump rolls jsrev so browsers fetch the rebuilt bundle.
+
 ## [1.2.0] — 2026-05-29
 
 ### Added

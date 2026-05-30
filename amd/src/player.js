@@ -662,7 +662,11 @@ class Player {
         this.transcriptFetched = false;
         this.segments = [];
         this.activeSegIdx = -1;
-        this.inPlaceMarks.forEach(unwrapMark);
+        this.inPlaceMarks.forEach((group) => {
+            if (group) {
+                group.forEach(unwrapMark);
+            }
+        });
         this.inPlaceMarks = [];
         this.useInPlace = false;
         if (this.transcriptList) {
@@ -726,14 +730,16 @@ class Player {
                 // a hint for whether auto-scroll should prefer the in-page
                 // marks (when most segments matched) or the pane buttons.
                 this.useInPlace = ratio >= IN_PLACE_MATCH_THRESHOLD;
-                this.inPlaceMarks = placed.marks;
-                placed.marks.forEach((m) => {
-                    if (!m) {
+                this.inPlaceMarks = placed.markGroups;
+                placed.markGroups.forEach((group) => {
+                    if (!group) {
                         return;
                     }
-                    m.addEventListener('click', () => {
-                        const idx = parseInt(m.dataset.segmentIdx, 10);
-                        this.seekToSegment(idx);
+                    group.forEach((m) => {
+                        m.addEventListener('click', () => {
+                            const idx = parseInt(m.dataset.segmentIdx, 10);
+                            this.seekToSegment(idx);
+                        });
                     });
                 });
             }
@@ -832,16 +838,17 @@ class Player {
         this.activeSegIdx = idx;
 
         // Toggle in-place marks whenever any exist — even partial coverage
-        // should light up as the audio plays.
+        // should light up as the audio plays. A segment may own several marks
+        // (when its text spanned element boundaries); toggle them together.
         let activeMark = null;
-        this.inPlaceMarks.forEach((m, i) => {
-            if (!m) {
+        this.inPlaceMarks.forEach((group, i) => {
+            if (!group) {
                 return;
             }
             const isCurrent = this.segments[i] && this.segments[i].idx === idx;
-            m.classList.toggle('is-current', isCurrent);
+            group.forEach((m) => m.classList.toggle('is-current', isCurrent));
             if (isCurrent) {
-                activeMark = m;
+                activeMark = group[0];
             }
         });
 
@@ -956,15 +963,28 @@ const unwrapMark = (mark) => {
 };
 
 /**
- * Locate the activity body and find every segment's text inside it. Returns
- * an array of <mark> elements (or nulls for misses) in segment order plus a
- * count of how many were successfully matched.
+ * Locate the activity body and find every segment's text inside it. Returns,
+ * per segment, an array of <mark> elements (or null for a miss) in segment
+ * order plus a count of how many segments matched.
  *
- * Strategy: build a normalized flat string from all text nodes (whitespace
- * collapsed, punctuation dropped), search for each segment's normalized text,
- * and use the Range API to wrap the match in a <mark>. If the range crosses
- * an element boundary, surroundContents throws and we count the segment as
- * a miss.
+ * Strategy: build a normalized flat string from all eligible text nodes
+ * (whitespace collapsed, punctuation dropped), then for each segment in turn
+ * locate its normalized text and wrap the match. Three things make this
+ * robust to the audio-vs-DOM mismatch:
+ *
+ *   1. A forward cursor: each segment is searched from where the previous one
+ *      ended, so a sentence that appears verbatim more than once (e.g. a body
+ *      paragraph restated in a summary) resolves to the correct occurrence
+ *      instead of always the first.
+ *   2. A suffix fallback: if the whole segment can't be found, leading words
+ *      are dropped and the longest remaining run is matched. This recovers
+ *      segments whose audio glued in text that isn't in the body — most often
+ *      the prepended title, or a heading Moodle renders as excluded chrome.
+ *   3. Per-text-node wrapping: a matched run that spans element boundaries
+ *      (a heading into a paragraph, one list item into the next, an inline
+ *      <em>) is wrapped as several <mark>s — one per text node — all sharing
+ *      the segment index. surroundContents only ever wraps within a single
+ *      text node, so it never throws on a cross-element range.
  *
  * Container selection is intentionally narrow. We deliberately do NOT fall
  * back to [role="main"] because that includes breadcrumbs, secondary
@@ -973,26 +993,28 @@ const unwrapMark = (mark) => {
  *
  * @param {Array} segments
  * @param {string} module 'page' or 'book'.
- * @returns {{marks: Array<HTMLElement|null>, matchedCount: number}}
+ * @returns {{markGroups: Array<Array<HTMLElement>|null>, matchedCount: number}}
  */
 const tryInPlaceWrap = (segments, module) => {
     const container = findWrapContainer(module);
     if (!container) {
-        return {marks: [], matchedCount: 0};
+        return {markGroups: [], matchedCount: 0};
     }
 
-    const marks = new Array(segments.length).fill(null);
+    const markGroups = new Array(segments.length).fill(null);
     let matched = 0;
+    let cursor = 0;
 
     segments.forEach((seg, i) => {
-        const m = wrapSegmentInContainer(container, seg);
-        marks[i] = m;
-        if (m) {
+        const placed = wrapSegmentInContainer(container, seg, cursor);
+        if (placed && placed.marks.length) {
+            markGroups[i] = placed.marks;
             matched++;
+            cursor = Math.max(cursor, placed.endNorm + 1);
         }
     });
 
-    return {marks, matchedCount: matched};
+    return {markGroups, matchedCount: matched};
 };
 
 /**
@@ -1043,22 +1065,52 @@ const findWrapContainer = (module) => {
 };
 
 /**
- * Search for a segment's text in `container` and wrap the matching range in
- * a <mark>. Returns the new <mark> or null on miss.
+ * Search for a segment's text in `container` (starting at normalized offset
+ * `searchFrom`) and wrap the matching run in one or more <mark>s. Returns the
+ * marks plus the normalized start/end of the match, or null on a miss.
  *
  * @param {Element} container
  * @param {{idx:number, text:string}} seg
- * @returns {HTMLElement|null}
+ * @param {number} searchFrom Normalized index to start searching from.
+ * @returns {{marks: Array<HTMLElement>, startNorm: number, endNorm: number}|null}
  */
-const wrapSegmentInContainer = (container, seg) => {
+const wrapSegmentInContainer = (container, seg, searchFrom) => {
     const needle = normalizeForMatch(seg.text);
     if (!needle) {
         return null;
     }
 
-    // Build a flat string + position map across text nodes, rejecting any
-    // text that lives under chrome we must not mutate (nav, breadcrumbs,
-    // buttons, our own player, etc).
+    const {nodes, raw} = collectTextNodes(container);
+    if (!raw) {
+        return null;
+    }
+    const {norm, normToRaw} = buildNormMap(raw);
+
+    const found = findNeedle(norm, needle, searchFrom || 0);
+    if (!found) {
+        return null;
+    }
+    const startNorm = found.start;
+    const endNorm = found.start + found.length - 1;
+    if (endNorm < 0 || endNorm >= normToRaw.length) {
+        return null;
+    }
+
+    const marks = wrapRawRange(nodes, normToRaw[startNorm], normToRaw[endNorm], seg.idx);
+    if (!marks.length) {
+        return null;
+    }
+    return {marks, startNorm, endNorm};
+};
+
+/**
+ * Walk the container's eligible text nodes (skipping chrome) and return them
+ * alongside the concatenated raw string and each node's start offset within it.
+ *
+ * @param {Element} container
+ * @returns {{nodes: Array<{node: Text, start: number}>, raw: string}}
+ */
+const collectTextNodes = (container) => {
     const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
         acceptNode: (n) => {
             if (!n.parentNode || !n.parentNode.closest) {
@@ -1078,11 +1130,17 @@ const wrapSegmentInContainer = (container, seg) => {
         nodes.push({node, start: raw.length});
         raw += node.nodeValue;
     }
-    if (!raw) {
-        return null;
-    }
+    return {nodes, raw};
+};
 
-    // Build normalized text + reverse map (normIdx -> rawIdx).
+/**
+ * Build a normalized string (lowercased, punctuation dropped, whitespace
+ * collapsed) plus a map from each normalized index back to its raw index.
+ *
+ * @param {string} raw
+ * @returns {{norm: string, normToRaw: Array<number>}}
+ */
+const buildNormMap = (raw) => {
     let norm = '';
     const normToRaw = [];
     let prevSpace = true;
@@ -1101,62 +1159,119 @@ const wrapSegmentInContainer = (container, seg) => {
                 normToRaw.push(i);
                 prevSpace = false;
             }
-            // Otherwise (punctuation), skip — Whisper transcripts often differ
-            // on punctuation; matching letters/digits is more robust.
+            // Punctuation is skipped — Whisper transcripts often differ on it,
+            // so matching letters/digits only is more robust.
         }
     }
     if (norm.endsWith(' ')) {
         norm = norm.slice(0, -1);
         normToRaw.pop();
     }
+    return {norm, normToRaw};
+};
 
-    const startNorm = norm.indexOf(needle);
-    if (startNorm === -1) {
-        return null;
+/**
+ * Locate `needle` in `norm`. Prefer a match at or after the cursor (so verbatim
+ * duplicates resolve to the next occurrence), fall back to a global match, and
+ * finally try dropping leading words so a segment that begins with text absent
+ * from the body (the prepended title, an excluded heading) still matches on its
+ * remaining run.
+ *
+ * @param {string} norm
+ * @param {string} needle
+ * @param {number} searchFrom
+ * @returns {{start: number, length: number}|null}
+ */
+const findNeedle = (norm, needle, searchFrom) => {
+    let start = norm.indexOf(needle, searchFrom);
+    if (start === -1) {
+        start = norm.indexOf(needle);
     }
-    const endNorm = startNorm + needle.length - 1;
-    if (endNorm >= normToRaw.length) {
-        return null;
+    if (start !== -1) {
+        return {start, length: needle.length};
     }
-    const rawStart = normToRaw[startNorm];
-    const rawEnd = normToRaw[endNorm];
 
-    // Map raw offsets back to (node, offset).
-    const locate = (rawIdx) => {
-        for (let i = 0; i < nodes.length; i++) {
-            const entry = nodes[i];
-            const end = entry.start + entry.node.nodeValue.length;
-            if (rawIdx >= entry.start && rawIdx < end) {
-                return {node: entry.node, offset: rawIdx - entry.start};
-            }
+    const words = needle.split(' ');
+    const minWords = Math.max(4, Math.ceil(words.length * 0.6));
+    for (let drop = 1; drop <= words.length - minWords; drop++) {
+        const sub = words.slice(drop).join(' ');
+        let s = norm.indexOf(sub, searchFrom);
+        if (s === -1) {
+            s = norm.indexOf(sub);
         }
-        return null;
-    };
-    const startPos = locate(rawStart);
-    const endPos = locate(rawEnd);
-    if (!startPos || !endPos) {
+        if (s !== -1) {
+            return {start: s, length: sub.length};
+        }
+    }
+    return null;
+};
+
+/**
+ * Wrap the raw range [rawStart, rawEnd] (inclusive) in <mark>s — one per text
+ * node the range spans — each tagged with the segment index. Wrapping each
+ * slice within a single text node means surroundContents never crosses an
+ * element boundary, so cross-element matches succeed as several marks.
+ *
+ * @param {Array<{node: Text, start: number}>} nodes
+ * @param {number} rawStart
+ * @param {number} rawEnd Inclusive.
+ * @param {number} segIdx
+ * @returns {Array<HTMLElement>}
+ */
+const wrapRawRange = (nodes, rawStart, rawEnd, segIdx) => {
+    // Compute every per-node slice up front (against the pristine node map);
+    // each node is touched at most once, so the offsets stay valid as we wrap.
+    const slices = [];
+    nodes.forEach((entry) => {
+        const nodeStart = entry.start;
+        const nodeEnd = nodeStart + entry.node.nodeValue.length;
+        const from = Math.max(rawStart, nodeStart);
+        const toExcl = Math.min(rawEnd + 1, nodeEnd);
+        if (from < toExcl) {
+            slices.push({node: entry.node, from: from - nodeStart, to: toExcl - nodeStart});
+        }
+    });
+
+    const marks = [];
+    slices.forEach((sl) => {
+        const mark = wrapTextSlice(sl.node, sl.from, sl.to, segIdx);
+        if (mark) {
+            marks.push(mark);
+        }
+    });
+    return marks;
+};
+
+/**
+ * Wrap textNode[from, to) in a single <mark>. The range stays inside one text
+ * node, so surroundContents is always safe. Skips text already inside one of
+ * our marks so overlapping matches never nest.
+ *
+ * @param {Text} textNode
+ * @param {number} from
+ * @param {number} to Exclusive.
+ * @param {number} segIdx
+ * @returns {HTMLElement|null}
+ */
+const wrapTextSlice = (textNode, from, to, segIdx) => {
+    if (!textNode.parentNode || to <= from) {
         return null;
     }
-
-    const range = document.createRange();
-    try {
-        range.setStart(startPos.node, startPos.offset);
-        range.setEnd(endPos.node, endPos.offset + 1);
-    } catch (e) {
+    if (textNode.parentNode.closest && textNode.parentNode.closest('.local-aireader-mark')) {
         return null;
     }
-
-    const mark = document.createElement('mark');
-    mark.className = 'local-aireader-mark';
-    mark.dataset.segmentIdx = String(seg.idx);
     try {
+        const range = document.createRange();
+        range.setStart(textNode, from);
+        range.setEnd(textNode, to);
+        const mark = document.createElement('mark');
+        mark.className = 'local-aireader-mark';
+        mark.dataset.segmentIdx = String(segIdx);
         range.surroundContents(mark);
+        return mark;
     } catch (e) {
-        // Range crosses an element boundary; can't wrap cleanly. Caller will
-        // count this as a miss and either accept partial coverage or fall back.
         return null;
     }
-    return mark;
 };
 
 /**

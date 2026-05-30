@@ -332,5 +332,12 @@ function xmldb_local_aireader_upgrade(int $oldversion): bool {
         upgrade_plugin_savepoint(true, 2026053001, 'local', 'aireader');
     }
 
+    if ($oldversion < 2026053002) {
+        // JS-only karaoke accuracy fixes (forward search cursor, suffix
+        // fallback, per-text-node wrapping across element boundaries). The
+        // version bump rolls jsrev so browsers fetch the rebuilt AMD bundle.
+        upgrade_plugin_savepoint(true, 2026053002, 'local', 'aireader');
+    }
+
     return true;
 }
