@@ -68,6 +68,17 @@ const formatEstimateMinutes = (seconds) => {
     return `${m} min`;
 };
 
+const formatBytes = (bytes) => {
+    const n = Number(bytes) || 0;
+    if (n <= 0) {
+        return '';
+    }
+    if (n < 1024 * 1024) {
+        return `${Math.max(1, Math.round(n / 1024))} KB`;
+    }
+    return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+};
+
 const str = (config, key, fallback) => {
     if (config && config.strings && typeof config.strings[key] === 'string') {
         return config.strings[key];
@@ -119,6 +130,8 @@ class Player {
         this.playBtn = root.querySelector('.local-aireader-playpause');
         this.restartBtn = root.querySelector('.local-aireader-restart');
         this.regenBtn = root.querySelector('.local-aireader-regen');
+        this.downloadBtn = root.querySelector('[data-region="download"]');
+        this.downloadSizeEl = root.querySelector('[data-region="download-size"]');
         this.skipBackBtn = root.querySelector('.local-aireader-skipback');
         this.skipFwdBtn = root.querySelector('.local-aireader-skipfwd');
         this.iconPlay = root.querySelector('.local-aireader-icon-play');
@@ -477,6 +490,7 @@ class Player {
             this.skipFwdBtn.disabled = false;
             this.setStatus(STATE.READY, str(this.config, 'ready', 'Ready to play.'));
             this.updateMediaSessionMetadata();
+            this.showDownload(result.downloadurl, result.bytesize);
             this.polling = false;
             this.fetchTranscriptIfNeeded();
             return;
@@ -503,6 +517,32 @@ class Player {
             this.polling = false;
             this.refresh();
         }, ms);
+    }
+
+    /**
+     * Reveal the download link for a ready asset, labelled with the file size
+     * ("Download (3.2 MB)") so learners on metered connections know the cost.
+     * Hidden when downloads are disabled site-wide (no url) or size unknown.
+     *
+     * @param {string} url The force-download URL, or empty/undefined.
+     * @param {number} bytes File size in bytes.
+     */
+    showDownload(url, bytes) {
+        if (!this.downloadBtn) {
+            return;
+        }
+        if (!url) {
+            this.downloadBtn.classList.add('d-none');
+            return;
+        }
+        this.downloadBtn.href = url;
+        const size = formatBytes(bytes);
+        if (this.downloadSizeEl) {
+            this.downloadSizeEl.textContent = size;
+        }
+        const label = str(this.config, 'download', 'Download audio');
+        this.downloadBtn.setAttribute('aria-label', size ? `${label} (${size})` : label);
+        this.downloadBtn.classList.remove('d-none');
     }
 
     setStatus(state, message) {
@@ -653,6 +693,9 @@ class Player {
         this.restartBtn.disabled = true;
         this.skipBackBtn.disabled = true;
         this.skipFwdBtn.disabled = true;
+        if (this.downloadBtn) {
+            this.downloadBtn.classList.add('d-none');
+        }
         this.estimateSecs = 0;
         this.assetId = 0;
         this.pendingResumePosition = 0;
@@ -1334,6 +1377,7 @@ const renderPlayer = async(mount, config) => {
             stringSpeed: str(config, 'speed', 'Speed'),
             stringPlaybackSpeed: str(config, 'playbackspeed', 'Playback speed'),
             stringRestart: str(config, 'restart', 'Restart from beginning'),
+            stringDownload: str(config, 'download', 'Download audio'),
             stringRegenerate: str(config, 'regenerate', 'Regenerate audio'),
             stringShowTranscript: str(config, 'showtranscript', 'Show transcript'),
             stringTranscript: str(config, 'transcriptlabel', 'Transcript'),

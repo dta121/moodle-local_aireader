@@ -136,6 +136,13 @@ if ($hassiteconfig) {
         PARAM_INT
     ));
 
+    $settings->add(new admin_setting_configcheckbox(
+        'local_aireader/allow_downloads',
+        get_string('setting_allowdownloads', 'local_aireader'),
+        get_string('setting_allowdownloads_desc', 'local_aireader'),
+        1
+    ));
+
     $settings->add(new admin_setting_configtextarea(
         'local_aireader/disclosure',
         get_string('setting_disclosure', 'local_aireader'),

@@ -66,6 +66,8 @@ class get_status extends external_api {
         return new external_single_structure([
             'status'         => new external_value(PARAM_ALPHA, 'pending|generating|ready|error|stale'),
             'audiourl'       => new external_value(PARAM_URL, 'mp3 URL or empty', VALUE_OPTIONAL),
+            'downloadurl'    => new external_value(PARAM_URL, 'Force-download mp3 URL or empty', VALUE_OPTIONAL),
+            'bytesize'       => new external_value(PARAM_INT, 'Audio file size in bytes', VALUE_OPTIONAL),
             'durationsecs'   => new external_value(PARAM_INT, 'Duration in seconds', VALUE_OPTIONAL),
             'canregenerate'  => new external_value(PARAM_BOOL, 'Whether the caller may force regen'),
             'message'        => new external_value(PARAM_TEXT, 'Human-readable status'),
@@ -163,9 +165,14 @@ class get_status extends external_api {
 
         if ($asset->status === asset_manager::STATUS_READY) {
             $url = storage::get_audio_url($asset);
+            $downloadurl = get_config('local_aireader', 'allow_downloads') === '0'
+                ? null
+                : storage::get_download_url($asset);
             return [
                 'status'         => 'ready',
                 'audiourl'       => $url ? $url->out(false) : '',
+                'downloadurl'    => $downloadurl ? $downloadurl->out(false) : '',
+                'bytesize'       => (int)($asset->bytesize ?? 0),
                 'durationsecs'   => (int)($asset->durationsecs ?? 0) ?: $estimatedduration,
                 'canregenerate'  => $canregenerate,
                 'message'        => get_string('status_ready', 'local_aireader'),

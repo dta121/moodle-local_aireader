@@ -77,6 +77,24 @@ function local_aireader_pluginfile($course, $cm, $context, $filearea, $args, $fo
         send_file_not_found();
     }
 
+    // Give downloads a human-readable filename (course - activity[ - chapter]
+    // (lang).mp3) rather than the internal asset-N.mp3, so offline files are
+    // recognisable. Streaming playback is unaffected.
+    if ($forcedownload && empty($options['filename'])) {
+        $namebits = [
+            format_string($sourcecourse->shortname),
+            format_string($sourcecm->name),
+        ];
+        if (!empty($asset->chapterid)) {
+            $chaptertitle = $DB->get_field('book_chapters', 'title', ['id' => (int)$asset->chapterid]);
+            if (!empty($chaptertitle)) {
+                $namebits[] = format_string($chaptertitle);
+            }
+        }
+        $label = implode(' - ', array_filter($namebits));
+        $options['filename'] = clean_filename($label . ' (' . $asset->lang . ').mp3');
+    }
+
     send_stored_file($file, 0, 0, $forcedownload, $options);
 }
 
