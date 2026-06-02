@@ -4,6 +4,19 @@ All notable changes to `local_aireader` are documented in this file.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased] — 1.3.0 (in progress)
+
+### Added
+
+- **Per-activity audio download.** A Download button on the player saves the
+  narration mp3 for offline listening, labelled with the file size
+  ("Download (3.2 MB)"). Downloads get a human-readable filename
+  (`Course - Activity[ - Chapter] (lang).mp3`) and respect the same
+  listen-capability and visibility gating as playback. New `allow_downloads`
+  admin setting (default on) to disable it site-wide. (MDL-662; remainder of
+  the v1.3 "Offline & quick wins" epic — ID3 tags, course "Download all"
+  page, tests — still to come.)
+
 ## [1.2.1] — 2026-05-29
 
 ### Fixed

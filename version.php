@@ -25,7 +25,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'local_aireader';
-$plugin->version   = 2026053002;
+$plugin->version   = 2026060200;
 $plugin->requires  = 2024100700;
 $plugin->maturity  = MATURITY_STABLE;
-$plugin->release   = '1.2.1';
+$plugin->release   = '1.3.0-dev';
