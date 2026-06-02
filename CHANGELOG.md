@@ -16,6 +16,12 @@ versions follow [Semantic Versioning](https://semver.org/).
   admin setting (default on) to disable it site-wide. (MDL-662; remainder of
   the v1.3 "Offline & quick wins" epic — ID3 tags, course "Download all"
   page, tests — still to come.)
+- **ID3 tags on generated audio.** Narration mp3s are now tagged at generation
+  time with title (activity, plus chapter for books and a language marker for
+  translations), album (course), artist (site), genre, track number, and a
+  comment carrying the AI-generated disclosure — so downloaded files are
+  recognisable in a music player and the disclosure travels with them. Applies
+  to audio generated or regenerated from this release onward. (MDL-663)
 
 ## [1.2.1] — 2026-05-29
 
