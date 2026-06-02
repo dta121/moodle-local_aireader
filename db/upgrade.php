@@ -340,7 +340,7 @@ function xmldb_local_aireader_upgrade(int $oldversion): bool {
     }
 
     if ($oldversion < 2026060200) {
-        // v1.3 work in progress: per-activity audio download button. New
+        // Release 1.3.0 (in progress): per-activity audio download button. New
         // allow_downloads admin default + a rebuilt AMD bundle; the version
         // bump registers the default and rolls jsrev so browsers fetch the
         // bundle carrying the download control. No schema change.
