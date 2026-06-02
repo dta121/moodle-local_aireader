@@ -73,6 +73,29 @@ class storage {
      * @return \moodle_url|null
      */
     public static function get_audio_url(\stdClass $asset): ?\moodle_url {
+        return self::build_pluginfile_url($asset, false);
+    }
+
+    /**
+     * Return the force-download pluginfile URL for an asset's audio, or null if
+     * absent. Used by the player's "Download" control so the browser saves the
+     * mp3 rather than streaming it inline.
+     *
+     * @param \stdClass $asset local_aireader_asset row.
+     * @return \moodle_url|null
+     */
+    public static function get_download_url(\stdClass $asset): ?\moodle_url {
+        return self::build_pluginfile_url($asset, true);
+    }
+
+    /**
+     * Build the pluginfile URL for an asset's stored audio.
+     *
+     * @param \stdClass $asset local_aireader_asset row.
+     * @param bool $forcedownload Whether the URL should force a download.
+     * @return \moodle_url|null Null when no file is stored for the asset.
+     */
+    private static function build_pluginfile_url(\stdClass $asset, bool $forcedownload): ?\moodle_url {
         $fs = get_file_storage();
         $files = $fs->get_area_files(
             $asset->contextid,
@@ -93,7 +116,7 @@ class storage {
             $file->get_itemid(),
             $file->get_filepath(),
             $file->get_filename(),
-            false
+            $forcedownload
         );
     }
 }
