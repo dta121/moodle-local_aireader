@@ -28,6 +28,7 @@ use core\task\adhoc_task;
 use core\task\manager as task_manager;
 use local_aireader\manager\asset_manager;
 use local_aireader\manager\content_extractor;
+use local_aireader\manager\id3_writer;
 use local_aireader\manager\openai_client;
 use local_aireader\manager\openai_translator;
 use local_aireader\manager\storage;
@@ -148,6 +149,10 @@ class generate_audio extends adhoc_task {
                 $audio .= $client->synthesize($chunk, $asset->model, $asset->voice, $instructions);
             }
 
+            // Embed ID3 metadata so downloaded files are recognisable in a
+            // music player and carry the AI-generated disclosure offline.
+            $audio = id3_writer::tag_mp3($audio, $this->build_id3_tags($asset));
+
             $file = storage::store_mp3((int)$asset->id, (int)$asset->contextid, $audio);
             asset_manager::record_generated(
                 (int)$asset->id,
@@ -172,5 +177,64 @@ class generate_audio extends adhoc_task {
             asset_manager::update_status($asset->id, asset_manager::STATUS_ERROR, $message);
             throw $e;
         }
+    }
+
+    /**
+     * Resolve human-readable ID3 tag values for an asset.
+     *
+     * Album is the course (so a whole course groups together in a library),
+     * artist is the site, and the title is the activity — suffixed with the
+     * chapter for books and with a language marker for non-source narrations.
+     * The comment carries the configured AI disclosure.
+     *
+     * @param \stdClass $asset local_aireader_asset row.
+     * @return array Tag map consumed by {@see id3_writer::tag_mp3()}.
+     */
+    private function build_id3_tags(\stdClass $asset): array {
+        global $DB, $CFG;
+
+        $course = get_course((int)$asset->courseid);
+        $album = format_string($course->fullname, true, ['context' => \context_course::instance($course->id)]);
+
+        $activityname = '';
+        $cm = get_coursemodule_from_id('', (int)$asset->cmid, 0, false, IGNORE_MISSING);
+        if ($cm) {
+            $activityname = format_string($cm->name);
+        }
+        $title = $activityname !== '' ? $activityname : $album;
+
+        $track = '';
+        if (!empty($asset->chapterid)) {
+            $chapter = $DB->get_record('book_chapters', ['id' => (int)$asset->chapterid], 'title, pagenum');
+            if ($chapter) {
+                if (!empty($chapter->title)) {
+                    $chaptertitle = format_string($chapter->title);
+                    $title = $activityname !== '' ? $activityname . ': ' . $chaptertitle : $chaptertitle;
+                }
+                if (!empty($chapter->pagenum)) {
+                    $track = (string)(int)$chapter->pagenum;
+                }
+            }
+        }
+
+        // Keep different-language narrations of the same activity distinct in a library.
+        $sourcelang = (string)($CFG->lang ?? 'en');
+        if (!translation_manager::is_same_language($sourcelang, (string)$asset->lang)) {
+            $title .= ' (' . \core_text::strtoupper((string)$asset->lang) . ')';
+        }
+
+        $disclosure = trim((string)get_config('local_aireader', 'disclosure'));
+        if ($disclosure === '') {
+            $disclosure = get_string('default_disclosure', 'local_aireader');
+        }
+
+        return [
+            'title'   => $title,
+            'artist'  => format_string(get_site()->fullname),
+            'album'   => $album,
+            'genre'   => 'Speech',
+            'track'   => $track,
+            'comment' => $disclosure,
+        ];
     }
 }
