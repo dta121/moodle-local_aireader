@@ -295,6 +295,18 @@
     outline-offset: 1px;
 }
 
+/* Download is an anchor styled as an icon button, with an inline size label
+ * ("Download (3.2 MB)") so learners on metered connections know the cost. */
+.local-aireader-download {
+    gap: 4px;
+    text-decoration: none;
+}
+
+.local-aireader-download-size {
+    font-size: 12px;
+    font-weight: 600;
+}
+
 /* Skip buttons live alongside the big play button and want a slightly larger
  * tap target than the secondary restart/regen icons. */
 .local-aireader-skipback,

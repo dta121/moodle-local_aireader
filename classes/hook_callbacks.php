@@ -175,6 +175,7 @@ class hook_callbacks {
             'speed'              => get_string('player_speed', 'local_aireader'),
             'playbackspeed'      => get_string('player_playback_speed', 'local_aireader'),
             'restart'            => get_string('player_restart', 'local_aireader'),
+            'download'           => get_string('player_download', 'local_aireader'),
             'regenerate'         => get_string('player_regenerate', 'local_aireader'),
             'showtranscript'     => get_string('player_show_transcript', 'local_aireader'),
             'transcriptlabel'    => get_string('player_transcript_label', 'local_aireader'),
