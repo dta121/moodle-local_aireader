@@ -131,23 +131,6 @@ jobs:
         if: ${{ !cancelled() }}
         run: moodle-plugin-ci grunt --max-lint-warnings 0
 
-      # Temporary: capture CI's own rollup output so the committed bundle can
-      # be matched byte-for-byte (dev-host terser drifts from CI's). Remove
-      # once amd/build matches.
-      - name: Rebuild AMD for capture (debug)
-        if: always()
-        run: cd moodle && npx grunt amd --root=local/aireader || true
-
-      - name: Upload CI-built AMD bundle (debug)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: amd-build-${{ matrix.php }}-${{ matrix.moodle-branch }}-${{ matrix.database }}
-          path: |
-            moodle/local/aireader/amd/build/player.min.js
-            moodle/local/aireader/amd/build/player.min.js.map
-          if-no-files-found: warn
-
       - name: Lint AMD source (eslint, fail on warning)
         if: ${{ !cancelled() }}
         run: |
