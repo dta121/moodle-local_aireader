@@ -1,17 +1,21 @@
 /* local_aireader — "Listen to this content" widget */
 /* Visual style inspired by saylor.org's article audio player. */
 
-.local-aireader {
-    --la-orange: #f86a01;
-    --la-orange-hover: #d95600;
-    --la-orange-soft: rgba(248, 106, 1, 0.12);
+.local-aireader,
+.local-aireader-shell {
+    --la-accent: #f86a01;
+    --la-accent-hover: color-mix(in srgb, var(--la-accent) 85%, #000);
+    --la-accent-soft: color-mix(in srgb, var(--la-accent) 12%, transparent);
+    --la-accent-shadow: color-mix(in srgb, var(--la-accent) 30%, transparent);
     --la-text: rgba(0, 0, 0, 0.86);
     --la-muted: rgba(0, 0, 0, 0.56);
     --la-border: rgba(0, 0, 0, 0.08);
     --la-bg: #fff;
     --la-bg-hover: rgba(0, 0, 0, 0.04);
     --la-error: #c93030;
+}
 
+.local-aireader {
     background: var(--la-bg);
     border: 1px solid var(--la-border);
     border-radius: 12px;
@@ -65,7 +69,7 @@
     left: 0;
     top: 50%;
     height: 4px;
-    background: var(--la-orange);
+    background: var(--la-accent);
     border-radius: 2px;
     transform: translateY(-50%);
     width: 0;
@@ -79,7 +83,7 @@
     width: 12px;
     height: 12px;
     border-radius: 50%;
-    background: var(--la-orange);
+    background: var(--la-accent);
     transform: translate(-50%, -50%);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
     left: 0;
@@ -99,7 +103,7 @@
 }
 
 .local-aireader-progress:focus-visible::before {
-    box-shadow: 0 0 0 2px var(--la-orange-soft);
+    box-shadow: 0 0 0 2px var(--la-accent-soft);
 }
 
 .local-aireader-controls-row {
@@ -131,7 +135,7 @@
 }
 
 .local-aireader-speed:focus-within {
-    outline: 2px solid var(--la-orange-soft);
+    outline: 2px solid var(--la-accent-soft);
     outline-offset: 1px;
 }
 
@@ -171,7 +175,7 @@
     height: 48px;
     border-radius: 50%;
     border: none;
-    background: var(--la-orange);
+    background: var(--la-accent);
     color: #fff;
     cursor: pointer;
     display: inline-flex;
@@ -179,12 +183,12 @@
     justify-content: center;
     padding: 0;
     transition: background-color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
-    box-shadow: 0 1px 2px rgba(248, 106, 1, 0.25);
+    box-shadow: 0 1px 2px var(--la-accent-shadow);
 }
 
 .local-aireader-playpause:hover:not(:disabled) {
-    background: var(--la-orange-hover);
-    box-shadow: 0 2px 4px rgba(248, 106, 1, 0.35);
+    background: var(--la-accent-hover);
+    box-shadow: 0 2px 4px color-mix(in srgb, var(--la-accent) 40%, transparent);
 }
 
 .local-aireader-playpause:active:not(:disabled) {
@@ -199,7 +203,7 @@
 }
 
 .local-aireader-playpause:focus-visible {
-    outline: 3px solid var(--la-orange-soft);
+    outline: 3px solid var(--la-accent-soft);
     outline-offset: 2px;
 }
 
@@ -291,7 +295,7 @@
 }
 
 .local-aireader-iconbtn:focus-visible {
-    outline: 2px solid var(--la-orange-soft);
+    outline: 2px solid var(--la-accent-soft);
     outline-offset: 1px;
 }
 
@@ -348,7 +352,7 @@
 }
 
 .local-aireader-langpicker:focus-within {
-    outline: 2px solid var(--la-orange-soft);
+    outline: 2px solid var(--la-accent-soft);
     outline-offset: 1px;
 }
 
@@ -405,7 +409,7 @@
 }
 
 .local-aireader-managerbtn:focus-visible {
-    outline: 2px solid var(--la-orange-soft);
+    outline: 2px solid var(--la-accent-soft);
     outline-offset: 1px;
 }
 
@@ -446,7 +450,7 @@
 }
 
 .local-aireader-transcript-toggle:focus-visible {
-    outline: 2px solid var(--la-orange-soft);
+    outline: 2px solid var(--la-accent-soft);
     outline-offset: 1px;
 }
 
@@ -506,13 +510,13 @@
 }
 
 .local-aireader-transcript-segment:focus-visible {
-    outline: 2px solid var(--la-orange-soft);
+    outline: 2px solid var(--la-accent-soft);
     outline-offset: -2px;
 }
 
 .local-aireader-transcript-segment.is-current {
-    background: var(--la-orange-soft);
-    border-left-color: var(--la-orange);
+    background: var(--la-accent-soft);
+    border-left-color: var(--la-accent);
     color: var(--la-text);
 }
 
@@ -531,12 +535,16 @@ mark.local-aireader-mark {
 }
 
 mark.local-aireader-mark:hover {
-    background: rgba(248, 106, 1, 0.10);
+    /* Marks are injected into the activity body, outside the .local-aireader
+     * scope that defines --la-accent, so the fallback keeps them visible even
+     * if the accent custom property has not cascaded down. The player sets
+     * --la-accent on the document root so the configured colour still applies. */
+    background: color-mix(in srgb, var(--la-accent, #f86a01) 12%, transparent);
     cursor: pointer;
 }
 
 mark.local-aireader-mark.is-current {
-    background: rgba(248, 106, 1, 0.30);
+    background: color-mix(in srgb, var(--la-accent, #f86a01) 30%, transparent);
     cursor: pointer;
 }
 
@@ -588,8 +596,203 @@ mark.local-aireader-mark.is-current {
 }
 
 .local-aireader-offline-action:focus-visible {
-    outline: 2px solid var(--la-orange-soft);
+    outline: 2px solid var(--la-accent-soft);
     outline-offset: 1px;
+}
+
+/* ===================================================================== *
+ * Selectable player designs (admin setting: player_design).
+ *
+ * The default "full" design renders the player immediately and uses none of
+ * the rules below. The compact designs render a trigger (player_trigger.mustache)
+ * that expands the same full player inline, so all playback logic is shared.
+ * The visual variant is chosen by the .local-aireader--{design} modifier.
+ * ===================================================================== */
+
+.local-aireader-shell {
+    margin: 0 0 1.25rem 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", sans-serif;
+    color: var(--la-text);
+    line-height: 1.4;
+}
+
+.local-aireader-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font: inherit;
+    cursor: pointer;
+    color: var(--la-text);
+    background: var(--la-bg);
+    border: 1px solid var(--la-border);
+    border-radius: 10px;
+    padding: 10px 16px;
+    transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+}
+
+.local-aireader-trigger:focus-visible {
+    outline: 3px solid var(--la-accent-soft);
+    outline-offset: 2px;
+}
+
+.local-aireader-trigger-label {
+    font-weight: 600;
+    font-size: 15px;
+}
+
+.local-aireader-trigger-icon {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--la-accent);
+}
+
+.local-aireader-trigger-icon svg {
+    width: 20px;
+    height: 20px;
+}
+
+/* One template carries both glyphs; show the speaker by default, the filled
+ * play triangle only on the pill skin. */
+.local-aireader-trigger .la-ico-play {
+    display: none;
+}
+
+.local-aireader-trigger-chevron {
+    width: 18px;
+    height: 18px;
+    margin-left: auto;
+    color: var(--la-muted);
+    transition: transform 0.15s ease;
+}
+
+.local-aireader-shell[data-state="expanded"] .local-aireader-trigger-chevron {
+    transform: rotate(180deg);
+}
+
+/* The expanded player drops its own bottom margin (the shell owns spacing). */
+.local-aireader-expand .local-aireader-player {
+    margin-bottom: 0;
+}
+
+/* --- A: slim banner bar --- */
+.local-aireader--banner .local-aireader-trigger {
+    display: flex;
+    width: 100%;
+    background: var(--la-accent-soft);
+    border-color: transparent;
+    border-left: 4px solid var(--la-accent);
+}
+
+.local-aireader--banner .local-aireader-trigger:hover {
+    background: color-mix(in srgb, var(--la-accent) 18%, transparent);
+}
+
+.local-aireader--banner[data-state="expanded"] .local-aireader-trigger {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.local-aireader--banner[data-state="expanded"] .local-aireader-expand .local-aireader-player {
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+}
+
+/* --- C: collapsed accordion (solid accent header) --- */
+.local-aireader--accordion .local-aireader-trigger {
+    display: flex;
+    width: 100%;
+    background: var(--la-accent);
+    color: #fff;
+    border: none;
+    padding: 14px 18px;
+}
+
+.local-aireader--accordion .local-aireader-trigger-icon,
+.local-aireader--accordion .local-aireader-trigger-chevron {
+    color: #fff;
+}
+
+.local-aireader--accordion .local-aireader-trigger:hover {
+    background: var(--la-accent-hover);
+}
+
+.local-aireader--accordion[data-state="expanded"] .local-aireader-trigger {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.local-aireader--accordion[data-state="expanded"] .local-aireader-expand .local-aireader-player {
+    border-top: none;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+}
+
+/* --- B: inline pill / chip --- */
+.local-aireader--pill .local-aireader-trigger {
+    border-radius: 999px;
+    border: 1.5px solid var(--la-accent);
+    padding: 6px 18px 6px 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.local-aireader--pill .local-aireader-trigger:hover {
+    background: var(--la-accent-soft);
+}
+
+.local-aireader--pill .local-aireader-trigger-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--la-accent);
+    color: #fff;
+}
+
+.local-aireader--pill .local-aireader-trigger-icon svg {
+    width: 15px;
+    height: 15px;
+}
+
+.local-aireader--pill .local-aireader-trigger .la-ico-speaker {
+    display: none;
+}
+
+.local-aireader--pill .local-aireader-trigger .la-ico-play {
+    display: inline;
+    margin-left: 2px; /* optically centre the triangle in the circle */
+}
+
+/* --- D: right-aligned inline action --- */
+.local-aireader--inline {
+    text-align: right;
+}
+
+.local-aireader--inline .local-aireader-trigger {
+    gap: 7px;
+    padding: 7px 13px;
+    border-radius: 8px;
+    border-color: transparent;
+    background: var(--la-accent-soft);
+    color: var(--la-accent-hover);
+}
+
+.local-aireader--inline .local-aireader-trigger:hover {
+    background: color-mix(in srgb, var(--la-accent) 20%, transparent);
+}
+
+.local-aireader--inline .local-aireader-trigger-icon svg {
+    width: 16px;
+    height: 16px;
+}
+
+.local-aireader--inline .local-aireader-trigger-label {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.local-aireader--inline .local-aireader-expand {
+    text-align: left;
 }
 
 /* Compact layout on small screens. */
@@ -643,7 +846,8 @@ mark.local-aireader-mark.is-current {
 
 /* Adapt to dark themes. */
 @media (prefers-color-scheme: dark) {
-    .local-aireader {
+    .local-aireader,
+    .local-aireader-shell {
         --la-text: rgba(255, 255, 255, 0.92);
         --la-muted: rgba(255, 255, 255, 0.62);
         --la-border: rgba(255, 255, 255, 0.12);
@@ -660,11 +864,11 @@ mark.local-aireader-mark.is-current {
     }
 
     mark.local-aireader-mark:hover {
-        background: rgba(248, 106, 1, 0.18);
+        background: color-mix(in srgb, var(--la-accent, #f86a01) 22%, transparent);
     }
 
     mark.local-aireader-mark.is-current {
-        background: rgba(248, 106, 1, 0.45);
+        background: color-mix(in srgb, var(--la-accent, #f86a01) 48%, transparent);
         color: #fff;
     }
 }

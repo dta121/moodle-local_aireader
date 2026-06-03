@@ -8,6 +8,23 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Selectable player design + accent colour.** A new *Player appearance*
+  settings group lets admins choose how the "Listen to this content" widget
+  appears: the full player (default, unchanged) or one of four compact designs
+  — slim banner bar, inline pill, collapsed accordion, or right-aligned inline
+  action — each of which expands into the same full player inline on click, so
+  every playback feature is preserved. A colour picker (`player_accent_color`,
+  default Saylor orange) re-themes the play button, progress bar, and text
+  highlighting from a single accent; hover and tint shades derive automatically
+  via CSS `color-mix()`. The widget styling was refactored onto one
+  `--la-accent` custom property to support this (also set on the document root
+  so in-page karaoke `<mark>` highlights, injected outside the player, pick up
+  the accent).
+- **Auto-play compact designs on open.** New `autoplay_on_expand` admin setting
+  (default on): when a learner opens a banner/pill/accordion/inline player,
+  playback begins as soon as the audio is ready instead of needing a second
+  click. Best-effort — browsers may still gate autoplay on prior interaction.
+  No effect on the full player.
 - **Per-activity audio download.** A Download button on the player saves the
   narration mp3 for offline listening, labelled with the file size
   ("Download (3.2 MB)"). Downloads get a human-readable filename

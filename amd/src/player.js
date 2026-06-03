@@ -121,9 +121,10 @@ const saveSpeed = (rate) => {
 };
 
 class Player {
-    constructor(root, config) {
+    constructor(root, config, autoplay) {
         this.root = root;
         this.config = config;
+        this.pendingAutoplay = !!autoplay;
         this.audio = root.querySelector('[data-region="audio"]');
         this.statusEl = root.querySelector('[data-region="status"]');
         this.timeEl = root.querySelector('[data-region="time"]');
@@ -489,6 +490,13 @@ class Player {
             this.skipBackBtn.disabled = false;
             this.skipFwdBtn.disabled = false;
             this.setStatus(STATE.READY, str(this.config, 'ready', 'Ready to play.'));
+            if (this.pendingAutoplay) {
+                this.pendingAutoplay = false;
+                // The expand click is the user gesture; play as soon as the audio
+                // is ready. Browsers may still gate autoplay on prior interaction,
+                // in which case this rejects and the learner presses play manually.
+                this.audio.play().catch(() => { /* Blocked autoplay is acceptable. */ });
+            }
             this.updateMediaSessionMetadata();
             this.showDownload(result.downloadurl, result.bytesize);
             this.polling = false;
@@ -1335,6 +1343,24 @@ const normalizeForMatch = (s) => {
         .trim();
 };
 
+// Designs that render a compact trigger and expand the full player on click.
+// The default 'full' design is everything else (render the player immediately).
+const COMPACT_DESIGNS = ['banner', 'pill', 'accordion', 'inline'];
+
+/**
+ * Apply the admin-chosen accent colour to a rendered root by overriding the
+ * --la-accent custom property inline. The hover/soft/shadow shades are derived
+ * from it in CSS, so this single override re-themes the whole widget.
+ *
+ * @param {HTMLElement|null} root
+ * @param {string} [color]
+ */
+const applyAccent = (root, color) => {
+    if (root && color) {
+        root.style.setProperty('--la-accent', color);
+    }
+};
+
 const renderOffline = async(mount, config) => {
     try {
         const {html, js} = await Templates.renderForPromise('local_aireader/manager_offline', {
@@ -1343,6 +1369,7 @@ const renderOffline = async(mount, config) => {
             regionlabel: str(config, 'offlinedisabled', 'AI narration disabled'),
         });
         Templates.replaceNodeContents(mount, html, js);
+        applyAccent(mount.querySelector('.local-aireader'), config.accentcolor);
         const btn = mount.querySelector('[data-action="enable"]');
         if (btn) {
             btn.addEventListener('click', async() => {
@@ -1361,7 +1388,7 @@ const renderOffline = async(mount, config) => {
     }
 };
 
-const renderPlayer = async(mount, config) => {
+const renderPlayer = async(target, config, autoplay) => {
     try {
         const {html, js} = await Templates.renderForPromise('local_aireader/player', {
             disclosure: config.disclosure || '',
@@ -1383,11 +1410,55 @@ const renderPlayer = async(mount, config) => {
             stringTranscript: str(config, 'transcriptlabel', 'Transcript'),
             stringPreparingTranscript: str(config, 'preparingtranscript', 'Preparing transcript…'),
         });
-        Templates.replaceNodeContents(mount, html, js);
-        const root = mount.querySelector('.local-aireader-player');
+        Templates.replaceNodeContents(target, html, js);
+        const root = target.querySelector('.local-aireader-player');
         if (root) {
-            new Player(root, config);
+            applyAccent(root, config.accentcolor);
+            new Player(root, config, autoplay);
         }
+    } catch (e) {
+        Notification.exception(e);
+    }
+};
+
+/**
+ * Render a compact design's trigger. Clicking it toggles an inline region that
+ * holds the full player; the player is instantiated lazily on first expand, so
+ * a collapsed widget makes no status request until the learner engages with it.
+ *
+ * @param {HTMLElement} mount The hook-injected mount point.
+ * @param {object} config Player config (including design + accentcolor).
+ */
+const renderTrigger = async(mount, config) => {
+    const longtitle = config.design === 'banner' || config.design === 'accordion';
+    try {
+        const {html, js} = await Templates.renderForPromise('local_aireader/player_trigger', {
+            design: config.design,
+            label: longtitle
+                ? str(config, 'listentitle', 'Listen to this content')
+                : str(config, 'listenshort', 'Listen'),
+            showchevron: longtitle,
+            stringExpand: str(config, 'expand', 'Show audio player'),
+        });
+        Templates.replaceNodeContents(mount, html, js);
+        const shell = mount.querySelector('.local-aireader-shell');
+        const trigger = mount.querySelector('[data-action="expand"]');
+        const expand = mount.querySelector('[data-region="expand"]');
+        if (!shell || !trigger || !expand) {
+            return;
+        }
+        applyAccent(shell, config.accentcolor);
+        let instantiated = false;
+        trigger.addEventListener('click', () => {
+            const isopen = shell.dataset.state === 'expanded';
+            shell.dataset.state = isopen ? 'collapsed' : 'expanded';
+            trigger.setAttribute('aria-expanded', isopen ? 'false' : 'true');
+            expand.classList.toggle('d-none', isopen);
+            if (!isopen && !instantiated) {
+                instantiated = true;
+                renderPlayer(expand, config, config.autoplay);
+            }
+        });
     } catch (e) {
         Notification.exception(e);
     }
@@ -1410,5 +1481,12 @@ export const init = async(config) => {
         }
         return;
     }
-    renderPlayer(mount, config);
+    // Expose the accent to in-page <mark> highlights, which are injected into the
+    // activity body — outside the player's own (.local-aireader) scope.
+    applyAccent(document.documentElement, config.accentcolor);
+    if (COMPACT_DESIGNS.indexOf(config.design) !== -1) {
+        renderTrigger(mount, config);
+    } else {
+        renderPlayer(mount, config);
+    }
 };
