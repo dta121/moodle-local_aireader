@@ -141,6 +141,7 @@ class hook_callbacks {
             'highlightinplace' => (bool)get_config('local_aireader', 'highlight_in_place'),
             'design'           => (string)(get_config('local_aireader', 'player_design') ?: 'full'),
             'accentcolor'      => (string)(get_config('local_aireader', 'player_accent_color') ?: '#f86a01'),
+            'autoplay'         => (bool)get_config('local_aireader', 'autoplay_on_expand'),
             'strings'          => self::player_strings($scopelabel),
         ]]);
 

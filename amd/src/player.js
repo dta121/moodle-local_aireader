@@ -121,9 +121,10 @@ const saveSpeed = (rate) => {
 };
 
 class Player {
-    constructor(root, config) {
+    constructor(root, config, autoplay) {
         this.root = root;
         this.config = config;
+        this.pendingAutoplay = !!autoplay;
         this.audio = root.querySelector('[data-region="audio"]');
         this.statusEl = root.querySelector('[data-region="status"]');
         this.timeEl = root.querySelector('[data-region="time"]');
@@ -489,6 +490,13 @@ class Player {
             this.skipBackBtn.disabled = false;
             this.skipFwdBtn.disabled = false;
             this.setStatus(STATE.READY, str(this.config, 'ready', 'Ready to play.'));
+            if (this.pendingAutoplay) {
+                this.pendingAutoplay = false;
+                // The expand click is the user gesture; play as soon as the audio
+                // is ready. Browsers may still gate autoplay on prior interaction,
+                // in which case this rejects and the learner presses play manually.
+                this.audio.play().catch(() => { /* Blocked autoplay is acceptable. */ });
+            }
             this.updateMediaSessionMetadata();
             this.showDownload(result.downloadurl, result.bytesize);
             this.polling = false;
@@ -1380,7 +1388,7 @@ const renderOffline = async(mount, config) => {
     }
 };
 
-const renderPlayer = async(target, config) => {
+const renderPlayer = async(target, config, autoplay) => {
     try {
         const {html, js} = await Templates.renderForPromise('local_aireader/player', {
             disclosure: config.disclosure || '',
@@ -1406,7 +1414,7 @@ const renderPlayer = async(target, config) => {
         const root = target.querySelector('.local-aireader-player');
         if (root) {
             applyAccent(root, config.accentcolor);
-            new Player(root, config);
+            new Player(root, config, autoplay);
         }
     } catch (e) {
         Notification.exception(e);
@@ -1448,7 +1456,7 @@ const renderTrigger = async(mount, config) => {
             expand.classList.toggle('d-none', isopen);
             if (!isopen && !instantiated) {
                 instantiated = true;
-                renderPlayer(expand, config);
+                renderPlayer(expand, config, config.autoplay);
             }
         });
     } catch (e) {
@@ -1473,6 +1481,9 @@ export const init = async(config) => {
         }
         return;
     }
+    // Expose the accent to in-page <mark> highlights, which are injected into the
+    // activity body — outside the player's own (.local-aireader) scope.
+    applyAccent(document.documentElement, config.accentcolor);
     if (COMPACT_DESIGNS.indexOf(config.design) !== -1) {
         renderTrigger(mount, config);
     } else {

@@ -535,12 +535,16 @@ mark.local-aireader-mark {
 }
 
 mark.local-aireader-mark:hover {
-    background: var(--la-accent-soft);
+    /* Marks are injected into the activity body, outside the .local-aireader
+     * scope that defines --la-accent, so the fallback keeps them visible even
+     * if the accent custom property has not cascaded down. The player sets
+     * --la-accent on the document root so the configured colour still applies. */
+    background: color-mix(in srgb, var(--la-accent, #f86a01) 12%, transparent);
     cursor: pointer;
 }
 
 mark.local-aireader-mark.is-current {
-    background: color-mix(in srgb, var(--la-accent) 30%, transparent);
+    background: color-mix(in srgb, var(--la-accent, #f86a01) 30%, transparent);
     cursor: pointer;
 }
 
@@ -860,11 +864,11 @@ mark.local-aireader-mark.is-current {
     }
 
     mark.local-aireader-mark:hover {
-        background: color-mix(in srgb, var(--la-accent) 22%, transparent);
+        background: color-mix(in srgb, var(--la-accent, #f86a01) 22%, transparent);
     }
 
     mark.local-aireader-mark.is-current {
-        background: color-mix(in srgb, var(--la-accent) 48%, transparent);
+        background: color-mix(in srgb, var(--la-accent, #f86a01) 48%, transparent);
         color: #fff;
     }
 }

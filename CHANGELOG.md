@@ -17,7 +17,14 @@ versions follow [Semantic Versioning](https://semver.org/).
   default Saylor orange) re-themes the play button, progress bar, and text
   highlighting from a single accent; hover and tint shades derive automatically
   via CSS `color-mix()`. The widget styling was refactored onto one
-  `--la-accent` custom property to support this.
+  `--la-accent` custom property to support this (also set on the document root
+  so in-page karaoke `<mark>` highlights, injected outside the player, pick up
+  the accent).
+- **Auto-play compact designs on open.** New `autoplay_on_expand` admin setting
+  (default on): when a learner opens a banner/pill/accordion/inline player,
+  playback begins as soon as the audio is ready instead of needing a second
+  click. Best-effort — browsers may still gate autoplay on prior interaction.
+  No effect on the full player.
 - **Per-activity audio download.** A Download button on the player saves the
   narration mp3 for offline listening, labelled with the file size
   ("Download (3.2 MB)"). Downloads get a human-readable filename

@@ -186,6 +186,13 @@ if ($hassiteconfig) {
         '#f86a01'
     ));
 
+    $settings->add(new admin_setting_configcheckbox(
+        'local_aireader/autoplay_on_expand',
+        get_string('setting_autoplayonexpand', 'local_aireader'),
+        get_string('setting_autoplayonexpand_desc', 'local_aireader'),
+        1
+    ));
+
     $settings->add(new admin_setting_heading(
         'local_aireader/heading_cost',
         get_string('setting_heading_cost', 'local_aireader'),
