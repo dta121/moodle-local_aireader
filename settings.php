@@ -160,6 +160,33 @@ if ($hassiteconfig) {
     ));
 
     $settings->add(new admin_setting_heading(
+        'local_aireader/heading_appearance',
+        get_string('setting_heading_appearance', 'local_aireader'),
+        get_string('setting_heading_appearance_desc', 'local_aireader')
+    ));
+
+    $settings->add(new admin_setting_configselect(
+        'local_aireader/player_design',
+        get_string('setting_playerdesign', 'local_aireader'),
+        get_string('setting_playerdesign_desc', 'local_aireader'),
+        'full',
+        [
+            'full'      => get_string('design_full', 'local_aireader'),
+            'banner'    => get_string('design_banner', 'local_aireader'),
+            'pill'      => get_string('design_pill', 'local_aireader'),
+            'accordion' => get_string('design_accordion', 'local_aireader'),
+            'inline'    => get_string('design_inline', 'local_aireader'),
+        ]
+    ));
+
+    $settings->add(new admin_setting_configcolourpicker(
+        'local_aireader/player_accent_color',
+        get_string('setting_accentcolor', 'local_aireader'),
+        get_string('setting_accentcolor_desc', 'local_aireader'),
+        '#f86a01'
+    ));
+
+    $settings->add(new admin_setting_heading(
         'local_aireader/heading_cost',
         get_string('setting_heading_cost', 'local_aireader'),
         get_string('setting_heading_cost_desc', 'local_aireader')

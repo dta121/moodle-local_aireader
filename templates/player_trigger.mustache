@@ -1,0 +1,66 @@
+{{!
+    This file is part of Moodle - https://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
+}}
+{{!
+    @template local_aireader/player_trigger
+
+    Compact trigger for the non-default player designs (banner / pill /
+    accordion / inline). Clicking it expands an inline region into which the
+    full local_aireader/player template is rendered, so the trigger only carries
+    presentation — all playback logic stays in the player template + AMD module.
+
+    The visual variant is selected by the local-aireader--{design} modifier
+    class; the markup is identical across designs.
+
+    Context variables:
+      * design       - one of banner|pill|accordion|inline (modifier class)
+      * label        - visible trigger label (already localized)
+      * showchevron  - whether to render the expand/collapse chevron
+      * stringExpand - aria-label for the trigger button
+
+    Example context (json):
+    {
+      "design": "accordion",
+      "label": "Listen to this content",
+      "showchevron": true,
+      "stringExpand": "Show audio player"
+    }
+}}
+<div class="local-aireader-shell local-aireader--{{design}}" data-state="collapsed">
+  <button type="button"
+          class="local-aireader-trigger"
+          data-action="expand"
+          aria-expanded="false"
+          aria-label="{{stringExpand}}">
+    <span class="local-aireader-trigger-icon" aria-hidden="true">
+      <svg class="la-ico-speaker" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+        <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+        <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+      </svg>
+      <svg class="la-ico-play" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M8 5v14l11-7z"/>
+      </svg>
+    </span>
+    <span class="local-aireader-trigger-label">{{label}}</span>
+    {{#showchevron}}
+    <svg class="local-aireader-trigger-chevron" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="6 9 12 15 18 9"/>
+    </svg>
+    {{/showchevron}}
+  </button>
+  <div class="local-aireader-expand d-none" data-region="expand"></div>
+</div>

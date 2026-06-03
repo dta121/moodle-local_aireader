@@ -139,6 +139,8 @@ class hook_callbacks {
             'sourcelang'       => (string)($GLOBALS['CFG']->lang ?? 'en'),
             'alignmentenabled' => (bool)get_config('local_aireader', 'enable_alignment'),
             'highlightinplace' => (bool)get_config('local_aireader', 'highlight_in_place'),
+            'design'           => (string)(get_config('local_aireader', 'player_design') ?: 'full'),
+            'accentcolor'      => (string)(get_config('local_aireader', 'player_accent_color') ?: '#f86a01'),
             'strings'          => self::player_strings($scopelabel),
         ]]);
 
@@ -157,6 +159,8 @@ class hook_callbacks {
     private static function player_strings(string $scopelabel): array {
         return [
             'listentitle'        => get_string('player_listen_title', 'local_aireader'),
+            'listenshort'        => get_string('player_listen_short', 'local_aireader'),
+            'expand'             => get_string('player_expand', 'local_aireader'),
             'loading'            => get_string('player_loading', 'local_aireader'),
             'loadingaudio'       => get_string('player_loading_audio', 'local_aireader'),
             'ready'              => get_string('player_ready', 'local_aireader'),

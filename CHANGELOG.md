@@ -8,6 +8,16 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Selectable player design + accent colour.** A new *Player appearance*
+  settings group lets admins choose how the "Listen to this content" widget
+  appears: the full player (default, unchanged) or one of four compact designs
+  — slim banner bar, inline pill, collapsed accordion, or right-aligned inline
+  action — each of which expands into the same full player inline on click, so
+  every playback feature is preserved. A colour picker (`player_accent_color`,
+  default Saylor orange) re-themes the play button, progress bar, and text
+  highlighting from a single accent; hover and tint shades derive automatically
+  via CSS `color-mix()`. The widget styling was refactored onto one
+  `--la-accent` custom property to support this.
 - **Per-activity audio download.** A Download button on the player saves the
   narration mp3 for offline listening, labelled with the file size
   ("Download (3.2 MB)"). Downloads get a human-readable filename
