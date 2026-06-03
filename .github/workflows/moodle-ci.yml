@@ -137,11 +137,21 @@ jobs:
           PLUGIN_DIR=$(find . -maxdepth 6 -type d -path '*/local/aireader' \
             -not -path './plugin' -not -path './plugin/*' \
             -not -path '*/node_modules/*' -not -path '*/.git/*' -print -quit)
+          PLUGIN_DIR=$(cd "$PLUGIN_DIR" && pwd)
           echo "Plugin dir: $PLUGIN_DIR"
+          MOODLE_ROOT="$PLUGIN_DIR"
+          while [ "$MOODLE_ROOT" != "/" ] && [ ! -f "$MOODLE_ROOT/Gruntfile.js" ]; do
+            MOODLE_ROOT=$(dirname "$MOODLE_ROOT")
+          done
+          REL=${PLUGIN_DIR#"$MOODLE_ROOT"/}
+          echo "Moodle root: $MOODLE_ROOT ; component: $REL"
+          # moodle-plugin-ci reverts its rebuild after the stale check, so rebuild
+          # again here (our own step is not reverted) to capture the true output.
+          ( cd "$MOODLE_ROOT" && npx grunt amd --root="$REL" 2>&1 | tail -20 )
           mkdir -p "$RUNNER_TEMP/amdout"
           cp -v "$PLUGIN_DIR"/amd/build/player.min.js "$RUNNER_TEMP/amdout/"
           cp -v "$PLUGIN_DIR"/amd/build/player.min.js.map "$RUNNER_TEMP/amdout/"
-          ls -la "$RUNNER_TEMP/amdout"
+          echo "--- captured head ---"; head -c 140 "$RUNNER_TEMP/amdout/player.min.js"; echo
 
       - name: Upload canonical AMD build (TEMP - remove after)
         if: ${{ !cancelled() && matrix.moodle-branch == 'MOODLE_405_STABLE' && matrix.php == '8.1' }}
