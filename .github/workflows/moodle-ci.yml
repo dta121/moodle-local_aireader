@@ -131,6 +131,26 @@ jobs:
         if: ${{ !cancelled() }}
         run: moodle-plugin-ci grunt --max-lint-warnings 0
 
+      - name: Capture canonical AMD build (TEMP - remove after)
+        if: ${{ !cancelled() && matrix.moodle-branch == 'MOODLE_405_STABLE' && matrix.php == '8.1' }}
+        run: |
+          PLUGIN_DIR=$(find . -maxdepth 6 -type d -path '*/local/aireader' \
+            -not -path './plugin' -not -path './plugin/*' \
+            -not -path '*/node_modules/*' -not -path '*/.git/*' -print -quit)
+          echo "Plugin dir: $PLUGIN_DIR"
+          mkdir -p "$RUNNER_TEMP/amdout"
+          cp -v "$PLUGIN_DIR"/amd/build/player.min.js "$RUNNER_TEMP/amdout/"
+          cp -v "$PLUGIN_DIR"/amd/build/player.min.js.map "$RUNNER_TEMP/amdout/"
+          ls -la "$RUNNER_TEMP/amdout"
+
+      - name: Upload canonical AMD build (TEMP - remove after)
+        if: ${{ !cancelled() && matrix.moodle-branch == 'MOODLE_405_STABLE' && matrix.php == '8.1' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: canonical-amd-build
+          path: ${{ runner.temp }}/amdout/
+          if-no-files-found: warn
+
       - name: Lint AMD source (eslint, fail on warning)
         if: ${{ !cancelled() }}
         run: |
