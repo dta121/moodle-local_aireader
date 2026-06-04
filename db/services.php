@@ -61,6 +61,15 @@ $functions = [
         'capabilities'  => 'local/aireader:listen',
         'loginrequired' => true,
     ],
+    'local_aireader_set_progress' => [
+        'classname'     => 'local_aireader\external\set_progress',
+        'methodname'    => 'execute',
+        'description'   => 'Persist learner playback progress and apply AI Reader completion when configured.',
+        'type'          => 'write',
+        'ajax'          => true,
+        'capabilities'  => 'local/aireader:listen',
+        'loginrequired' => true,
+    ],
     'local_aireader_get_transcript' => [
         'classname'     => 'local_aireader\external\get_transcript',
         'methodname'    => 'execute',

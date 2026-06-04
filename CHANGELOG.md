@@ -4,7 +4,7 @@ All notable changes to `local_aireader` are documented in this file.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 versions follow [Semantic Versioning](https://semver.org/).
 
-## [Unreleased] — 1.3.0 (in progress)
+## [1.3.0] — 2026-06-04
 
 ### Added
 
@@ -33,6 +33,13 @@ versions follow [Semantic Versioning](https://semver.org/).
   admin setting (default on) to disable it site-wide. (MDL-662; remainder of
   the v1.3 "Offline & quick wins" epic — ID3 tags, course "Download all"
   page, tests — still to come.)
+- **Listening-based activity completion.** New `enable_completion` admin
+  setting (default off) lets teachers require listening to X% of an embedded AI
+  Reader narration before the source Page/Book activity is marked complete.
+  Progress is recorded as distinct played audio ranges rather than last saved
+  position, so scrubbing ahead does not satisfy the rule. Downloaded/offline
+  MP3 playback is not counted yet; syncable offline listening remains a future
+  development.
 - **ID3 tags on generated audio.** Narration mp3s are now tagged at generation
   time with title (activity, plus chapter for books and a language marker for
   translations), album (course), artist (site), genre, track number, and a

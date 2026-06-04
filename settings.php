@@ -143,6 +143,13 @@ if ($hassiteconfig) {
         1
     ));
 
+    $settings->add(new admin_setting_configcheckbox(
+        'local_aireader/enable_completion',
+        get_string('setting_enablecompletion', 'local_aireader'),
+        get_string('setting_enablecompletion_desc', 'local_aireader'),
+        0
+    ));
+
     $settings->add(new admin_setting_configtextarea(
         'local_aireader/disclosure',
         get_string('setting_disclosure', 'local_aireader'),

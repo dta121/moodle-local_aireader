@@ -34,13 +34,17 @@ use core_privacy\local\request\writer;
 /**
  * Privacy provider for local_aireader.
  *
- * Two tables hold per-user data:
+ * Several tables hold per-user data:
  *
  *   - `local_aireader_position(userid, assetid, position)`: per-learner resume
  *     position. Joined to `local_aireader_asset.contextid` to determine which
  *     module context the data belongs to.
+ *   - `local_aireader_listen(userid, assetid, startms, endms)`: per-learner
+ *     listened ranges used for activity completion.
  *   - `local_aireader_override(cmid, chapterid, enabled, usermodified)`:
  *     authorship metadata recording which manager toggled narration on/off.
+ *   - `local_aireader_completion(cmid, enabled, threshold, usermodified)`:
+ *     activity-completion settings and the manager who last changed them.
  *
  * @package local_aireader
  */
@@ -67,6 +71,18 @@ class provider implements
         );
 
         $collection->add_database_table(
+            'local_aireader_listen',
+            [
+                'userid'       => 'privacy:metadata:listen:userid',
+                'assetid'      => 'privacy:metadata:listen:assetid',
+                'startms'      => 'privacy:metadata:listen:startms',
+                'endms'        => 'privacy:metadata:listen:endms',
+                'timemodified' => 'privacy:metadata:listen:timemodified',
+            ],
+            'privacy:metadata:listen'
+        );
+
+        $collection->add_database_table(
             'local_aireader_override',
             [
                 'cmid'         => 'privacy:metadata:override:cmid',
@@ -76,6 +92,18 @@ class provider implements
                 'timemodified' => 'privacy:metadata:override:timemodified',
             ],
             'privacy:metadata:override'
+        );
+
+        $collection->add_database_table(
+            'local_aireader_completion',
+            [
+                'cmid'         => 'privacy:metadata:completion:cmid',
+                'enabled'      => 'privacy:metadata:completion:enabled',
+                'threshold'    => 'privacy:metadata:completion:threshold',
+                'usermodified' => 'privacy:metadata:completion:usermodified',
+                'timemodified' => 'privacy:metadata:completion:timemodified',
+            ],
+            'privacy:metadata:completion'
         );
 
         $collection->add_external_location_link(
@@ -106,12 +134,30 @@ class provider implements
                  WHERE p.userid = :userid";
         $contextlist->add_from_sql($sql, ['userid' => $userid]);
 
+        // Listened ranges: contexts of assets the user has listened to.
+        $sql = "SELECT DISTINCT a.contextid
+                  FROM {local_aireader_listen} l
+                  JOIN {local_aireader_asset} a ON a.id = l.assetid
+                 WHERE l.userid = :userid";
+        $contextlist->add_from_sql($sql, ['userid' => $userid]);
+
         // Overrides: contexts where this user last toggled narration on/off.
         $sql = "SELECT DISTINCT ctx.id
                   FROM {local_aireader_override} o
                   JOIN {course_modules} cm ON cm.id = o.cmid
                   JOIN {context} ctx ON ctx.contextlevel = :modulelevel AND ctx.instanceid = cm.id
                  WHERE o.usermodified = :userid";
+        $contextlist->add_from_sql($sql, [
+            'userid'      => $userid,
+            'modulelevel' => CONTEXT_MODULE,
+        ]);
+
+        // Completion settings: contexts where this user last changed the rule.
+        $sql = "SELECT DISTINCT ctx.id
+                  FROM {local_aireader_completion} c
+                  JOIN {course_modules} cm ON cm.id = c.cmid
+                  JOIN {context} ctx ON ctx.contextlevel = :modulelevel AND ctx.instanceid = cm.id
+                 WHERE c.usermodified = :userid";
         $contextlist->add_from_sql($sql, [
             'userid'      => $userid,
             'modulelevel' => CONTEXT_MODULE,
@@ -141,10 +187,27 @@ class provider implements
         );
 
         $userlist->add_from_sql(
+            'userid',
+            "SELECT l.userid
+               FROM {local_aireader_listen} l
+               JOIN {local_aireader_asset} a ON a.id = l.assetid
+              WHERE a.contextid = :contextid",
+            ['contextid' => $context->id]
+        );
+
+        $userlist->add_from_sql(
             'usermodified',
             "SELECT o.usermodified
                FROM {local_aireader_override} o
               WHERE o.cmid = :cmid AND o.usermodified > 0",
+            ['cmid' => $context->instanceid]
+        );
+
+        $userlist->add_from_sql(
+            'usermodified',
+            "SELECT c.usermodified
+               FROM {local_aireader_completion} c
+              WHERE c.cmid = :cmid AND c.usermodified > 0",
             ['cmid' => $context->instanceid]
         );
     }
@@ -192,6 +255,33 @@ class provider implements
                 );
             }
 
+            $listens = $DB->get_records_sql(
+                "SELECT l.id, l.startms, l.endms, l.timemodified, a.module, a.cmid, a.chapterid, a.lang
+                   FROM {local_aireader_listen} l
+                   JOIN {local_aireader_asset} a ON a.id = l.assetid
+                  WHERE l.userid = :userid AND a.contextid = :contextid
+                  ORDER BY a.id ASC, l.startms ASC",
+                ['userid' => $userid, 'contextid' => $context->id]
+            );
+            $lrows = [];
+            foreach ($listens as $listen) {
+                $lrows[] = [
+                    'module'    => $listen->module,
+                    'cmid'      => (int)$listen->cmid,
+                    'chapterid' => (int)$listen->chapterid,
+                    'lang'      => $listen->lang,
+                    'startms'   => (int)$listen->startms,
+                    'endms'     => (int)$listen->endms,
+                    'updated'   => \core_privacy\local\request\transform::datetime((int)$listen->timemodified),
+                ];
+            }
+            if ($lrows) {
+                writer::with_context($context)->export_data(
+                    [get_string('pluginname', 'local_aireader'), 'listened_ranges'],
+                    (object)['rows' => $lrows]
+                );
+            }
+
             $overrides = $DB->get_records('local_aireader_override', [
                 'cmid'         => $context->instanceid,
                 'usermodified' => $userid,
@@ -208,6 +298,25 @@ class provider implements
                 writer::with_context($context)->export_data(
                     [get_string('pluginname', 'local_aireader'), 'overrides_set'],
                     (object)['rows' => $orows]
+                );
+            }
+
+            $completions = $DB->get_records('local_aireader_completion', [
+                'cmid'         => $context->instanceid,
+                'usermodified' => $userid,
+            ]);
+            $crows = [];
+            foreach ($completions as $completion) {
+                $crows[] = [
+                    'enabled'   => (bool)$completion->enabled,
+                    'threshold' => (int)$completion->threshold,
+                    'updated'   => \core_privacy\local\request\transform::datetime((int)$completion->timemodified),
+                ];
+            }
+            if ($crows) {
+                writer::with_context($context)->export_data(
+                    [get_string('pluginname', 'local_aireader'), 'completion_settings_changed'],
+                    (object)['rows' => $crows]
                 );
             }
         }
@@ -231,10 +340,16 @@ class provider implements
             'assetid IN (SELECT id FROM {local_aireader_asset} WHERE contextid = :contextid)',
             ['contextid' => $context->id]
         );
+        $DB->delete_records_select(
+            'local_aireader_listen',
+            'assetid IN (SELECT id FROM {local_aireader_asset} WHERE contextid = :contextid)',
+            ['contextid' => $context->id]
+        );
 
         // Override usermodified -> anonymise (override row itself is org data;
         // we just strip the user link rather than delete the row).
         $DB->set_field('local_aireader_override', 'usermodified', 0, ['cmid' => $context->instanceid]);
+        $DB->set_field('local_aireader_completion', 'usermodified', 0, ['cmid' => $context->instanceid]);
     }
 
     /**
@@ -257,8 +372,20 @@ class provider implements
                 'userid = :userid AND assetid IN (SELECT id FROM {local_aireader_asset} WHERE contextid = :contextid)',
                 ['userid' => $userid, 'contextid' => $context->id]
             );
+            $DB->delete_records_select(
+                'local_aireader_listen',
+                'userid = :userid AND assetid IN (SELECT id FROM {local_aireader_asset} WHERE contextid = :contextid)',
+                ['userid' => $userid, 'contextid' => $context->id]
+            );
             $DB->set_field_select(
                 'local_aireader_override',
+                'usermodified',
+                0,
+                'cmid = :cmid AND usermodified = :userid',
+                ['cmid' => $context->instanceid, 'userid' => $userid]
+            );
+            $DB->set_field_select(
+                'local_aireader_completion',
                 'usermodified',
                 0,
                 'cmid = :cmid AND usermodified = :userid',
@@ -289,9 +416,21 @@ class provider implements
             "userid {$insql} AND assetid IN (SELECT id FROM {local_aireader_asset} WHERE contextid = :contextid)",
             $params
         );
+        $DB->delete_records_select(
+            'local_aireader_listen',
+            "userid {$insql} AND assetid IN (SELECT id FROM {local_aireader_asset} WHERE contextid = :contextid)",
+            $params
+        );
         $params['cmid'] = $context->instanceid;
         $DB->set_field_select(
             'local_aireader_override',
+            'usermodified',
+            0,
+            "cmid = :cmid AND usermodified {$insql}",
+            $params
+        );
+        $DB->set_field_select(
+            'local_aireader_completion',
             'usermodified',
             0,
             "cmid = :cmid AND usermodified {$insql}",

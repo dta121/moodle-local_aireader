@@ -275,6 +275,9 @@ function xmldb_local_aireader_upgrade(int $oldversion): bool {
                 foreach ($group as $duplicate) {
                     $fs->delete_area_files((int)$duplicate->contextid, 'local_aireader', 'audio', (int)$duplicate->id);
                     $DB->delete_records('local_aireader_position', ['assetid' => $duplicate->id]);
+                    if ($dbman->table_exists(new xmldb_table('local_aireader_listen'))) {
+                        $DB->delete_records('local_aireader_listen', ['assetid' => $duplicate->id]);
+                    }
                     $DB->delete_records('local_aireader_segment', ['assetid' => $duplicate->id]);
                     $DB->delete_records('local_aireader_asset', ['id' => $duplicate->id]);
                 }
@@ -345,6 +348,43 @@ function xmldb_local_aireader_upgrade(int $oldversion): bool {
         // bump registers the default and rolls jsrev so browsers fetch the
         // bundle carrying the download control. No schema change.
         upgrade_plugin_savepoint(true, 2026060200, 'local', 'aireader');
+    }
+
+    if ($oldversion < 2026060400) {
+        // Activity completion by listening progress. Adds site-gated, per-CM
+        // completion settings and per-user listened ranges separate from the
+        // resume-position table so seeking cannot satisfy the rule by itself.
+        $listentable = new xmldb_table('local_aireader_listen');
+        $listentable->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+        $listentable->add_field('userid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $listentable->add_field('assetid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $listentable->add_field('startms', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $listentable->add_field('endms', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $listentable->add_field('timemodified', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $listentable->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+        $listentable->add_key('userid_fk', XMLDB_KEY_FOREIGN, ['userid'], 'user', ['id']);
+        $listentable->add_index('user_asset_start', XMLDB_INDEX_NOTUNIQUE, ['userid', 'assetid', 'startms']);
+        $listentable->add_index('assetid', XMLDB_INDEX_NOTUNIQUE, ['assetid']);
+        if (!$dbman->table_exists($listentable)) {
+            $dbman->create_table($listentable);
+        }
+
+        $completiontable = new xmldb_table('local_aireader_completion');
+        $completiontable->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+        $completiontable->add_field('courseid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $completiontable->add_field('cmid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $completiontable->add_field('enabled', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0');
+        $completiontable->add_field('threshold', XMLDB_TYPE_INTEGER, '3', null, XMLDB_NOTNULL, null, '80');
+        $completiontable->add_field('timemodified', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $completiontable->add_field('usermodified', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $completiontable->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+        $completiontable->add_key('courseid_fk', XMLDB_KEY_FOREIGN, ['courseid'], 'course', ['id']);
+        $completiontable->add_index('unique_cmid', XMLDB_INDEX_UNIQUE, ['cmid']);
+        if (!$dbman->table_exists($completiontable)) {
+            $dbman->create_table($completiontable);
+        }
+
+        upgrade_plugin_savepoint(true, 2026060400, 'local', 'aireader');
     }
 
     return true;

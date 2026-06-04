@@ -38,6 +38,9 @@ class restore_local_aireader_plugin extends restore_local_plugin {
     /** @var array Parsed override rows held until module mappings are ready. */
     protected $overrides = [];
 
+    /** @var array Parsed completion rows held until module mappings are ready. */
+    protected $completions = [];
+
     /**
      * Declare the paths this plugin restores within a module's backup.
      *
@@ -48,6 +51,10 @@ class restore_local_aireader_plugin extends restore_local_plugin {
             new restore_path_element(
                 'aireader_override',
                 $this->get_pathfor('/aireader_overrides/aireader_override')
+            ),
+            new restore_path_element(
+                'aireader_completion',
+                $this->get_pathfor('/aireader_completions/aireader_completion')
             ),
         ];
     }
@@ -62,12 +69,21 @@ class restore_local_aireader_plugin extends restore_local_plugin {
     }
 
     /**
+     * Collect each completion config row; insertion happens in after_restore_module().
+     *
+     * @param array|object $data Parsed XML data for one completion config.
+     */
+    public function process_aireader_completion($data) {
+        $this->completions[] = (object)$data;
+    }
+
+    /**
      * Insert collected overrides once the activity and its chapter mappings exist.
      */
     protected function after_restore_module() {
         global $DB;
 
-        if (empty($this->overrides)) {
+        if (empty($this->overrides) && empty($this->completions)) {
             return;
         }
 
@@ -102,6 +118,26 @@ class restore_local_aireader_plugin extends restore_local_plugin {
                 'cmid'         => $newcmid,
                 'chapterid'    => $chapterid,
                 'enabled'      => (int)$data->enabled,
+                'timemodified' => $this->apply_date_offset((int)$data->timemodified),
+                'usermodified' => $usermodified,
+            ]);
+        }
+
+        foreach ($this->completions as $data) {
+            if ($DB->record_exists('local_aireader_completion', ['cmid' => $newcmid])) {
+                continue;
+            }
+
+            $usermodified = 0;
+            if (!empty($data->usermodified)) {
+                $usermodified = (int)$this->get_mappingid('user', $data->usermodified);
+            }
+
+            $DB->insert_record('local_aireader_completion', (object)[
+                'courseid'     => $newcourseid,
+                'cmid'         => $newcmid,
+                'enabled'      => (int)$data->enabled,
+                'threshold'    => \local_aireader\manager\completion_manager::normalize_threshold((int)$data->threshold),
                 'timemodified' => $this->apply_date_offset((int)$data->timemodified),
                 'usermodified' => $usermodified,
             ]);

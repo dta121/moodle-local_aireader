@@ -51,18 +51,26 @@ class backup_local_aireader_plugin extends backup_local_plugin {
         $override = new backup_nested_element('aireader_override', ['id'], [
             'chapterid', 'enabled', 'timemodified', 'usermodified',
         ]);
+        $completions = new backup_nested_element('aireader_completions');
+        $completion = new backup_nested_element('aireader_completion', ['id'], [
+            'enabled', 'threshold', 'timemodified', 'usermodified',
+        ]);
 
         $plugin->add_child($pluginwrapper);
         $pluginwrapper->add_child($overrides);
         $overrides->add_child($override);
+        $pluginwrapper->add_child($completions);
+        $completions->add_child($completion);
 
         // Overrides are activity configuration (not per-user data), so they are
         // always backed up, regardless of the "include user data" setting.
         $override->set_source_table('local_aireader_override', ['cmid' => backup::VAR_MODID]);
+        $completion->set_source_table('local_aireader_completion', ['cmid' => backup::VAR_MODID]);
 
         // The usermodified column points at a real user; annotate it so it can
         // be remapped on restore when users are part of the backup.
         $override->annotate_ids('user', 'usermodified');
+        $completion->annotate_ids('user', 'usermodified');
 
         return $plugin;
     }

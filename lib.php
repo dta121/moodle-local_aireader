@@ -138,6 +138,35 @@ function local_aireader_coursemodule_standard_elements($formwrapper, $mform): vo
     );
     $mform->addHelpButton('local_aireader_enabled', 'form_enabled_' . $modname, 'local_aireader');
     $mform->setDefault('local_aireader_enabled', $default);
+
+    if (\local_aireader\manager\completion_manager::site_enabled()) {
+        $completion = $cmid > 0
+            ? \local_aireader\manager\completion_manager::get_config_for_cm($cmid)
+            : null;
+        $completionenabled = $completion ? (int)$completion->enabled : 0;
+        $threshold = $completion
+            ? \local_aireader\manager\completion_manager::normalize_threshold((int)$completion->threshold)
+            : \local_aireader\manager\completion_manager::DEFAULT_THRESHOLD;
+
+        $mform->addElement(
+            'selectyesno',
+            'local_aireader_completion_enabled',
+            get_string('form_completion_enabled', 'local_aireader')
+        );
+        $mform->addHelpButton('local_aireader_completion_enabled', 'form_completion_enabled', 'local_aireader');
+        $mform->setDefault('local_aireader_completion_enabled', $completionenabled);
+
+        $mform->addElement(
+            'text',
+            'local_aireader_completion_threshold',
+            get_string('form_completion_threshold', 'local_aireader'),
+            ['size' => 3]
+        );
+        $mform->setType('local_aireader_completion_threshold', PARAM_INT);
+        $mform->setDefault('local_aireader_completion_threshold', $threshold);
+        $mform->addHelpButton('local_aireader_completion_threshold', 'form_completion_threshold', 'local_aireader');
+        $mform->disabledIf('local_aireader_completion_threshold', 'local_aireader_completion_enabled', 'eq', 0);
+    }
 }
 
 /**
@@ -148,6 +177,8 @@ function local_aireader_coursemodule_standard_elements($formwrapper, $mform): vo
  * @return stdClass Possibly-modified data (we just pass through).
  */
 function local_aireader_coursemodule_edit_post_actions($data, $course) {
+    global $USER;
+
     if (!isset($data->local_aireader_enabled)) {
         return $data;
     }
@@ -160,5 +191,19 @@ function local_aireader_coursemodule_edit_post_actions($data, $course) {
         0,
         (bool)(int)$data->local_aireader_enabled
     );
+    if (isset($data->local_aireader_completion_enabled)) {
+        // Mirror Moodle's completion-lock behaviour: once completion data
+        // exists, avoid changing this local completion rule from the form post.
+        if (property_exists($data, 'completionunlocked') && empty($data->completionunlocked)) {
+            return $data;
+        }
+        \local_aireader\manager\completion_manager::set_config(
+            (int)$course->id,
+            (int)$data->coursemodule,
+            (bool)(int)$data->local_aireader_completion_enabled,
+            (int)($data->local_aireader_completion_threshold ?? \local_aireader\manager\completion_manager::DEFAULT_THRESHOLD),
+            (int)($data->usermodified ?? $USER->id ?? 0)
+        );
+    }
     return $data;
 }

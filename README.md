@@ -146,13 +146,15 @@ The plugin sends **cleaned activity text** to the configured OpenAI
 endpoint for narration and (optionally) translation. **No user
 identifiers — names, emails, IDs — are sent.**
 
-It stores two pieces of per-user data on your Moodle site:
+It stores these pieces of per-user data on your Moodle site:
 
 - **Resume positions.** Where each learner last paused.
-- **Override authorship.** Which manager last toggled narration on/off for
-  a given page or chapter.
+- **Listened ranges.** The distinct audio ranges each learner played in the
+  embedded player when listening-based completion is enabled.
+- **Configuration authorship.** Which manager or teacher last toggled
+  narration or listening-based completion settings for a given page or chapter.
 
-Both are covered by the standard Moodle Privacy API — export, delete-by-user,
+All are covered by the standard Moodle Privacy API — export, delete-by-user,
 and delete-by-context all work out of the box.
 
 ## License

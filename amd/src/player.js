@@ -153,6 +153,8 @@ class Player {
         this.pendingResumePosition = 0;
         this.appliedResume = false;
         this.lastPositionWriteAt = 0;
+        this.listenRangeStart = null;
+        this.lastListenPosition = 0;
 
         // Karaoke / transcript state.
         this.segments = [];
@@ -227,21 +229,24 @@ class Player {
             });
         }
 
-        this.audio.addEventListener('play', () => this.renderPlaying(true));
+        this.audio.addEventListener('play', () => {
+            this.renderPlaying(true);
+            this.startListenRange();
+        });
         this.audio.addEventListener('pause', () => {
             this.renderPlaying(false);
             // Don't write on pause-due-to-ended; the ended handler resets to 0.
             if (!this.audio.ended) {
-                this.flushPositionWrite();
+                this.flushProgressWrite();
             }
         });
         this.audio.addEventListener('ended', () => {
             this.renderPlaying(false);
-            this.writePosition(0, true);
+            this.flushProgressWrite(0, true);
         });
         this.audio.addEventListener('timeupdate', () => {
             this.renderTime();
-            this.maybeWritePosition();
+            this.maybeWriteProgress();
             this.updateActiveSegment();
         });
         this.audio.addEventListener('loadedmetadata', () => {
@@ -249,13 +254,21 @@ class Player {
             this.applyResumeIfNeeded();
         });
         this.audio.addEventListener('durationchange', () => this.renderTime());
+        this.audio.addEventListener('seeking', () => {
+            this.clearListenRange();
+        });
+        this.audio.addEventListener('seeked', () => {
+            if (!this.audio.paused && !this.audio.ended) {
+                this.startListenRange();
+            }
+        });
         this.audio.addEventListener('error', () => {
             this.setStatus(STATE.ERROR, str(this.config, 'playbackfailed', 'Audio playback failed.'));
         });
 
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'hidden') {
-                this.flushPositionWrite();
+                this.flushProgressWrite();
             }
         });
 
@@ -328,12 +341,12 @@ class Player {
             switch (e.code) {
                 case 'Home':
                     e.preventDefault();
-                    this.audio.currentTime = 0;
+                    this.seekTo(0);
                     break;
                 case 'End':
                     if (Number.isFinite(this.audio.duration)) {
                         e.preventDefault();
-                        this.audio.currentTime = this.audio.duration;
+                        this.seekTo(this.audio.duration);
                     }
                     break;
                 default:
@@ -348,7 +361,7 @@ class Player {
         }
         const rect = this.progressEl.getBoundingClientRect();
         const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-        this.audio.currentTime = ratio * this.audio.duration;
+        this.seekTo(ratio * this.audio.duration);
     }
 
     skip(deltaSecs) {
@@ -357,6 +370,12 @@ class Player {
         }
         const dur = Number.isFinite(this.audio.duration) ? this.audio.duration : 0;
         const target = Math.max(0, Math.min(dur || this.audio.currentTime + deltaSecs, this.audio.currentTime + deltaSecs));
+        this.seekTo(target);
+    }
+
+    seekTo(target) {
+        this.flushProgressWrite(undefined, false, true);
+        this.clearListenRange();
         this.audio.currentTime = target;
     }
 
@@ -418,7 +437,7 @@ class Player {
         setHandler('seekforward', (details) => this.skip((details && details.seekOffset) || SKIP_SECONDS));
         setHandler('seekto', (details) => {
             if (details && Number.isFinite(details.seekTime)) {
-                this.audio.currentTime = details.seekTime;
+                this.seekTo(details.seekTime);
             }
         });
     }
@@ -577,7 +596,7 @@ class Player {
         if (!this.audio.src) {
             return;
         }
-        this.audio.currentTime = 0;
+        this.seekTo(0);
         // Restarting consumes the saved resume position so a subsequent reload
         // doesn't jump straight back to where they were.
         this.writePosition(0, true);
@@ -612,7 +631,7 @@ class Player {
      * Throttled timeupdate-driven position write. At most one network call
      * per POSITION_WRITE_INTERVAL_MS, only while playing.
      */
-    maybeWritePosition() {
+    maybeWriteProgress() {
         if (this.audio.paused || this.audio.ended) {
             return;
         }
@@ -621,22 +640,29 @@ class Player {
             return;
         }
         this.lastPositionWriteAt = now;
-        this.writePosition(Math.floor(this.audio.currentTime || 0));
+        this.writeProgress(Math.floor(this.audio.currentTime || 0), false, this.captureListenRange());
     }
 
     /**
-     * Force a position write right now (used on pause + visibility hidden).
+     * Force a progress write right now (used on pause + visibility hidden).
+     *
+     * @param {number} [positionOverride] Position to persist instead of currentTime.
+     * @param {boolean} [force] Send even when the position is 0 and no range is captured.
+     * @param {boolean} [rangeOnly] Skip resume-only writes when no listened range was captured.
      */
-    flushPositionWrite() {
+    flushProgressWrite(positionOverride, force, rangeOnly) {
         if (!this.assetId || !this.audio.src) {
             return;
         }
-        const pos = Math.floor(this.audio.currentTime || 0);
-        if (pos < RESUME_MIN_SECONDS) {
+        const pos = typeof positionOverride === 'number'
+            ? Math.max(0, Math.floor(positionOverride))
+            : Math.floor(this.audio.currentTime || 0);
+        const range = this.captureListenRange();
+        if (!force && !range && (rangeOnly || pos < RESUME_MIN_SECONDS)) {
             return;
         }
         this.lastPositionWriteAt = Date.now();
-        this.writePosition(pos);
+        this.writeProgress(pos, !!force, range);
     }
 
     /**
@@ -646,21 +672,84 @@ class Player {
      * @param {boolean} [force]
      */
     writePosition(position, force) {
+        this.writeProgress(position, force, null);
+    }
+
+    /**
+     * Start a new listened range at the current playback position.
+     */
+    startListenRange() {
+        if (!this.audio.src || this.audio.paused || this.audio.ended) {
+            return;
+        }
+        const current = Number(this.audio.currentTime) || 0;
+        this.listenRangeStart = current;
+        this.lastListenPosition = current;
+    }
+
+    /**
+     * Clear the active listened range, usually because playback has jumped.
+     */
+    clearListenRange() {
+        this.listenRangeStart = null;
+        this.lastListenPosition = Number(this.audio.currentTime) || 0;
+    }
+
+    /**
+     * Capture the audio-time range played since the last write.
+     *
+     * Seeking is handled by clearing the active range before the jump, so a
+     * large currentTime leap is not treated as listened progress.
+     *
+     * @returns {{startms:number,endms:number}|null}
+     */
+    captureListenRange() {
+        if (this.listenRangeStart === null) {
+            return null;
+        }
+        const current = Number(this.audio.currentTime) || 0;
+        if (current < this.lastListenPosition - 0.25) {
+            this.startListenRange();
+            return null;
+        }
+        this.lastListenPosition = current;
+        if (current <= this.listenRangeStart + 0.25) {
+            return null;
+        }
+
+        const range = {
+            startms: Math.max(0, Math.floor(this.listenRangeStart * 1000)),
+            endms: Math.max(0, Math.ceil(current * 1000)),
+        };
+        this.listenRangeStart = current;
+        return range.endms > range.startms ? range : null;
+    }
+
+    /**
+     * Persist resume position and, when available, the range just listened.
+     *
+     * @param {number} position
+     * @param {boolean} [force]
+     * @param {{startms:number,endms:number}|null} [range]
+     */
+    writeProgress(position, force, range) {
         if (!this.assetId) {
             return;
         }
-        if (!force && position < RESUME_MIN_SECONDS) {
+        if (!force && position < RESUME_MIN_SECONDS && !range) {
             return;
         }
         try {
             Ajax.call([{
-                methodname: 'local_aireader_set_position',
+                methodname: 'local_aireader_set_progress',
                 args: {
                     assetid: this.assetId,
                     position: Math.max(0, Math.floor(position)),
+                    startms: range ? range.startms : 0,
+                    endms: range ? range.endms : 0,
                 },
             }])[0].catch(() => {
-                // Position writes are best-effort; ignore transport errors.
+                // Progress writes are best-effort; ignore transport errors.
             });
         } catch (e) {
             // Ignore.
@@ -694,6 +783,8 @@ class Player {
         if (!newlang || newlang === this.config.lang) {
             return;
         }
+        this.flushProgressWrite();
+        this.clearListenRange();
         this.config.lang = newlang;
         this.audio.pause();
         this.audio.removeAttribute('src');
@@ -873,7 +964,7 @@ class Player {
         if (!seg || !this.audio.src) {
             return;
         }
-        this.audio.currentTime = Math.max(0, seg.startms / 1000);
+        this.seekTo(Math.max(0, seg.startms / 1000));
         this.audio.play().catch(() => { /* User gesture required. */ });
     }
 
