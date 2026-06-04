@@ -52,6 +52,7 @@ final class completion_manager_test extends \advanced_testcase {
     /**
      * Reaching the configured threshold marks the source activity complete.
      *
+     * @covers ::enforce_cm_completion_mode
      * @covers ::maybe_complete
      */
     public function test_maybe_complete_marks_activity_complete_at_threshold(): void {
@@ -60,10 +61,11 @@ final class completion_manager_test extends \advanced_testcase {
         $this->resetAfterTest();
         set_config('enable_completion', '1', 'local_aireader');
 
-        [$course, $cm, $asset] = $this->create_page_asset(100, COMPLETION_TRACKING_MANUAL);
+        [$course, $cm, $asset] = $this->create_page_asset(100, COMPLETION_TRACKING_NONE);
         $user = $this->getDataGenerator()->create_and_enrol($course, 'student');
 
         completion_manager::set_config((int)$course->id, (int)$cm->id, true, 50, 0);
+        completion_manager::enforce_cm_completion_mode((int)$course->id, (int)$cm->id);
         completion_manager::record_range((int)$user->id, $asset, 0, 49999);
         $result = completion_manager::maybe_complete((int)$user->id, $asset);
         $this->assertFalse($result['completed']);
@@ -85,15 +87,42 @@ final class completion_manager_test extends \advanced_testcase {
     }
 
     /**
+     * Enforcing AI Reader completion enables automatic completion but not view completion.
+     *
+     * @covers ::enforce_cm_completion_mode
+     */
+    public function test_enforce_cm_completion_mode_removes_native_view_rule(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        [$course, $cm] = $this->create_page_asset(
+            100,
+            COMPLETION_TRACKING_AUTOMATIC,
+            COMPLETION_VIEW_REQUIRED
+        );
+
+        completion_manager::enforce_cm_completion_mode((int)$course->id, (int)$cm->id);
+
+        $updated = $DB->get_record('course_modules', ['id' => $cm->id], '*', MUST_EXIST);
+        $this->assertSame(COMPLETION_TRACKING_AUTOMATIC, (int)$updated->completion);
+        $this->assertSame(COMPLETION_VIEW_NOT_REQUIRED, (int)$updated->completionview);
+        $this->assertNull($updated->completiongradeitemnumber);
+        $this->assertSame(0, (int)$updated->completionpassgrade);
+    }
+
+    /**
      * Create a Page activity with a ready narration asset.
      *
      * @param int $durationsecs
      * @param int $completion
+     * @param int $completionview
      * @return array{\stdClass,\stdClass,\stdClass} Course, cm, asset.
      */
     private function create_page_asset(
         int $durationsecs,
-        int $completion = COMPLETION_TRACKING_NONE
+        int $completion = COMPLETION_TRACKING_NONE,
+        int $completionview = COMPLETION_VIEW_NOT_REQUIRED
     ): array {
         global $DB;
 
@@ -102,7 +131,7 @@ final class completion_manager_test extends \advanced_testcase {
         $page = $gen->create_module('page', [
             'course' => $course->id,
             'completion' => $completion,
-            'completionview' => COMPLETION_VIEW_NOT_REQUIRED,
+            'completionview' => $completionview,
         ]);
         $cm = get_coursemodule_from_instance('page', $page->id, $course->id, false, MUST_EXIST);
         $context = \context_module::instance((int)$cm->id);

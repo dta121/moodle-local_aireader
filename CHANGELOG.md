@@ -4,6 +4,18 @@ All notable changes to `local_aireader` are documented in this file.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.3.1] — 2026-06-04
+
+### Fixed
+
+- **Listening completion now works with Page/Book completion settings.**
+  Moodle's Page and Book forms only expose the native "view the activity"
+  automatic-completion rule, which could either block saving an audio-only
+  requirement or complete the activity as soon as it was viewed. When AI Reader
+  listening completion is enabled, the plugin now stores the activity as
+  automatic completion, clears Moodle's native view-completion flag, and lets
+  the configured listening percentage be the completion gate.
+
 ## [1.3.0] — 2026-06-04
 
 ### Added

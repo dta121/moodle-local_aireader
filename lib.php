@@ -109,6 +109,8 @@ function local_aireader_pluginfile($course, $cm, $context, $filearea, $args, $fo
  * @return void
  */
 function local_aireader_coursemodule_standard_elements($formwrapper, $mform): void {
+    global $PAGE;
+
     if (!get_config('local_aireader', 'enabled')) {
         return;
     }
@@ -166,6 +168,52 @@ function local_aireader_coursemodule_standard_elements($formwrapper, $mform): vo
         $mform->setDefault('local_aireader_completion_threshold', $threshold);
         $mform->addHelpButton('local_aireader_completion_threshold', 'form_completion_threshold', 'local_aireader');
         $mform->disabledIf('local_aireader_completion_threshold', 'local_aireader_completion_enabled', 'eq', 0);
+
+        $mform->addElement(
+            'static',
+            'local_aireader_completion_note',
+            '',
+            get_string('form_completion_note', 'local_aireader')
+        );
+        $mform->hideIf('local_aireader_completion_note', 'local_aireader_completion_enabled', 'eq', 0);
+
+        $PAGE->requires->js_amd_inline(<<<'JS'
+require([], function() {
+    var init = function() {
+        var enabled = document.querySelector('[name="local_aireader_completion_enabled"]');
+        if (!enabled) {
+            return;
+        }
+        var form = enabled.closest('form');
+        if (!form) {
+            return;
+        }
+        form.addEventListener('submit', function() {
+            var existing = form.querySelector('[data-local-aireader-completion-shim="1"]');
+            if (existing) {
+                existing.remove();
+            }
+            var selected = form.querySelector('[name="completion"]:checked');
+            var view = form.querySelector('[name="completionview"]');
+            if (enabled.value !== '1' || !selected || selected.value !== '2' || (view && view.checked)) {
+                return;
+            }
+            var shim = document.createElement('input');
+            shim.type = 'hidden';
+            shim.name = 'completionview';
+            shim.value = '1';
+            shim.setAttribute('data-local-aireader-completion-shim', '1');
+            form.appendChild(shim);
+        });
+    };
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+});
+JS);
     }
 }
 
@@ -204,6 +252,16 @@ function local_aireader_coursemodule_edit_post_actions($data, $course) {
             (int)($data->local_aireader_completion_threshold ?? \local_aireader\manager\completion_manager::DEFAULT_THRESHOLD),
             (int)($data->usermodified ?? $USER->id ?? 0)
         );
+        if ((bool)(int)$data->local_aireader_completion_enabled) {
+            \local_aireader\manager\completion_manager::enforce_cm_completion_mode(
+                (int)$course->id,
+                (int)$data->coursemodule
+            );
+            $data->completion = COMPLETION_TRACKING_AUTOMATIC;
+            $data->completionview = COMPLETION_VIEW_NOT_REQUIRED;
+            $data->completiongradeitemnumber = null;
+            $data->completionpassgrade = 0;
+        }
     }
     return $data;
 }

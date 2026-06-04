@@ -1,4 +1,22 @@
-# AI Reader 1.3.0 Release Notes
+# AI Reader Release Notes
+
+## 1.3.1
+
+Released: 2026-06-04
+
+AI Reader 1.3.1 fixes the Moodle completion setup for listening-based
+completion on Page and Book activities.
+
+- When AI Reader listening completion is enabled, the plugin now saves the
+  activity as automatic completion and clears Moodle's native "view the
+  activity" condition.
+- Viewing the Page or Book no longer satisfies the requirement before the
+  configured listening percentage is reached.
+- Teachers may leave Moodle's native completion option at **None** or choose
+  **Add requirements** while enabling the AI Reader listening rule; AI Reader
+  normalizes the stored completion mode on save.
+
+## 1.3.0
 
 Released: 2026-06-04
 

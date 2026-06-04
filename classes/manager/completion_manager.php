@@ -113,6 +113,35 @@ class completion_manager {
     }
 
     /**
+     * Make Moodle track this activity automatically without the native view rule.
+     *
+     * Page and Book only expose Moodle's built-in "view the activity" rule in
+     * the completion form. AI Reader listens are recorded by this plugin and
+     * then written to Moodle completion, so leaving the native view rule enabled
+     * would let a simple page view complete the activity before the listening
+     * threshold is reached.
+     *
+     * @param int $courseid
+     * @param int $cmid
+     */
+    public static function enforce_cm_completion_mode(int $courseid, int $cmid): void {
+        global $CFG, $DB;
+
+        require_once($CFG->dirroot . '/course/lib.php');
+
+        $DB->update_record('course_modules', (object)[
+            'id' => $cmid,
+            'completion' => COMPLETION_TRACKING_AUTOMATIC,
+            'completionview' => COMPLETION_VIEW_NOT_REQUIRED,
+            'completiongradeitemnumber' => null,
+            'completionpassgrade' => 0,
+            'timemodified' => time(),
+        ]);
+
+        rebuild_course_cache($courseid, true);
+    }
+
+    /**
      * Merge a newly played range into the user's listened ranges for an asset.
      *
      * Ranges use millisecond offsets and are stored as [startms, endms). The

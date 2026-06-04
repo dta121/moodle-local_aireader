@@ -48,6 +48,7 @@ $string['error_tts_empty'] = 'TTS response was empty.';
 $string['error_tts_http'] = 'TTS request failed: {$a}';
 $string['form_completion_enabled'] = 'Use AI narration listening for activity completion';
 $string['form_completion_enabled_help'] = 'When on, the activity is marked complete after the learner listens to the configured percentage of a generated AI Reader narration in the embedded Moodle player. Plain downloaded MP3 playback is not counted. Moodle activity completion must also be enabled for this activity.';
+$string['form_completion_note'] = 'When this is on, AI Reader sets this activity to automatic completion and removes Moodle\'s native "view the activity" completion rule on save, so viewing alone does not complete it.';
 $string['form_completion_threshold'] = 'Required listening percentage';
 $string['form_completion_threshold_help'] = 'Enter a value from 1 to 100. Progress is based on distinct audio ranges played in the embedded Moodle player, so skipping ahead does not by itself satisfy the requirement. For Book activities, this first version applies the threshold to the chapter narration the learner plays.';
 $string['form_enabled_book'] = 'Enable AI narration on this book';
