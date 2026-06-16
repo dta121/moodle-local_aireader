@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200" role="img" aria-labelledby="title desc">
+  <title id="title">AI Reader icon draft 5: AI voice</title>
+  <desc id="desc">A speech bubble with audio waveform, AI network nodes, a play button, and a small lesson page.</desc>
+  <defs>
+    <linearGradient id="bg" x1="14" y1="14" x2="186" y2="186" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fbfdff"/>
+      <stop offset="1" stop-color="#eef4f7"/>
+    </linearGradient>
+    <linearGradient id="orange" x1="78" y1="118" x2="119" y2="160" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffb23f"/>
+      <stop offset="1" stop-color="#f26a2e"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="184" height="184" rx="38" fill="url(#bg)" stroke="#c8d7e6" stroke-width="1.5"/>
+  <path d="M48 46h104c9 0 16 7 16 16v58c0 9-7 16-16 16h-34l-22 21v-21H48c-9 0-16-7-16-16V62c0-9 7-16 16-16z" fill="#fff" stroke="#24475b" stroke-width="6" stroke-linejoin="round"/>
+  <path d="M55 92c6-19 10 19 16 0s10 19 16 0 10 19 16 0 10 19 16 0 10 19 16 0 10 19 16 0" fill="none" stroke="#27b7a8" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="100" cy="140" r="31" fill="url(#orange)" stroke="#fff" stroke-width="6"/>
+  <path d="M94 126l23 14-23 14z" fill="#fff"/>
+  <circle cx="54" cy="63" r="6" fill="#24475b"/>
+  <circle cx="78" cy="63" r="6" fill="#24475b"/>
+  <circle cx="66" cy="78" r="6" fill="#24475b"/>
+  <path d="M54 63h24M54 63l12 15M78 63L66 78" stroke="#24475b" stroke-width="4" stroke-linecap="round" opacity=".62"/>
+  <path d="M137 51l4 11 11 4-11 4-4 11-4-11-11-4 11-4z" fill="#ffc44f"/>
+  <path d="M45 147h33M45 160h24" stroke="#b9cbd7" stroke-width="6" stroke-linecap="round"/>
+</svg>

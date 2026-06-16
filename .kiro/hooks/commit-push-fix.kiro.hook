@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "name": "Commit, Push & Fix CI",
+  "description": "When the agent finishes a task, it commits all changes to a feature branch, pushes to GitHub, then checks CI status. If CI fails, it reads the error logs, fixes the issues, and pushes again until CI passes.",
+  "version": "1",
+  "when": {
+    "type": "agentStop"
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Your task is complete. Now perform the following git workflow:\n\n1. Stage all modified/new files with `git add -A`.\n2. Commit with a descriptive message summarizing the changes made.\n3. Push to a feature branch (not main/master). Use `git push -u origin HEAD` if already on a feature branch, or create one first with `git checkout -b feature/<short-description>`.\n4. After pushing, check CI status using `gh run list --branch <branch> --limit 1` (wait ~30 seconds first for the run to start).\n5. If CI has failed, use `gh run view <run-id> --log-failed` to get the error details.\n6. Fix all errors found in the CI logs.\n7. Commit the fixes and push again.\n8. Repeat steps 4-7 until CI passes or you've attempted 3 fix cycles.\n\nImportant:\n- Never push directly to main/master.\n- Use conventional commit messages.\n- If after 3 attempts CI still fails, report the remaining errors to the user."
+  }
+}

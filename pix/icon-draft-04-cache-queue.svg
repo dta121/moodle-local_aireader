@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200" role="img" aria-labelledby="title desc">
+  <title id="title">AI Reader icon draft 4: cached generation</title>
+  <desc id="desc">Stacked course pages, a play button, circular generation arrows, and a cache database.</desc>
+  <defs>
+    <linearGradient id="bg" x1="14" y1="15" x2="186" y2="184" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f8fbff"/>
+      <stop offset="1" stop-color="#edf7f4"/>
+    </linearGradient>
+    <linearGradient id="orange" x1="70" y1="72" x2="116" y2="118" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffb23f"/>
+      <stop offset="1" stop-color="#f26a2e"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="184" height="184" rx="38" fill="url(#bg)" stroke="#c8d7e6" stroke-width="1.5"/>
+  <path d="M57 58h70c7 0 13 6 13 13v73c0 7-6 13-13 13H57c-7 0-13-6-13-13V71c0-7 6-13 13-13z" fill="#dfeaf1" stroke="#24475b" stroke-width="5"/>
+  <path d="M66 46h70c7 0 13 6 13 13v73c0 7-6 13-13 13H66c-7 0-13-6-13-13V59c0-7 6-13 13-13z" fill="#fff" stroke="#24475b" stroke-width="5"/>
+  <path d="M78 69h45M78 89h55M78 109h34" stroke="#b9cbd7" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="96" cy="110" r="31" fill="url(#orange)" stroke="#fff" stroke-width="6"/>
+  <path d="M90 96l23 14-23 14z" fill="#fff"/>
+  <path d="M145 70c15 17 15 43 0 60" fill="none" stroke="#27b7a8" stroke-width="7" stroke-linecap="round"/>
+  <path d="M145 70h18v-18M145 130h18v18" fill="none" stroke="#27b7a8" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <ellipse cx="142" cy="151" rx="24" ry="9" fill="#fff" stroke="#24475b" stroke-width="5"/>
+  <path d="M118 151v15c0 5 11 9 24 9s24-4 24-9v-15" fill="#fff" stroke="#24475b" stroke-width="5"/>
+  <path d="M132 161l7 7 15-17" fill="none" stroke="#27b7a8" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

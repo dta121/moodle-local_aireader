@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200" role="img" aria-labelledby="title desc">
+  <title id="title">AI Reader icon draft 10: AI narrator mark</title>
+  <desc id="desc">A refined AI narrator mark with neural nodes, waveform, and play triangle.</desc>
+  <defs>
+    <linearGradient id="bg" x1="16" y1="12" x2="184" y2="188" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fbfdff"/>
+      <stop offset="1" stop-color="#edf6f6"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="62" y1="67" x2="138" y2="143" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffb846"/>
+      <stop offset="1" stop-color="#f26b32"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="184" height="184" rx="36" fill="url(#bg)" stroke="#cbd9e3" stroke-width="1.5"/>
+  <circle cx="100" cy="102" r="56" fill="#ffffff" stroke="#24475b" stroke-width="6"/>
+  <path d="M65 103c6-18 10 18 16 0s10 18 16 0 10 18 16 0 10 18 16 0 10 18 16 0" fill="none" stroke="#27a99a" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="100" cy="102" r="31" fill="url(#accent)" stroke="#ffffff" stroke-width="6"/>
+  <path d="M94 88l24 14-24 14z" fill="#ffffff"/>
+  <circle cx="67" cy="54" r="6" fill="#24475b"/>
+  <circle cx="100" cy="44" r="6" fill="#24475b"/>
+  <circle cx="133" cy="54" r="6" fill="#24475b"/>
+  <path d="M67 54l33-10 33 10M67 54l33 48M133 54l-33 48" fill="none" stroke="#24475b" stroke-width="4" stroke-linecap="round" opacity=".62"/>
+  <path d="M151 130l4 11 11 4-11 4-4 11-4-11-11-4 11-4z" fill="#ffc850"/>
+</svg>

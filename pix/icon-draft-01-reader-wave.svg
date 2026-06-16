@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200" role="img" aria-labelledby="title desc">
+  <title id="title">AI Reader icon draft 1: narrated page</title>
+  <desc id="desc">A course page with highlighted reading text, a play button, sound waves, and an AI spark.</desc>
+  <defs>
+    <linearGradient id="bg" x1="20" y1="12" x2="180" y2="188" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fbfdff"/>
+      <stop offset="1" stop-color="#e5f2f5"/>
+    </linearGradient>
+    <linearGradient id="play" x1="83" y1="75" x2="122" y2="116" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffba4c"/>
+      <stop offset="1" stop-color="#f26a2e"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="184" height="184" rx="38" fill="url(#bg)" stroke="#c8d7e6" stroke-width="1.5"/>
+  <path d="M54 40h71c8.84 0 16 7.16 16 16v95c0 8.84-7.16 16-16 16H54c-8.84 0-16-7.16-16-16V56c0-8.84 7.16-16 16-16z" fill="#fff" stroke="#24475b" stroke-width="5"/>
+  <path d="M56 40h13v127H54c-8.84 0-16-7.16-16-16V56c0-8.84 7.16-16 16-16z" fill="#e8f2f7"/>
+  <path d="M80 64h38M80 84h49M80 104h36" stroke="#b9cbd7" stroke-width="5" stroke-linecap="round"/>
+  <path d="M78 128h46" stroke="#ffc44f" stroke-width="11" stroke-linecap="round"/>
+  <path d="M81 128h38" stroke="#24475b" stroke-width="4" stroke-linecap="round" opacity=".75"/>
+  <circle cx="100" cy="99" r="34" fill="url(#play)" stroke="#fff" stroke-width="6"/>
+  <path d="M93 83l25 16-25 16z" fill="#fff"/>
+  <path d="M151 77c8 9 8 28 0 37M164 63c17 22 17 50 0 72" fill="none" stroke="#24475b" stroke-width="7" stroke-linecap="round"/>
+  <path d="M151 36l4 11 11 4-11 4-4 11-4-11-11-4 11-4z" fill="#27b7a8"/>
+</svg>

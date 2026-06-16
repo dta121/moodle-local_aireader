@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200" role="img" aria-labelledby="title desc">
+  <title id="title">AI Reader icon draft 2: multilingual audio</title>
+  <desc id="desc">A globe wearing headphones with a play button and translated speech cards.</desc>
+  <defs>
+    <linearGradient id="bg" x1="15" y1="15" x2="185" y2="185" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f8fbff"/>
+      <stop offset="1" stop-color="#eaf5ef"/>
+    </linearGradient>
+    <linearGradient id="orange" x1="76" y1="78" x2="124" y2="124" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffb23f"/>
+      <stop offset="1" stop-color="#f26a2e"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="184" height="184" rx="38" fill="url(#bg)" stroke="#c8d7e6" stroke-width="1.5"/>
+  <circle cx="100" cy="101" r="52" fill="#fff" stroke="#24475b" stroke-width="6"/>
+  <path d="M48 101h104M100 49c18 18 18 86 0 104M100 49c-18 18-18 86 0 104" fill="none" stroke="#9fc1cd" stroke-width="5" stroke-linecap="round"/>
+  <path d="M61 74c20 10 58 10 78 0M61 128c20-10 58-10 78 0" fill="none" stroke="#9fc1cd" stroke-width="5" stroke-linecap="round"/>
+  <path d="M61 105v-9c0-23 17-39 39-39s39 16 39 39v9" fill="none" stroke="#24475b" stroke-width="8" stroke-linecap="round"/>
+  <path d="M54 103h13c5 0 9 4 9 9v15c0 5-4 9-9 9H54c-5 0-9-4-9-9v-15c0-5 4-9 9-9zM133 103h13c5 0 9 4 9 9v15c0 5-4 9-9 9h-13c-5 0-9-4-9-9v-15c0-5 4-9 9-9z" fill="#fff" stroke="#24475b" stroke-width="6"/>
+  <circle cx="100" cy="101" r="27" fill="url(#orange)" stroke="#fff" stroke-width="5"/>
+  <path d="M95 88l20 13-20 13z" fill="#fff"/>
+  <rect x="31" y="43" width="42" height="26" rx="8" fill="#fff" stroke="#24475b" stroke-width="5"/>
+  <path d="M42 56h20" stroke="#27b7a8" stroke-width="5" stroke-linecap="round"/>
+  <rect x="127" y="42" width="42" height="26" rx="8" fill="#fff" stroke="#24475b" stroke-width="5"/>
+  <path d="M138 55h20" stroke="#ffc44f" stroke-width="5" stroke-linecap="round"/>
+</svg>

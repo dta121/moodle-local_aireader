@@ -965,7 +965,6 @@ class Player {
             return;
         }
         this.seekTo(Math.max(0, seg.startms / 1000));
-        this.audio.play().catch(() => { /* User gesture required. */ });
     }
 
     updateActiveSegment(force) {

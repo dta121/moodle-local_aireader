@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200" role="img" aria-labelledby="title desc">
+  <title id="title">AI Reader icon draft 8: course audio</title>
+  <desc id="desc">A professional course content stack with generated audio waveform and a ready check.</desc>
+  <defs>
+    <linearGradient id="bg" x1="16" y1="12" x2="184" y2="188" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fbfdff"/>
+      <stop offset="1" stop-color="#eef7f3"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="58" y1="84" x2="108" y2="134" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffb846"/>
+      <stop offset="1" stop-color="#f26b32"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="184" height="184" rx="36" fill="url(#bg)" stroke="#cbd9e3" stroke-width="1.5"/>
+  <rect x="48" y="55" width="92" height="86" rx="15" fill="#dfeaf1" stroke="#24475b" stroke-width="5"/>
+  <rect x="60" y="42" width="92" height="86" rx="15" fill="#ffffff" stroke="#24475b" stroke-width="5"/>
+  <path d="M78 66h50M78 86h58M78 106h34" stroke="#b4c7d2" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="87" cy="113" r="29" fill="url(#accent)" stroke="#ffffff" stroke-width="6"/>
+  <path d="M81 100l22 13-22 13z" fill="#ffffff"/>
+  <rect x="68" y="144" width="92" height="26" rx="13" fill="#ffffff" stroke="#24475b" stroke-width="5"/>
+  <path d="M81 157c5-9 8 9 13 0s8 9 13 0 8 9 13 0 8 9 13 0" fill="none" stroke="#27a99a" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="151" cy="55" r="18" fill="#27a99a" stroke="#ffffff" stroke-width="5"/>
+  <path d="M143 55l6 6 11-13" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200" role="img" aria-labelledby="title desc">
+  <title id="title">AI Reader icon draft 9: language player</title>
+  <desc id="desc">A clean language selector card with translated audio playback.</desc>
+  <defs>
+    <linearGradient id="bg" x1="14" y1="14" x2="186" y2="186" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fbfdff"/>
+      <stop offset="1" stop-color="#f3f3fb"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="82" y1="99" x2="140" y2="157" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffb846"/>
+      <stop offset="1" stop-color="#f26b32"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="184" height="184" rx="36" fill="url(#bg)" stroke="#cbd9e3" stroke-width="1.5"/>
+  <rect x="42" y="48" width="116" height="101" rx="18" fill="#ffffff" stroke="#24475b" stroke-width="6"/>
+  <path d="M70 75h60M70 99h42" stroke="#b4c7d2" stroke-width="6" stroke-linecap="round"/>
+  <path d="M67 122h28M112 122h21" stroke="#27a99a" stroke-width="7" stroke-linecap="round"/>
+  <circle cx="65" cy="75" r="13" fill="#eef7f3" stroke="#27a99a" stroke-width="5"/>
+  <path d="M61 75h8M65 69c4 4 4 8 0 12M65 69c-4 4-4 8 0 12" fill="none" stroke="#27a99a" stroke-width="3" stroke-linecap="round"/>
+  <rect x="103" y="62" width="40" height="26" rx="8" fill="#fff8e7" stroke="#ffc850" stroke-width="5"/>
+  <path d="M113 75h20" stroke="#24475b" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="112" cy="132" r="31" fill="url(#accent)" stroke="#ffffff" stroke-width="6"/>
+  <path d="M106 118l23 14-23 14z" fill="#ffffff"/>
+</svg>

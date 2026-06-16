@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200" role="img" aria-labelledby="title desc">
+  <title id="title">AI Reader icon draft 6: focused reader</title>
+  <desc id="desc">A polished lesson page with a play control, highlighted text, waveform, and AI sparkle.</desc>
+  <defs>
+    <linearGradient id="bg" x1="16" y1="12" x2="184" y2="188" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fbfdff"/>
+      <stop offset="1" stop-color="#edf6f6"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="70" y1="98" x2="130" y2="158" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffb846"/>
+      <stop offset="1" stop-color="#f26b32"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="184" height="184" rx="36" fill="url(#bg)" stroke="#cbd9e3" stroke-width="1.5"/>
+  <rect x="48" y="35" width="104" height="130" rx="18" fill="#ffffff" stroke="#24475b" stroke-width="6"/>
+  <rect x="61" y="51" width="78" height="10" rx="5" fill="#e5eef4"/>
+  <path d="M65 78h70M65 99h48M65 120h70" stroke="#b4c7d2" stroke-width="6" stroke-linecap="round"/>
+  <path d="M65 120h44" stroke="#ffc850" stroke-width="12" stroke-linecap="round"/>
+  <path d="M65 120h44" stroke="#24475b" stroke-width="4" stroke-linecap="round" opacity=".72"/>
+  <rect x="63" y="138" width="74" height="14" rx="7" fill="#eaf3f3"/>
+  <path d="M73 145c5-8 8 8 13 0s8 8 13 0 8 8 13 0 8 8 13 0" fill="none" stroke="#27a99a" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="100" cy="101" r="31" fill="url(#accent)" stroke="#ffffff" stroke-width="6"/>
+  <path d="M94 87l23 14-23 14z" fill="#ffffff"/>
+  <path d="M145 44l4 11 11 4-11 4-4 11-4-11-11-4 11-4z" fill="#27a99a"/>
+</svg>

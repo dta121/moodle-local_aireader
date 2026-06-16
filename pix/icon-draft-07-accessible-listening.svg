@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200" role="img" aria-labelledby="title desc">
+  <title id="title">AI Reader icon draft 7: accessible listening</title>
+  <desc id="desc">A learner silhouette with headphones, a readable page, and a play button for accessible narration.</desc>
+  <defs>
+    <linearGradient id="bg" x1="14" y1="14" x2="186" y2="186" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fbfdff"/>
+      <stop offset="1" stop-color="#f0f4f9"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="98" y1="101" x2="155" y2="158" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffb846"/>
+      <stop offset="1" stop-color="#f26b32"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="184" height="184" rx="36" fill="url(#bg)" stroke="#cbd9e3" stroke-width="1.5"/>
+  <circle cx="82" cy="74" r="25" fill="#ffffff" stroke="#24475b" stroke-width="6"/>
+  <path d="M48 145c4-29 20-44 34-44s30 15 34 44" fill="#ffffff" stroke="#24475b" stroke-width="6" stroke-linecap="round"/>
+  <path d="M55 84v-8c0-20 12-36 27-36s27 16 27 36v8" fill="none" stroke="#27a99a" stroke-width="7" stroke-linecap="round"/>
+  <rect x="43" y="80" width="20" height="34" rx="8" fill="#ffffff" stroke="#24475b" stroke-width="5"/>
+  <rect x="101" y="80" width="20" height="34" rx="8" fill="#ffffff" stroke="#24475b" stroke-width="5"/>
+  <rect x="104" y="63" width="50" height="72" rx="12" fill="#ffffff" stroke="#24475b" stroke-width="5"/>
+  <path d="M116 81h27M116 99h21M116 116h27" stroke="#b4c7d2" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="130" cy="136" r="28" fill="url(#accent)" stroke="#ffffff" stroke-width="6"/>
+  <path d="M124 123l22 13-22 13z" fill="#ffffff"/>
+</svg>
