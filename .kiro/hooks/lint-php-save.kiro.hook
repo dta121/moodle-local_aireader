@@ -1,0 +1,16 @@
+{
+  "enabled": true,
+  "name": "Lint PHP on Save",
+  "description": "Runs Moodle PHP code sniffer on the edited file to catch coding standard violations immediately.",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "**/*.php"
+    ]
+  },
+  "then": {
+    "type": "runCommand",
+    "command": "vendor/bin/phpcs --standard=moodle --no-colors ${file}"
+  }
+}

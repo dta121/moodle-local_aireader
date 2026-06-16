@@ -1,0 +1,16 @@
+{
+  "enabled": true,
+  "name": "Mustache Lint on Save",
+  "description": "Validates Mustache templates on save to catch syntax errors and linting issues early.",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "templates/*.mustache"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A Mustache template was just saved. Check it for common issues: unclosed sections, missing helpers, invalid variable names, and ensure it follows Moodle mustache conventions (no logic in templates, use of {{#str}} for strings). Report any problems found and fix them."
+  }
+}

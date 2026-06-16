@@ -1,0 +1,16 @@
+{
+  "enabled": true,
+  "name": "Build AMD on Save",
+  "description": "Rebuilds the AMD module when player.js is edited, keeping the minified build in sync.",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "amd/src/*.js"
+    ]
+  },
+  "then": {
+    "type": "runCommand",
+    "command": "npx grunt amd --root=local/aireader"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "enabled": true,
+  "name": "Run PHPUnit on Test Edit",
+  "description": "Runs PHPUnit for the plugin test suite when a test file is modified.",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "tests/**/*.php"
+    ]
+  },
+  "then": {
+    "type": "runCommand",
+    "command": "vendor/bin/phpunit ${file}"
+  }
+}
