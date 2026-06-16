@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "name": "Deploy to Dev Server",
+  "description": "After pushing to GitHub, uses AWS SSM to connect to the dev server (i-04c58928fad484d97), pull the latest code into the Moodle local/aireader directory, run the Moodle upgrade, and purge caches.",
+  "version": "1",
+  "when": {
+    "type": "agentStop"
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "After pushing code to GitHub, deploy to the dev server using AWS SSM. Run the following steps:\n\n1. First check if code was actually pushed in this session (check git log for recent commits). If nothing was pushed, skip deployment.\n\n2. Determine the current branch name with `git branch --show-current`.\n\n3. Deploy using AWS SSM send-command:\n```\naws ssm send-command --instance-ids i-04c58928fad484d97 --document-name \"AWS-RunShellScript\" --parameters commands=[\"cd /var/www/html/moodle/local/aireader && git fetch origin && git checkout <branch> && git pull origin <branch> && cd /var/www/html/moodle && sudo -u www-data php admin/cli/upgrade.php --non-interactive && sudo -u www-data php admin/cli/purge_caches.php\"] --output text --query \"Command.CommandId\"\n```\n\n4. Wait 30 seconds, then check the command status:\n```\naws ssm get-command-invocation --command-id <command-id> --instance-id i-04c58928fad484d97 --query \"[Status,StandardOutputContent,StandardErrorContent]\" --output text\n```\n\n5. If the command failed, report the error output to the user.\n6. If successful, confirm deployment is complete and the site at https://dev.sylr.org is updated.\n\nImportant:\n- Always use the current branch, not main/master.\n- If SSM command fails, show the error but do NOT retry automatically (live server).\n- Report the deployment result clearly."
+  }
+}
