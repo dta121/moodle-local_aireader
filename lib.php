@@ -265,3 +265,38 @@ function local_aireader_coursemodule_edit_post_actions($data, $course) {
     }
     return $data;
 }
+
+/**
+ * Add a "Download narration audio" link to the course navigation.
+ *
+ * Shown to any user who can listen when the plugin and downloads are enabled.
+ * The link is intentionally lightweight — it does not pre-scan the course for
+ * ready assets on every navigation render; the target page shows an empty
+ * state when there is nothing to download.
+ *
+ * @param navigation_node $navigation The course navigation node.
+ * @param stdClass $course The course object.
+ * @param context_course $context The course context.
+ * @return void
+ */
+function local_aireader_extend_navigation_course($navigation, $course, $context): void {
+    if (!get_config('local_aireader', 'enabled')) {
+        return;
+    }
+    if (get_config('local_aireader', 'allow_downloads') === '0') {
+        return;
+    }
+    if (!has_capability('local/aireader:listen', $context)) {
+        return;
+    }
+
+    $url = new moodle_url('/local/aireader/download_course.php', ['id' => $course->id]);
+    $navigation->add(
+        get_string('downloadcourse_nav', 'local_aireader'),
+        $url,
+        navigation_node::TYPE_SETTING,
+        null,
+        'local_aireader_downloadcourse',
+        new pix_icon('t/download', '')
+    );
+}

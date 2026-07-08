@@ -4,6 +4,30 @@ All notable changes to `local_aireader` are documented in this file.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.3.4] — 2026-07-08
+
+### Added
+
+- **Course "Download all narration" page.** A new per-course page (linked from
+  the course navigation as *Download narration audio*) lets learners download
+  every AI narration they can access in one ZIP, for offline listening. Each
+  file is listed up front with its size and the archive total, and a warning is
+  shown before large downloads on metered connections. This completes the v1.3
+  "Offline & quick wins" epic (MDL-658) alongside the per-activity download
+  button and ID3 tagging shipped in 1.3.0.
+  - Access control mirrors the `pluginfile` handler on a per-asset basis:
+    the source activity must be user-visible, the learner must hold
+    `local/aireader:listen` on the module context, narration must be enabled
+    for that scope, and hidden Book chapters require
+    `mod/book:viewhiddenchapters`. Only `ready` assets are packaged — the page
+    never queues or triggers generation, so a student action cannot incur
+    OpenAI cost. Aggregates no personal data, so the privacy provider is
+    unchanged.
+  - New `download_warn_threshold_mb` admin setting (default 100) controls the
+    large-download warning; set to 0 to disable it. Respects the existing
+    site-wide `allow_downloads` toggle. New `download_manager` service class
+    with PHPUnit coverage for the access-gating and filtering rules.
+
 ## [1.3.3] — 2026-07-08
 
 ### CI

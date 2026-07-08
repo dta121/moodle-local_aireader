@@ -387,5 +387,12 @@ function xmldb_local_aireader_upgrade(int $oldversion): bool {
         upgrade_plugin_savepoint(true, 2026060400, 'local', 'aireader');
     }
 
+    if ($oldversion < 2026070802) {
+        // Course-level "Download all narration" page. No schema change; the
+        // version bump registers the new download_warn_threshold_mb admin
+        // default via admin_apply_default_settings().
+        upgrade_plugin_savepoint(true, 2026070802, 'local', 'aireader');
+    }
+
     return true;
 }
