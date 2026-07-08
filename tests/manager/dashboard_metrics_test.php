@@ -34,6 +34,9 @@ final class dashboard_metrics_test extends \advanced_testcase {
     /** @var \stdClass A course to attach seeded assets to. */
     private $course;
 
+    /** @var int Monotonic counter making every seeded asset's sourcehash unique. */
+    private static $seq = 0;
+
     /**
      * Common fixture: a reset DB and one course.
      */
@@ -64,6 +67,9 @@ final class dashboard_metrics_test extends \advanced_testcase {
     ): int {
         global $DB;
         $now = time();
+        // Each row gets a unique sourcehash so the unique_variant index never
+        // collides when a test seeds several assets sharing a cm and language.
+        self::$seq++;
         return (int)$DB->insert_record('local_aireader_asset', (object)[
             'courseid'      => (int)$this->course->id,
             'cmid'          => $cmid,
@@ -74,7 +80,7 @@ final class dashboard_metrics_test extends \advanced_testcase {
             'lang'          => $lang,
             'voice'         => 'marin',
             'model'         => 'gpt-4o-mini-tts',
-            'sourcehash'    => hash('sha256', "{$cmid}|{$lang}|{$status}|{$bytes}"),
+            'sourcehash'    => hash('sha256', "{$cmid}|{$lang}|{$status}|{$bytes}|" . self::$seq),
             'status'        => $status,
             'bytesize'      => $bytes,
             'durationsecs'  => $duration,
