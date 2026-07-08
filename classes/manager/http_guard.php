@@ -75,7 +75,7 @@ class http_guard {
      * @return bool
      */
     private static function is_blocked_host(string $host): bool {
-        // parse_url() keeps IPv6 literals bracketed ("[::1]"); strip the
+        // IPv6 literals arrive from parse_url() bracketed ("[::1]"); strip the
         // brackets so the address validates and range-checks correctly instead
         // of sailing past FILTER_VALIDATE_IP as an unrecognised string.
         if (strlen($host) >= 2 && $host[0] === '[' && substr($host, -1) === ']') {

@@ -1,5 +1,15 @@
 # AI Reader Release Notes
 
+## 1.3.3
+
+Released: 2026-07-08
+
+AI Reader 1.3.3 clears a Moodle Plugin CI failure introduced in 1.3.2.
+
+- A phpcs inline-comment style warning in `http_guard.php` failed the Code
+  Checker step (which runs with `--max-warnings 0`). The comment was reworded;
+  there is no functional change and no schema change.
+
 ## 1.3.2
 
 Released: 2026-07-08

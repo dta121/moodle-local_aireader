@@ -4,6 +4,16 @@ All notable changes to `local_aireader` are documented in this file.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.3.3] — 2026-07-08
+
+### CI
+
+- Cleared the sole Moodle Plugin CI failure introduced in 1.3.2: a phpcs
+  `moodle.Commenting.InlineComment.NotCapital` warning in `http_guard.php`
+  (an inline comment began with the lowercase `parse_url()`), which fails the
+  Code Checker step under `--max-warnings 0`. Reworded the comment to start
+  with a capital. No functional change.
+
 ## [1.3.2] — 2026-07-08
 
 ### Security
