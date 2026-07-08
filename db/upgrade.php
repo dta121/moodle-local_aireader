@@ -394,5 +394,12 @@ function xmldb_local_aireader_upgrade(int $oldversion): bool {
         upgrade_plugin_savepoint(true, 2026070802, 'local', 'aireader');
     }
 
+    if ($oldversion < 2026070803) {
+        // Admin usage dashboard (Site admin → Reports → AI Reader usage
+        // dashboard). Aggregate-only reporting over existing data; no schema
+        // change and no new personal data.
+        upgrade_plugin_savepoint(true, 2026070803, 'local', 'aireader');
+    }
+
     return true;
 }

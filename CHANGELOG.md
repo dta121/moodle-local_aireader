@@ -4,6 +4,30 @@ All notable changes to `local_aireader` are documented in this file.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.4.0] — 2026-07-08
+
+### Added
+
+- **Admin usage dashboard.** A new page under *Site administration → Reports →
+  AI Reader usage dashboard* (gated by `local/aireader:viewlog`) gives an
+  at-a-glance view of adoption, health, language demand, reach, storage, and
+  estimated spend — all derived from data the plugin already stores, with no
+  schema change and no new personal data (MDL-659).
+  - **KPI strip**: ready narrations, audio minutes, estimated spend, learners
+    reached, activities narrated, generation failure rate, audio storage, and
+    instructor opt-outs.
+  - **Charts** (Moodle Chart API): assets-by-status pie, ready-narrations-by-
+    language bar, and a narrations-generated-over-time line. Links out to the
+    existing audio log and cost-by-course reports.
+  - **Reach is a starters metric, not completion.** It counts learners who have
+    a saved playback position, and is labelled as such — a saved position
+    resets to 0 when a track ends, so completion analytics are deliberately
+    left to a later release. "Audio minutes" uses each asset's stored duration,
+    falling back to the last aligned Whisper segment's end time.
+  - New `dashboard_metrics` service (aggregate queries) with PHPUnit coverage
+    for reach, adoption bucketing, language counts, storage, and the failure-rate
+    edge cases.
+
 ## [1.3.4] — 2026-07-08
 
 ### Added
