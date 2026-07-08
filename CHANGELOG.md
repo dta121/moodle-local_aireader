@@ -4,6 +4,20 @@ All notable changes to `local_aireader` are documented in this file.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.4.2] — 2026-07-08
+
+### Added
+
+- **Admin toggle for clickable in-page highlights** (`highlight_interactive`,
+  default on). When on, learners can click a highlighted sentence in the page
+  body to jump the audio there (unchanged behaviour). When off, the in-page
+  highlighting is **follow-along only** — no pointer, no hover tint, no
+  click-to-seek in the body — and click-to-seek remains available in the
+  transcript pane. Lets sites keep the read-along highlight without turning body
+  text into clickable controls. Only applies when in-page highlighting
+  (`highlight_in_place`) is on. JS/CSS change; the version bump rolls
+  jsrev/themerev and registers the new default.
+
 ## [1.4.1] — 2026-07-08
 
 ### Fixed

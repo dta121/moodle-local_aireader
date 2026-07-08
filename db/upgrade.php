@@ -408,5 +408,12 @@ function xmldb_local_aireader_upgrade(int $oldversion): bool {
         upgrade_plugin_savepoint(true, 2026070804, 'local', 'aireader');
     }
 
+    if ($oldversion < 2026070805) {
+        // Admin toggle for whether in-page highlights are click-to-seek. No
+        // schema change; the version bump registers the new
+        // highlight_interactive admin default and rolls jsrev/themerev.
+        upgrade_plugin_savepoint(true, 2026070805, 'local', 'aireader');
+    }
+
     return true;
 }
