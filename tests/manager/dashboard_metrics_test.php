@@ -130,7 +130,7 @@ final class dashboard_metrics_test extends \advanced_testcase {
             ]);
         }
 
-        // user1 + user2 on the ready asset = 2; the position on the pending asset is ignored.
+        // Both users listened to the ready asset (=2); the pending-asset position is ignored.
         $this->assertSame(2, dashboard_metrics::reach());
     }
 
