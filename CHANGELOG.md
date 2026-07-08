@@ -4,6 +4,28 @@ All notable changes to `local_aireader` are documented in this file.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.4.1] — 2026-07-08
+
+### Fixed
+
+- **In-page highlighting no longer appears until the learner starts the reader.**
+  Previously, whenever an activity's audio was already cached, the player
+  injected the karaoke `<mark>` spans into the page body on load — before the
+  learner pressed Listen — so random spans of body text became hover-tinted and
+  click-to-seek. With partial match coverage this looked arbitrary and could
+  start playback unexpectedly. The in-place marks are now injected only once the
+  learner engages the reader:
+  - Pressing play injects the marks and begins follow-along highlighting.
+  - A learner **returning to a saved resume position** counts as already engaged:
+    the marks are restored and the sentence where they left off is highlighted
+    and scrolled into view, so returning picks up visually and audibly where
+    they stopped.
+  - A learner who never starts the reader sees a completely unmodified page — no
+    marks, no hover cursor, no click-to-seek in the body.
+
+  The transcript pane (opened explicitly by the learner) is unchanged. JS-only
+  change; the version bump rolls jsrev so browsers fetch the rebuilt bundle.
+
 ## [1.4.0] — 2026-07-08
 
 ### Added

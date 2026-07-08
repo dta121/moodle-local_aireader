@@ -161,6 +161,12 @@ class Player {
         this.transcriptFetched = false;
         this.useInPlace = false;
         this.inPlaceMarks = [];
+        // In-place body highlighting is only injected once the learner engages
+        // the reader (presses play, or returns to a saved resume position), so
+        // a learner who never starts the player sees an unmodified page.
+        this.inPlaceInjected = false;
+        this.engaged = false;
+        this.resumeHighlightPending = false;
         this.paneSegments = [];
         this.activeSegIdx = -1;
         this.lastUserScrollAt = 0;
@@ -230,6 +236,7 @@ class Player {
         }
 
         this.audio.addEventListener('play', () => {
+            this.markEngaged();
             this.renderPlaying(true);
             this.startListenRange();
         });
@@ -625,6 +632,18 @@ class Player {
         this.audio.currentTime = this.pendingResumePosition;
         this.renderTime();
         this.pendingResumePosition = 0;
+
+        // A learner returning to a saved position has already engaged the
+        // reader, so restore the in-place highlight at that spot. If the
+        // transcript has not arrived yet, flag it so injection happens as soon
+        // as fetchTranscriptIfNeeded resolves.
+        this.engaged = true;
+        if (this.segments.length) {
+            this.injectInPlaceMarks();
+            this.updateActiveSegment(true);
+        } else {
+            this.resumeHighlightPending = true;
+        }
     }
 
     /**
@@ -811,6 +830,10 @@ class Player {
         });
         this.inPlaceMarks = [];
         this.useInPlace = false;
+        // Allow re-injection for the newly selected language; engagement itself
+        // persists across a language switch since the learner is actively using
+        // the reader.
+        this.inPlaceInjected = false;
         if (this.transcriptList) {
             this.transcriptList.innerHTML = '';
         }
@@ -838,6 +861,50 @@ class Player {
 
     // -- Transcript + karaoke --
 
+    /**
+     * Mark the player as engaged and inject in-place highlights if they have
+     * not been injected yet. Called the first time the learner presses play,
+     * or when a saved resume position is restored on return.
+     */
+    markEngaged() {
+        if (this.engaged) {
+            return;
+        }
+        this.engaged = true;
+        this.injectInPlaceMarks();
+    }
+
+    /**
+     * Wrap the matched segment text in the activity body with <mark> spans and
+     * wire click-to-seek. No-op when highlighting is disabled, the transcript
+     * has not loaded yet, or the marks are already placed. Deferred until the
+     * learner engages the reader, so an unopened player never mutates the page.
+     */
+    injectInPlaceMarks() {
+        if (this.inPlaceInjected || !this.config.highlightinplace || !this.segments.length) {
+            return;
+        }
+        this.inPlaceInjected = true;
+        const placed = tryInPlaceWrap(this.segments, this.config.module);
+        const ratio = this.segments.length ? placed.matchedCount / this.segments.length : 0;
+        // Partial in-page highlighting is still useful; useInPlace only hints
+        // whether auto-scroll should prefer the in-page marks (most segments
+        // matched) or the transcript-pane buttons.
+        this.useInPlace = ratio >= IN_PLACE_MATCH_THRESHOLD;
+        this.inPlaceMarks = placed.markGroups;
+        placed.markGroups.forEach((group) => {
+            if (!group) {
+                return;
+            }
+            group.forEach((m) => {
+                m.addEventListener('click', () => {
+                    const idx = parseInt(m.dataset.segmentIdx, 10);
+                    this.seekToSegment(idx);
+                });
+            });
+        });
+    }
+
     async fetchTranscriptIfNeeded() {
         if (this.transcriptFetched || !this.assetId) {
             return;
@@ -862,32 +929,19 @@ class Player {
             this.useInPlace = false;
             this.inPlaceMarks = [];
 
-            if (this.config.highlightinplace) {
-                const placed = tryInPlaceWrap(this.segments, this.config.module);
-                const ratio = this.segments.length ? placed.matchedCount / this.segments.length : 0;
-                // Keep every successful mark regardless of ratio: partial
-                // in-page highlighting is still useful, and the transcript
-                // pane is rendered alongside as a complementary view for
-                // segments that couldn't be wrapped. useInPlace is now just
-                // a hint for whether auto-scroll should prefer the in-page
-                // marks (when most segments matched) or the pane buttons.
-                this.useInPlace = ratio >= IN_PLACE_MATCH_THRESHOLD;
-                this.inPlaceMarks = placed.markGroups;
-                placed.markGroups.forEach((group) => {
-                    if (!group) {
-                        return;
-                    }
-                    group.forEach((m) => {
-                        m.addEventListener('click', () => {
-                            const idx = parseInt(m.dataset.segmentIdx, 10);
-                            this.seekToSegment(idx);
-                        });
-                    });
-                });
-            }
             this.renderTranscriptPane();
             this.revealTranscriptToggle();
             this.restoreTranscriptOpen();
+
+            // Only mutate the activity body once the learner has engaged the
+            // reader; otherwise the page stays untouched until they press play.
+            if (this.engaged) {
+                this.injectInPlaceMarks();
+            }
+            if (this.resumeHighlightPending) {
+                this.updateActiveSegment(true);
+                this.resumeHighlightPending = false;
+            }
         } catch (e) {
             // Transcript is best-effort; ignore network errors.
             this.transcriptFetched = false;

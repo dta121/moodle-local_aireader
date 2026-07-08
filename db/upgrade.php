@@ -401,5 +401,12 @@ function xmldb_local_aireader_upgrade(int $oldversion): bool {
         upgrade_plugin_savepoint(true, 2026070803, 'local', 'aireader');
     }
 
+    if ($oldversion < 2026070804) {
+        // Defer in-place karaoke highlighting until the learner engages the
+        // reader (JS-only change). Version bump rolls jsrev so browsers fetch
+        // the rebuilt AMD bundle. No schema change.
+        upgrade_plugin_savepoint(true, 2026070804, 'local', 'aireader');
+    }
+
     return true;
 }
