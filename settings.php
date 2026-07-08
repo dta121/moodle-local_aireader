@@ -28,6 +28,13 @@ defined('MOODLE_INTERNAL') || die();
 // guarded by its own capability so managers can view it without full site
 // configuration access.
 $ADMIN->add('reports', new admin_externalpage(
+    'local_aireader_dashboard',
+    get_string('report_dashboard_pluginname', 'local_aireader'),
+    new moodle_url('/local/aireader/dashboard.php'),
+    'local/aireader:viewlog'
+));
+
+$ADMIN->add('reports', new admin_externalpage(
     'local_aireader_log',
     get_string('report_pluginname', 'local_aireader'),
     new moodle_url('/local/aireader/report.php'),
