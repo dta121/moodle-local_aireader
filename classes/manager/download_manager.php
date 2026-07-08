@@ -117,8 +117,7 @@ class download_manager {
             if (!override_manager::is_enabled($cmid, $chapterid, $module)) {
                 continue;
             }
-            if ($module === 'book' && $chapterid > 0
-                    && !self::chapter_visible_for($cm, $chapterid, $context, $userid)) {
+            if ($module === 'book' && $chapterid > 0 && !self::chapter_visible_for($cm, $chapterid, $context, $userid)) {
                 continue;
             }
 
@@ -165,7 +164,7 @@ class download_manager {
     /**
      * Sum the byte sizes of a collected item list.
      *
-     * @param array<int,\stdClass> $items Items from {@see collect_for_course()}.
+     * @param array $items Items from {@see collect_for_course()}.
      * @return int Total bytes.
      */
     public static function total_bytes(array $items): int {
@@ -185,7 +184,7 @@ class download_manager {
      * {@see collect_for_course()} so access control has been applied.
      *
      * @param \stdClass $course Course record (names the archive).
-     * @param array<int,\stdClass> $items Access-checked items to include.
+     * @param array $items Access-checked items to include.
      * @return void This method does not return; send_temp_file() exits.
      */
     public static function serve_zip(\stdClass $course, array $items): void {
@@ -230,8 +229,7 @@ class download_manager {
         if (!$chapter) {
             return false;
         }
-        if (!empty($chapter->hidden)
-                && !\has_capability('mod/book:viewhiddenchapters', $context, $userid)) {
+        if (!empty($chapter->hidden) && !\has_capability('mod/book:viewhiddenchapters', $context, $userid)) {
             return false;
         }
         return true;
@@ -269,8 +267,7 @@ class download_manager {
      * " (2)", " (3)", … before the extension on collision.
      *
      * @param string $name Proposed archive filename.
-     * @param array<string,bool> $used Map of lowercased names already taken,
-     *                                  updated by reference.
+     * @param array $used Map of lowercased names already taken, updated by reference.
      * @return string A name not present in $used.
      */
     private static function unique_name(string $name, array &$used): string {
