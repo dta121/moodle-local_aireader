@@ -534,18 +534,22 @@ mark.local-aireader-mark {
     transition: background-color 0.15s ease;
 }
 
-mark.local-aireader-mark:hover {
+/* Pointer + hover tint only when click-to-seek is enabled (is-clickable is set
+ * by the player when the admin has left in-page highlighting interactive). */
+mark.local-aireader-mark.is-clickable {
+    cursor: pointer;
+}
+
+mark.local-aireader-mark.is-clickable:hover {
     /* Marks are injected into the activity body, outside the .local-aireader
      * scope that defines --la-accent, so the fallback keeps them visible even
      * if the accent custom property has not cascaded down. The player sets
      * --la-accent on the document root so the configured colour still applies. */
     background: color-mix(in srgb, var(--la-accent, #f86a01) 12%, transparent);
-    cursor: pointer;
 }
 
 mark.local-aireader-mark.is-current {
     background: color-mix(in srgb, var(--la-accent, #f86a01) 30%, transparent);
-    cursor: pointer;
 }
 
 /* Error state colours the status text but keeps layout. */
@@ -863,7 +867,7 @@ mark.local-aireader-mark.is-current {
         background: rgba(255, 255, 255, 0.02);
     }
 
-    mark.local-aireader-mark:hover {
+    mark.local-aireader-mark.is-clickable:hover {
         background: color-mix(in srgb, var(--la-accent, #f86a01) 22%, transparent);
     }
 

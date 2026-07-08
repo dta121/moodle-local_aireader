@@ -892,11 +892,19 @@ class Player {
         // matched) or the transcript-pane buttons.
         this.useInPlace = ratio >= IN_PLACE_MATCH_THRESHOLD;
         this.inPlaceMarks = placed.markGroups;
+        // Click-to-seek on the body marks is optional (admin setting). When off,
+        // the marks are follow-along highlight only — no pointer, no click — and
+        // click-to-seek lives solely in the transcript pane.
+        const interactive = this.config.highlightinteractive !== false;
         placed.markGroups.forEach((group) => {
             if (!group) {
                 return;
             }
             group.forEach((m) => {
+                if (!interactive) {
+                    return;
+                }
+                m.classList.add('is-clickable');
                 m.addEventListener('click', () => {
                     const idx = parseInt(m.dataset.segmentIdx, 10);
                     this.seekToSegment(idx);

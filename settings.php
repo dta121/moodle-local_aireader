@@ -294,6 +294,13 @@ if ($hassiteconfig) {
         1
     ));
 
+    $settings->add(new admin_setting_configcheckbox(
+        'local_aireader/highlight_interactive',
+        get_string('setting_highlightinteractive', 'local_aireader'),
+        get_string('setting_highlightinteractive_desc', 'local_aireader'),
+        1
+    ));
+
     $settings->add(new admin_setting_configtext(
         'local_aireader/alignment_model',
         get_string('setting_alignmentmodel', 'local_aireader'),

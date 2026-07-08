@@ -139,6 +139,7 @@ class hook_callbacks {
             'sourcelang'       => (string)($GLOBALS['CFG']->lang ?? 'en'),
             'alignmentenabled' => (bool)get_config('local_aireader', 'enable_alignment'),
             'highlightinplace' => (bool)get_config('local_aireader', 'highlight_in_place'),
+            'highlightinteractive' => get_config('local_aireader', 'highlight_interactive') !== '0',
             'design'           => (string)(get_config('local_aireader', 'player_design') ?: 'full'),
             'accentcolor'      => (string)(get_config('local_aireader', 'player_accent_color') ?: '#f86a01'),
             'autoplay'         => (bool)get_config('local_aireader', 'autoplay_on_expand'),
