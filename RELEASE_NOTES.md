@@ -1,5 +1,24 @@
 # AI Reader Release Notes
 
+## 1.3.2
+
+Released: 2026-07-08
+
+AI Reader 1.3.2 is a security-hardening release for the plugin's outbound HTTP
+guard.
+
+- The guard that validates the configured OpenAI endpoint URLs now recognises IP
+  addresses written in obfuscated notations — bracketed IPv6 literals, and
+  decimal, octal, and hexadecimal IPv4 forms — that previously slipped past the
+  loopback/private-range block even though curl still routes them. This closes
+  server-side request forgery (SSRF) bypasses of the existing guard.
+- Endpoint URLs are admin-only settings, so this is defense-in-depth against a
+  compromised or misconfigured admin account, in line with the guard's original
+  threat model.
+- No functional change for normal configurations: `api.openai.com` and other
+  real hostnames are unaffected. No schema change; the version bump only
+  registers the new release.
+
 ## 1.3.1
 
 Released: 2026-06-04

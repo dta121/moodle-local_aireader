@@ -4,6 +4,27 @@ All notable changes to `local_aireader` are documented in this file.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.3.2] — 2026-07-08
+
+### Security
+
+- **SSRF guard hardened against IP-obfuscation bypasses.** `http_guard`'s
+  outbound-URL check only range-checked hosts that `FILTER_VALIDATE_IP`
+  recognised, so several routable notations for loopback/private addresses
+  slipped past the loopback/RFC1918 block — bracketed IPv6 literals (`[::1]`,
+  `[fd00::1]`), decimal-integer IPv4 (`2130706433`), octal-dotted IPv4
+  (`0177.0.0.1`, which `filter_var` misreads as public `177.0.0.1` while curl
+  routes it to loopback), and hexadecimal IPv4 (`0x7f000001`). The endpoint URLs
+  are admin-only settings, so this is defense-in-depth aligned with the guard's
+  stated threat model (a compromised admin account redirecting the outbound
+  endpoint — and the OpenAI Bearer key — to an internal host). The guard now
+  strips IPv6 brackets before validation, refuses obfuscated numeric/octal/hex
+  IPv4 forms, and rejects malformed or zone-tagged IPv6 literals. The change
+  only tightens the allowlist — legitimate hosts (`api.openai.com`, public
+  dotted-quads, internal-DNS proxies) still pass. Seven PHPUnit cases added
+  covering each bypass plus a public-IPv4 accept case. PHP-only; no schema
+  change.
+
 ## [1.3.1] — 2026-06-04
 
 ### Fixed
