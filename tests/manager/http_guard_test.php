@@ -102,6 +102,85 @@ final class http_guard_test extends \advanced_testcase {
     }
 
     /**
+     * IPv6 loopback written as a bracketed literal must be rejected. parse_url
+     * keeps the brackets, so this only passes once they are stripped before
+     * range-checking.
+     *
+     * @covers ::assert_safe_url
+     */
+    public function test_assert_safe_url_rejects_ipv6_loopback_literal(): void {
+        $this->expectException(\moodle_exception::class);
+        http_guard::assert_safe_url('https://[::1]/v1/audio/speech');
+    }
+
+    /**
+     * IPv6 unique-local address (fd00::/8) as a bracketed literal is private
+     * and must be rejected.
+     *
+     * @covers ::assert_safe_url
+     */
+    public function test_assert_safe_url_rejects_ipv6_ula_literal(): void {
+        $this->expectException(\moodle_exception::class);
+        http_guard::assert_safe_url('https://[fd00::1]/foo');
+    }
+
+    /**
+     * A malformed / zone-tagged IPv6 literal that does not validate as an IP
+     * must still be refused rather than handed to curl.
+     *
+     * @covers ::assert_safe_url
+     */
+    public function test_assert_safe_url_rejects_malformed_ipv6_literal(): void {
+        $this->expectException(\moodle_exception::class);
+        http_guard::assert_safe_url('https://[fe80::1%25eth0]/foo');
+    }
+
+    /**
+     * The decimal-integer form of 127.0.0.1 (2130706433) is routable by curl
+     * but not recognised by FILTER_VALIDATE_IP; it must be blocked as an
+     * obfuscated loopback address.
+     *
+     * @covers ::assert_safe_url
+     */
+    public function test_assert_safe_url_rejects_decimal_ip(): void {
+        $this->expectException(\moodle_exception::class);
+        http_guard::assert_safe_url('https://2130706433/latest/meta-data/');
+    }
+
+    /**
+     * The octal-dotted form of 127.0.0.1 (0177.0.0.1) — which filter_var
+     * misreads as public 177.0.0.1 while curl routes it to loopback — must be
+     * blocked.
+     *
+     * @covers ::assert_safe_url
+     */
+    public function test_assert_safe_url_rejects_octal_ip(): void {
+        $this->expectException(\moodle_exception::class);
+        http_guard::assert_safe_url('https://0177.0.0.1/foo');
+    }
+
+    /**
+     * The hexadecimal form of 127.0.0.1 (0x7f000001) must be blocked.
+     *
+     * @covers ::assert_safe_url
+     */
+    public function test_assert_safe_url_rejects_hex_ip(): void {
+        $this->expectException(\moodle_exception::class);
+        http_guard::assert_safe_url('https://0x7f000001/foo');
+    }
+
+    /**
+     * A canonical public dotted-quad endpoint must still be accepted — the new
+     * obfuscation checks must not block legitimate numeric IPv4 hosts.
+     *
+     * @covers ::assert_safe_url
+     */
+    public function test_assert_safe_url_accepts_public_ipv4(): void {
+        http_guard::assert_safe_url('https://1.1.1.1/v1/audio/speech');
+        $this->assertTrue(true);
+    }
+
+    /**
      * Bearer tokens reflected in an error body must be redacted before storage.
      *
      * @covers ::sanitize_error

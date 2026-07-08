@@ -75,6 +75,13 @@ class http_guard {
      * @return bool
      */
     private static function is_blocked_host(string $host): bool {
+        // parse_url() keeps IPv6 literals bracketed ("[::1]"); strip the
+        // brackets so the address validates and range-checks correctly instead
+        // of sailing past FILTER_VALIDATE_IP as an unrecognised string.
+        if (strlen($host) >= 2 && $host[0] === '[' && substr($host, -1) === ']') {
+            $host = substr($host, 1, -1);
+        }
+
         $blockednames = [
             'localhost',
             'localhost.localdomain',
@@ -84,6 +91,17 @@ class http_guard {
         if (in_array($host, $blockednames, true)) {
             return true;
         }
+
+        // Refuse IPv4 addresses written in a non-canonical (decimal-integer,
+        // octal, or hexadecimal) notation before filter_var can silently
+        // reinterpret them: curl/inet_pton resolve 2130706433, 0177.0.0.1 and
+        // 0x7f000001 to 127.0.0.1, but FILTER_VALIDATE_IP either rejects them or
+        // reads them as a different, public-looking address. A real API
+        // hostname is never all-numeric, so these can only be obfuscation.
+        if (self::is_obfuscated_numeric_host($host)) {
+            return true;
+        }
+
         // Numeric IP: range-check directly. For hostnames we deliberately do
         // not resolve DNS at validation time — adding a DNS lookup here would
         // introduce TOCTOU and a DoS vector. The intent is to catch obvious
@@ -91,6 +109,48 @@ class http_guard {
         // determined attacker who controls DNS is out of scope.
         if (filter_var($host, FILTER_VALIDATE_IP)) {
             return self::is_private_ip($host);
+        }
+
+        // A colon here can only be an IPv6 literal (parse_url has already split
+        // off any :port). If it didn't validate as an IP above it is a
+        // malformed or zone-tagged literal (e.g. "fe80::1%eth0") — refuse it
+        // rather than hand something curl might still route to inet_pton.
+        if (strpos($host, ':') !== false) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether a host string is really an IPv4 address in a notation that
+     * FILTER_VALIDATE_IP will not range-check correctly (decimal integer,
+     * octal, or hexadecimal). These forms are still routable by curl, so they
+     * are a classic SSRF-filter bypass and are refused outright.
+     *
+     * @param string $host Lowercased hostname (IPv6 brackets already stripped).
+     * @return bool
+     */
+    private static function is_obfuscated_numeric_host(string $host): bool {
+        $host = strtolower($host);
+        // Hexadecimal, whole (0x7f000001) or per-component (0x7f.0x0.0x0.0x1).
+        if (strpos($host, '0x') !== false) {
+            return true;
+        }
+        // A single decimal integer, e.g. 2130706433 == 127.0.0.1.
+        if (preg_match('/^\d+$/', $host)) {
+            return true;
+        }
+        // Dotted-numeric host with an octal component (a multi-digit label with
+        // a leading zero) or an out-of-range label. Neither is a canonical
+        // IPv4, yet curl may still route it. A canonical public dotted-quad has
+        // no leading-zero/oversized labels, so it falls through to filter_var.
+        if (preg_match('/^\d{1,}(\.\d{1,}){1,3}$/', $host)) {
+            foreach (explode('.', $host) as $part) {
+                if ((strlen($part) > 1 && $part[0] === '0') || (int)$part > 255) {
+                    return true;
+                }
+            }
         }
         return false;
     }
