@@ -1338,9 +1338,11 @@ mark.local-aireader-mark.is-current {
     padding: 9px 20px;
 }
 
-/* Filtering. */
-#page-admin-setting-local_aireader .la-hidden {
-    display: none !important;
+/* Filtering. Selectors outrank the .la-card .form-item grid rule so no
+   !important is needed. */
+#page-admin-setting-local_aireader .la-card .form-item.la-hidden,
+#page-admin-setting-local_aireader .la-main .la-card.la-hidden {
+    display: none;
 }
 
 #page-admin-setting-local_aireader .la-noresults {
@@ -1629,7 +1631,8 @@ mark.local-aireader-mark.is-current {
     box-shadow: 0 -4px 12px rgba(20, 30, 40, 0.08);
     display: flex;
     flex-direction: column;
-    padding-bottom: env(safe-area-inset-bottom, 0);
+    /* stylelint-disable-next-line csstree/validator -- env() is valid CSS the validator predates. */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 /* Progress strip sits on the bar's top edge; transcript opens above it. */
