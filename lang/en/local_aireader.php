@@ -24,6 +24,28 @@
 
 defined('MOODLE_INTERNAL') || die();
 
+$string['adminui_chip_apikey'] = 'API key configured';
+$string['adminui_chip_disabled'] = 'Plugin disabled';
+$string['adminui_chip_enabled'] = 'Plugin enabled';
+$string['adminui_chip_karaoke_off'] = 'Karaoke highlighting off';
+$string['adminui_chip_karaoke_on'] = 'Karaoke highlighting on';
+$string['adminui_chip_langs'] = '{$a} learner languages';
+$string['adminui_chip_langs_one'] = '1 learner language';
+$string['adminui_chip_noapikey'] = 'API key missing';
+$string['adminui_configured'] = 'Configured';
+$string['adminui_default'] = 'Default: {$a}';
+$string['adminui_discard'] = 'Discard changes';
+$string['adminui_editlist'] = 'Edit list ({$a} available)';
+$string['adminui_filter'] = 'Filter settings…';
+$string['adminui_hideadvanced'] = 'Hide advanced settings';
+$string['adminui_hidelist'] = 'Hide list';
+$string['adminui_modcount'] = '{$a} settings differ from Moodle defaults';
+$string['adminui_modified'] = 'Modified';
+$string['adminui_noresults'] = 'No settings match your filter.';
+$string['adminui_reset'] = 'Reset';
+$string['adminui_showadvanced'] = 'Show advanced settings ({$a})';
+$string['adminui_sidebar_note'] = 'Settings marked "Modified" differ from the shipped default. Advanced settings are tucked away per section.';
+$string['adminui_source'] = 'source';
 $string['aireader:listen'] = 'Listen to AI-generated narration';
 $string['aireader:manage'] = 'Manage and regenerate AI-generated narration';
 $string['aireader:viewlog'] = 'View the AI narration audio generation log';
@@ -45,12 +67,27 @@ $string['dashboard_series_assets'] = 'Assets';
 $string['dashboard_series_narrations'] = 'Narrations';
 $string['default_disclosure'] = 'Audio narration is AI-generated. The voice you hear is synthetic, not a real person.';
 $string['default_prompt'] = 'Read this course content as a calm, clear academic guide. Use a warm, patient, professional tone with precise enunciation. Pace naturally and pause briefly at headings, paragraph breaks, and lists. Slightly emphasize key terms, definitions, and important instructions. Do not sound theatrical, promotional, or overly dramatic. Maintain a steady, trustworthy delivery throughout.';
-$string['default_translation_prompt'] = 'You are an academic translator. Translate the following text from {source} to {target}. Preserve all proper nouns, technical terminology, code identifiers, mathematical notation, and chemical or biological names exactly as written. Maintain paragraph breaks and sentence structure. Do not add commentary, headings, or explanations — output only the translation.';
+$string['default_translation_prompt'] = 'You are a professional academic translator. Translate the following learner-facing content from {source} to {target}.
+
+Requirements:
+
+- Preserve the complete meaning, academic tone, pedagogical intent, paragraph breaks, headings, lists, and table structure.
+- Write naturally and fluently in the target language. Do not imitate the source language\'s word order or sentence structure.
+- Use established target-language terminology for academic, scientific, mathematical, technical, chemical, and biological concepts.
+- Preserve numerical values, equations, mathematical notation, chemical formulas, course codes, citations, and units of measurement.
+- Do not translate or modify URLs, email addresses, file paths, code, identifiers, variable names, function names, or placeholders such as {name}, {{value}}, [[token]], %s, or $1.
+- Preserve proper nouns unless a well-established target-language name or transliteration exists. Never invent a localized name.
+- If the input contains HTML or Markdown, preserve its structure, tags, attributes, links, and formatting. Translate only learner-facing text and human-readable accessibility text.
+- Preserve existing headings. Do not add, omit, summarize, explain, or answer any part of the content.
+- Return only the translated content. Do not use quotation marks, introductions, commentary, or code fences.';
 $string['design_accordion'] = 'Collapsed accordion (expands on click)';
 $string['design_banner'] = 'Slim banner bar';
+$string['design_dockpill'] = 'Pill + docked mini-player (controls follow the learner)';
 $string['design_full'] = 'Full player (current default)';
 $string['design_inline'] = 'Right-aligned inline action';
-$string['design_pill'] = 'Inline pill button';
+$string['design_pill'] = 'Inline pill button (expands to full player)';
+$string['design_slimbar'] = 'Slim bar (one row; transport appears on play)';
+$string['design_slimpill'] = 'Slim pill (expands to slim bar)';
 $string['download_zip_suffix'] = 'AI narration audio';
 $string['downloadcourse_button'] = 'Download all ({$a})';
 $string['downloadcourse_col_activity'] = 'Activity';
@@ -69,6 +106,7 @@ $string['error_alignment_http'] = 'Whisper alignment request failed: {$a}';
 $string['error_asset_lock_timeout'] = 'Could not reserve the narration asset for generation. Please try again.';
 $string['error_empty_content'] = 'Activity content is empty after extraction.';
 $string['error_endpoint_invalid'] = 'Configured OpenAI endpoint is not a safe HTTPS URL.';
+$string['error_narration_disabled'] = 'Narration is not enabled for this content.';
 $string['error_no_apikey'] = 'OpenAI API key is not configured for local_aireader.';
 $string['error_translation_empty'] = 'Translation model returned an empty result.';
 $string['error_translation_http'] = 'Translation request failed: {$a}';
@@ -98,8 +136,11 @@ $string['player_generation_failed'] = 'Audio generation failed.';
 $string['player_language'] = 'Language';
 $string['player_listen_short'] = 'Listen';
 $string['player_listen_title'] = 'Listen to this content';
+$string['player_ai_voice_short'] = 'AI-generated voice';
 $string['player_loading'] = 'Loading…';
 $string['player_loading_audio'] = 'Loading audio…';
+$string['player_more_options'] = 'More options';
+$string['player_now_playing'] = 'Now playing · follows you as you read';
 $string['player_off_here'] = 'AI narration is turned off for this {$a}.';
 $string['player_offline_disabled'] = 'AI narration disabled';
 $string['player_pause'] = 'Pause';
@@ -109,6 +150,7 @@ $string['player_playback_failed'] = 'Audio playback failed.';
 $string['player_playback_speed'] = 'Playback speed';
 $string['player_preparing_lang'] = 'Preparing in selected language…';
 $string['player_preparing_transcript'] = 'Preparing transcript…';
+$string['player_preparing_voice'] = 'Preparing with selected voice…';
 $string['player_progress'] = 'Playback position';
 $string['player_queued_for_regen'] = 'Queued for regeneration…';
 $string['player_ready'] = 'Ready to play.';
@@ -121,6 +163,7 @@ $string['player_speed'] = 'Speed';
 $string['player_transcript_label'] = 'Transcript';
 $string['player_turn_off_here'] = 'Turn off for this {$a}';
 $string['player_turn_on_here'] = 'Turn on for this {$a}';
+$string['player_voice'] = 'Voice';
 $string['pluginname'] = 'AI Reader';
 $string['privacy:metadata:completion'] = 'Per-activity AI Reader listening completion settings. The user who last changed the setting is recorded.';
 $string['privacy:metadata:completion:cmid'] = 'Course module id.';
@@ -214,15 +257,27 @@ $string['setting_enablecompletion_desc'] = 'When on, teachers can configure supp
 $string['setting_enabled'] = 'Enable plugin';
 $string['setting_enabled_desc'] = 'Master switch for AI reader.';
 $string['setting_enabledlanguages'] = 'Languages offered to learners';
-$string['setting_enabledlanguages_desc'] = 'Comma-separated Moodle language codes (e.g. en,es,fr,pt,zh_cn). Learners see a language picker on the player listing exactly these. Leave as "en" to hide the picker and serve only one language. The site default language ({$a}) is always the source language; the others trigger a translation pass.';
+$string['setting_enabledlanguages_desc'] = 'Tick the languages learners may pick on the player. The list mirrors the languages OpenAI\'s speech models officially support; regional variants (e.g. Portuguese (Brazil)) share the same underlying model support. Tick only one language to hide the picker. The site default language ({$a}) is always the source language; the others trigger a translation pass. Each ticked language a learner requests costs a translation + TTS generation per activity, so enable only what your learners need.';
+$string['setting_enabledlanguagesextra'] = 'Additional language codes';
+$string['setting_enabledlanguagesextra_desc'] = 'Comma-separated Moodle language codes to offer in addition to the checklist above (e.g. so, km). Use this when OpenAI adds support for a language before this plugin\'s checklist is updated, or for regional locale codes not listed. Codes entered here are offered to learners exactly like ticked languages. Leave empty normally.';
+$string['setting_enabledvoices'] = 'Voices offered to learners';
+$string['setting_enabledvoices_desc'] = 'Tick the voices learners may pick on the player. The default voice above is always offered; the picker is hidden when it is the only one. Each (language, voice) combination a learner requests is a separately billed TTS generation, produced lazily on first request — audio already generated with other voices is kept and reused. Note: the older tts-1 / tts-1-hd models only accept Alloy, Echo, Fable, Nova, Onyx, and Shimmer.';
+$string['setting_enabledvoicesextra'] = 'Additional voice ids';
+$string['setting_enabledvoicesextra_desc'] = 'Comma-separated OpenAI voice ids to offer in addition to the checklist above. Use this when OpenAI ships a new voice before this plugin\'s checklist is updated. Leave empty normally.';
 $string['setting_endpoint'] = 'OpenAI speech endpoint';
 $string['setting_endpoint_desc'] = 'Defaults to https://api.openai.com/v1/audio/speech. Override for proxies.';
-$string['setting_heading_alignment'] = 'Transcript and karaoke highlighting';
-$string['setting_heading_appearance'] = 'Player appearance';
-$string['setting_heading_appearance_desc'] = 'Choose how the player looks on the page and pick its accent colour.';
+$string['setting_heading_content'] = 'Content & generation';
+$string['setting_heading_content_desc'] = 'Where players appear by default and how narration audio gets generated.';
 $string['setting_heading_cost'] = 'Cost tracking';
 $string['setting_heading_cost_desc'] = 'Per-model rates used to estimate generation cost on the audio log and cost-by-course reports.';
-$string['setting_heading_languages'] = 'Languages and translation';
+$string['setting_heading_languages'] = 'Languages & translation';
+$string['setting_heading_languages_desc'] = 'Offer narrations in more than one language.';
+$string['setting_heading_player'] = 'Player';
+$string['setting_heading_player_desc'] = 'How the player looks and what learners can do with it.';
+$string['setting_heading_setup'] = 'Setup & connection';
+$string['setting_heading_setup_desc'] = 'The essentials: turn the plugin on, connect it to OpenAI, and pick the narration voices.';
+$string['setting_heading_transcript'] = 'Transcript & highlighting';
+$string['setting_heading_transcript_desc'] = 'Whisper-powered transcripts and karaoke-style follow-along highlighting.';
 $string['setting_highlightinplace'] = 'Highlight inside the original page text when possible';
 $string['setting_highlightinplace_desc'] = 'When on, the player tries to highlight the actual rendered page text (using <mark> spans) as the audio plays. Falls back to the transcript pane on translated narrations, pages with embedded video, or pages where Moodle filters mangle the DOM enough to break matching. Off: always use the transcript pane.';
 $string['setting_highlightinteractive'] = 'Make in-page highlights clickable';
@@ -244,11 +299,11 @@ $string['setting_staleretention_desc'] = 'Stale narration assets older than this
 $string['setting_translationendpoint'] = 'Translation endpoint';
 $string['setting_translationendpoint_desc'] = 'Chat-completion endpoint used for translation. Defaults to https://api.openai.com/v1/chat/completions. Reuses the OpenAI API key configured above.';
 $string['setting_translationmodel'] = 'Translation model';
-$string['setting_translationmodel_desc'] = 'Chat-completion model id used for translation. Defaults to gpt-4o-mini.';
+$string['setting_translationmodel_desc'] = 'Chat-completion model id used for translation. Defaults to gpt-5-mini.';
 $string['setting_translationprompt'] = 'Translation system prompt';
 $string['setting_translationprompt_desc'] = 'System prompt sent before each translation. Supports {source} and {target} placeholders, which are replaced with the language names. Keep the "preserve technical terms" guidance unless you have a specific reason to relax it.';
-$string['setting_voice'] = 'Voice';
-$string['setting_voice_desc'] = 'OpenAI voice name. Defaults to marin.';
+$string['setting_voice'] = 'Default voice';
+$string['setting_voice_desc'] = 'OpenAI voice used when a learner has not picked another one. Defaults to marin. Always available to learners regardless of the checklist below.';
 $string['status_error'] = 'Audio generation failed.';
 $string['status_generating'] = 'Generating audio…';
 $string['status_pending'] = 'Audio is being prepared…';

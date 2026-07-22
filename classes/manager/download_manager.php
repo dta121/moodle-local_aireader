@@ -80,6 +80,8 @@ class download_manager {
         }
 
         $enabledlangs = asset_manager::enabled_languages();
+        $enabledvoices = asset_manager::enabled_voices();
+        $defaultvoice = asset_manager::default_voice();
         $modinfo = \get_fast_modinfo($course, $userid);
         $fs = \get_file_storage();
 
@@ -96,6 +98,9 @@ class download_manager {
                 continue;
             }
             if (!in_array((string)$asset->lang, $enabledlangs, true)) {
+                continue;
+            }
+            if (!in_array((string)$asset->voice, $enabledvoices, true)) {
                 continue;
             }
 
@@ -140,7 +145,14 @@ class download_manager {
             }
 
             $archivename = self::unique_name(
-                self::build_archive_name($course, $cm, $chaptertitle, (string)$asset->lang),
+                self::build_archive_name(
+                    $course,
+                    $cm,
+                    $chaptertitle,
+                    (string)$asset->lang,
+                    (string)$asset->voice,
+                    $defaultvoice
+                ),
                 $usednames
             );
 
@@ -153,6 +165,7 @@ class download_manager {
                 'chapterid'    => $chapterid,
                 'module'       => $module,
                 'lang'         => (string)$asset->lang,
+                'voice'        => (string)$asset->voice,
                 'activityname' => $cm->get_formatted_name(),
                 'chaptertitle' => $chaptertitle !== '' ? \format_string($chaptertitle) : '',
             ];
@@ -237,19 +250,25 @@ class download_manager {
 
     /**
      * Build a human-readable archive filename mirroring the pluginfile handler:
-     * "Course - Activity[ - Chapter] (lang).mp3".
+     * "Course - Activity[ - Chapter] (lang).mp3". Non-default voices get a
+     * voice marker — "(lang, Voice)" — so a multi-voice download does not
+     * collapse into "(2)"-suffixed duplicates.
      *
      * @param \stdClass $course Course record.
      * @param \cm_info $cm Course module.
      * @param string $chaptertitle Raw chapter title, or '' for non-chapter assets.
      * @param string $lang Language code.
+     * @param string $voice Voice id the asset was generated with.
+     * @param string $defaultvoice The site default voice id.
      * @return string Cleaned filename.
      */
     private static function build_archive_name(
         \stdClass $course,
         \cm_info $cm,
         string $chaptertitle,
-        string $lang
+        string $lang,
+        string $voice,
+        string $defaultvoice
     ): string {
         $bits = [
             \format_string($course->shortname),
@@ -259,7 +278,10 @@ class download_manager {
             $bits[] = \format_string($chaptertitle);
         }
         $label = implode(' - ', array_filter($bits));
-        return \clean_filename($label . ' (' . $lang . ').mp3');
+        $marker = $voice !== '' && $voice !== $defaultvoice
+            ? $lang . ', ' . openai_client::voice_display_name($voice)
+            : $lang;
+        return \clean_filename($label . ' (' . $marker . ').mp3');
     }
 
     /**

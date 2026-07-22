@@ -51,6 +51,50 @@ final class asset_manager_test extends \advanced_testcase {
     }
 
     /**
+     * The `enabled_languages_extra` escape hatch is merged with the checklist,
+     * deduplicated against it, and normalised to Moodle's lowercase/underscore
+     * code form.
+     *
+     * @covers ::enabled_languages
+     */
+    public function test_enabled_languages_merges_extra_codes(): void {
+        $this->resetAfterTest();
+        set_config('enabled_languages', 'en,es', 'local_aireader');
+        set_config('enabled_languages_extra', 'so, PT-BR, es', 'local_aireader');
+        $this->assertSame(['en', 'es', 'so', 'pt_br'], asset_manager::enabled_languages());
+
+        set_config('enabled_languages_extra', '', 'local_aireader');
+        $this->assertSame(['en', 'es'], asset_manager::enabled_languages());
+    }
+
+    /**
+     * The enabled-voices list always starts with the default voice, merges the
+     * checklist and extra ids, normalises case, and deduplicates.
+     *
+     * @covers ::enabled_voices
+     * @covers ::default_voice
+     */
+    public function test_enabled_voices_includes_default_and_merges(): void {
+        $this->resetAfterTest();
+
+        set_config('voice', 'marin', 'local_aireader');
+        set_config('enabled_voices', 'alloy,marin', 'local_aireader');
+        set_config('enabled_voices_extra', ' Nova , alloy', 'local_aireader');
+        $this->assertSame(['marin', 'alloy', 'nova'], asset_manager::enabled_voices());
+
+        // Default voice is always available even when the checklist omits it.
+        set_config('voice', 'cedar', 'local_aireader');
+        set_config('enabled_voices', 'alloy', 'local_aireader');
+        set_config('enabled_voices_extra', '', 'local_aireader');
+        $this->assertSame(['cedar', 'alloy'], asset_manager::enabled_voices());
+
+        // Nothing configured: just the default voice.
+        unset_config('enabled_voices', 'local_aireader');
+        unset_config('voice', 'local_aireader');
+        $this->assertSame(['marin'], asset_manager::enabled_voices());
+    }
+
+    /**
      * `max_narration_chars` defaults when unset or non-positive; admin
      * overrides are honoured otherwise.
      *

@@ -64,7 +64,7 @@ class openai_translator {
         $this->endpoint = $endpoint ?? (string)(get_config('local_aireader', 'translation_endpoint')
             ?: 'https://api.openai.com/v1/chat/completions');
         $this->model = $model ?? (string)(get_config('local_aireader', 'translation_model')
-            ?: 'gpt-4o-mini');
+            ?: 'gpt-5-mini');
         $this->prompt = $prompt ?? (string)(get_config('local_aireader', 'translation_prompt')
             ?: get_string('default_translation_prompt', 'local_aireader'));
     }
@@ -93,14 +93,10 @@ class openai_translator {
             self::language_display_name($target)
         );
 
-        $payload = json_encode([
-            'model'    => $this->model,
-            'messages' => [
-                ['role' => 'system', 'content' => $systemprompt],
-                ['role' => 'user', 'content' => $cleantext],
-            ],
-            'temperature' => 0.2,
-        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $payload = json_encode(
+            self::build_payload($this->model, $systemprompt, $cleantext),
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+        );
 
         $curl = new \curl();
         $curl->setHeader([
@@ -139,6 +135,42 @@ class openai_translator {
     }
 
     /**
+     * Build the chat-completion request body for a translation call,
+     * adapting the sampling parameters to the model family.
+     *
+     * GPT-5-series and o-series reasoning models reject any non-default
+     * `temperature`, so it is only sent to models that accept it (the low
+     * value keeps translations close to deterministic there). GPT-5 models
+     * additionally accept `reasoning_effort`; translation gains nothing from
+     * deliberation, so `minimal` keeps latency and cost down.
+     *
+     * @param string $model Chat-completion model id.
+     * @param string $systemprompt Rendered system prompt.
+     * @param string $cleantext Source text to translate.
+     * @return array JSON-encodable request body.
+     */
+    public static function build_payload(string $model, string $systemprompt, string $cleantext): array {
+        $payload = [
+            'model'    => $model,
+            'messages' => [
+                ['role' => 'system', 'content' => $systemprompt],
+                ['role' => 'user', 'content' => $cleantext],
+            ],
+        ];
+        // gpt-5-chat-* is the family's non-reasoning variant: it takes a
+        // temperature like gpt-4o and rejects reasoning_effort.
+        $isreasoning = (bool)preg_match('/^(gpt-5(?!-chat)|o\d)/i', $model);
+        if (!$isreasoning) {
+            $payload['temperature'] = 0.2;
+        }
+        if ($isreasoning && preg_match('/^gpt-5/i', $model)) {
+            // 'minimal' is gpt-5-only; o-series models would reject it.
+            $payload['reasoning_effort'] = 'minimal';
+        }
+        return $payload;
+    }
+
+    /**
      * Apply {source} / {target} placeholders to the prompt template.
      *
      * @param string $template
@@ -154,6 +186,96 @@ class openai_translator {
     }
 
     /**
+     * The languages OpenAI's speech models support, keyed by Moodle language
+     * code, ordered alphabetically by English display name.
+     *
+     * This is the single source of truth for the "Languages offered to
+     * learners" admin checklist and for {@see language_display_name()}. It
+     * mirrors the officially supported language list in OpenAI's speech
+     * documentation (Whisper and the TTS models share coverage), split into
+     * Moodle locale codes where Moodle has no bare code (zh_cn / zh_tw), plus
+     * the regional variants common on Moodle sites (en_gb, pt_br, es_mx, …)
+     * which map onto the same underlying model support.
+     *
+     * OpenAI exposes no API to enumerate supported languages, so this list is
+     * maintained by hand — last synced with the OpenAI docs in July 2026.
+     * When OpenAI adds a language before this list catches up, admins can
+     * enable it immediately via the "Additional language codes" setting; no
+     * code change is required.
+     *
+     * @return array<string,string> Moodle language code => English name.
+     */
+    public static function supported_languages(): array {
+        return [
+            'af'    => 'Afrikaans',
+            'ar'    => 'Arabic',
+            'hy'    => 'Armenian',
+            'az'    => 'Azerbaijani',
+            'be'    => 'Belarusian',
+            'bn'    => 'Bengali',
+            'bs'    => 'Bosnian',
+            'bg'    => 'Bulgarian',
+            'ca'    => 'Catalan',
+            'zh_cn' => 'Chinese (Simplified)',
+            'zh_tw' => 'Chinese (Traditional)',
+            'hr'    => 'Croatian',
+            'cs'    => 'Czech',
+            'da'    => 'Danish',
+            'nl'    => 'Dutch',
+            'en'    => 'English',
+            'en_gb' => 'English (United Kingdom)',
+            'en_us' => 'English (United States)',
+            'et'    => 'Estonian',
+            'fi'    => 'Finnish',
+            'fr'    => 'French',
+            'fr_ca' => 'French (Canada)',
+            'gl'    => 'Galician',
+            'de'    => 'German',
+            'el'    => 'Greek',
+            'he'    => 'Hebrew',
+            'hi'    => 'Hindi',
+            'hu'    => 'Hungarian',
+            'is'    => 'Icelandic',
+            'id'    => 'Indonesian',
+            'it'    => 'Italian',
+            'ja'    => 'Japanese',
+            'kn'    => 'Kannada',
+            'kk'    => 'Kazakh',
+            'ko'    => 'Korean',
+            'lv'    => 'Latvian',
+            'lt'    => 'Lithuanian',
+            'mk'    => 'Macedonian',
+            'ms'    => 'Malay',
+            'mi'    => 'Maori',
+            'mr'    => 'Marathi',
+            'ne'    => 'Nepali',
+            'no'    => 'Norwegian',
+            'fa'    => 'Persian (Farsi)',
+            'pl'    => 'Polish',
+            'pt'    => 'Portuguese',
+            'pt_br' => 'Portuguese (Brazil)',
+            'ro'    => 'Romanian',
+            'ru'    => 'Russian',
+            'sr'    => 'Serbian',
+            'sk'    => 'Slovak',
+            'sl'    => 'Slovenian',
+            'es'    => 'Spanish',
+            'es_co' => 'Spanish (Colombia)',
+            'es_mx' => 'Spanish (Mexico)',
+            'sw'    => 'Swahili',
+            'sv'    => 'Swedish',
+            'tl'    => 'Tagalog',
+            'ta'    => 'Tamil',
+            'th'    => 'Thai',
+            'tr'    => 'Turkish',
+            'uk'    => 'Ukrainian',
+            'ur'    => 'Urdu',
+            'vi'    => 'Vietnamese',
+            'cy'    => 'Welsh',
+        ];
+    }
+
+    /**
      * Map a Moodle language code to a human-readable name in English, falling
      * back to the raw code.
      *
@@ -161,66 +283,15 @@ class openai_translator {
      * because Moodle silently falls back to the site language when the target
      * lang pack isn't installed — which leaves every code looking like
      * "English" on a default install and turns the translation prompt into a
-     * no-op (translate English to English). A small embedded table covers the
-     * locales most Moodle sites use; unknown codes pass through unchanged so
-     * the model still receives an unambiguous hint.
+     * no-op (translate English to English). {@see supported_languages()} covers
+     * the locales most Moodle sites use; unknown codes pass through unchanged
+     * so the model still receives an unambiguous hint.
      *
      * @param string $langcode e.g. 'en', 'es', 'zh_cn'.
      * @return string e.g. 'English', 'Spanish', 'Chinese (Simplified)'.
      */
     public static function language_display_name(string $langcode): string {
-        static $map = [
-            'en'    => 'English',
-            'en_us' => 'English (United States)',
-            'en_gb' => 'English (United Kingdom)',
-            'es'    => 'Spanish',
-            'es_mx' => 'Spanish (Mexico)',
-            'es_co' => 'Spanish (Colombia)',
-            'fr'    => 'French',
-            'fr_ca' => 'French (Canada)',
-            'de'    => 'German',
-            'it'    => 'Italian',
-            'pt'    => 'Portuguese',
-            'pt_br' => 'Portuguese (Brazil)',
-            'nl'    => 'Dutch',
-            'pl'    => 'Polish',
-            'ru'    => 'Russian',
-            'uk'    => 'Ukrainian',
-            'tr'    => 'Turkish',
-            'ar'    => 'Arabic',
-            'he'    => 'Hebrew',
-            'fa'    => 'Persian (Farsi)',
-            'hi'    => 'Hindi',
-            'bn'    => 'Bengali',
-            'ur'    => 'Urdu',
-            'ja'    => 'Japanese',
-            'ko'    => 'Korean',
-            'vi'    => 'Vietnamese',
-            'th'    => 'Thai',
-            'id'    => 'Indonesian',
-            'ms'    => 'Malay',
-            'tl'    => 'Tagalog',
-            'sw'    => 'Swahili',
-            'zh_cn' => 'Chinese (Simplified)',
-            'zh_tw' => 'Chinese (Traditional)',
-            'el'    => 'Greek',
-            'sv'    => 'Swedish',
-            'no'    => 'Norwegian',
-            'da'    => 'Danish',
-            'fi'    => 'Finnish',
-            'cs'    => 'Czech',
-            'sk'    => 'Slovak',
-            'hu'    => 'Hungarian',
-            'ro'    => 'Romanian',
-            'bg'    => 'Bulgarian',
-            'hr'    => 'Croatian',
-            'sr'    => 'Serbian',
-            'sl'    => 'Slovenian',
-            'et'    => 'Estonian',
-            'lv'    => 'Latvian',
-            'lt'    => 'Lithuanian',
-        ];
         $key = strtolower(str_replace('-', '_', trim($langcode)));
-        return $map[$key] ?? $langcode;
+        return self::supported_languages()[$key] ?? $langcode;
     }
 }

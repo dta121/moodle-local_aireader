@@ -130,6 +130,151 @@ final class get_status_test extends \advanced_testcase {
     }
 
     /**
+     * A student must not be able to queue generation on a scope where the
+     * teacher has switched narration off, even by calling the WS directly.
+     *
+     * @covers ::execute
+     */
+    public function test_rejects_disabled_override_for_student(): void {
+        $this->resetAfterTest();
+        set_config('enabled_languages', 'en', 'local_aireader');
+
+        $gen = $this->getDataGenerator();
+        $course = $gen->create_course();
+        $page = $gen->create_module('page', ['course' => $course->id]);
+        $cm = get_coursemodule_from_instance('page', $page->id, $course->id, false, MUST_EXIST);
+
+        \local_aireader\manager\override_manager::set((int)$course->id, (int)$cm->id, 0, false);
+
+        $student = $gen->create_and_enrol($course, 'student');
+        $this->setUser($student);
+
+        $this->expectException(\moodle_exception::class);
+        $this->expectExceptionMessage(get_string('error_narration_disabled', 'local_aireader'));
+        get_status::execute((int)$cm->id, 'page', 0, 'en');
+    }
+
+    /**
+     * A manager-capable user keeps access on an override-disabled scope so
+     * they can verify narration before re-enabling it.
+     *
+     * @covers ::execute
+     */
+    public function test_allows_disabled_override_for_teacher(): void {
+        $this->resetAfterTest();
+        set_config('enabled_languages', 'en', 'local_aireader');
+
+        $gen = $this->getDataGenerator();
+        $course = $gen->create_course();
+        $page = $gen->create_module('page', ['course' => $course->id]);
+        $cm = get_coursemodule_from_instance('page', $page->id, $course->id, false, MUST_EXIST);
+
+        \local_aireader\manager\override_manager::set((int)$course->id, (int)$cm->id, 0, false);
+
+        $teacher = $gen->create_and_enrol($course, 'editingteacher');
+        $this->setUser($teacher);
+
+        $result = get_status::execute((int)$cm->id, 'page', 0, 'en');
+        $this->assertArrayHasKey('status', $result);
+    }
+
+    /**
+     * The plugin master switch turns the WS off for everyone, managers included.
+     *
+     * @covers ::execute
+     */
+    public function test_rejects_when_plugin_disabled(): void {
+        $this->resetAfterTest();
+        set_config('enabled_languages', 'en', 'local_aireader');
+        set_config('enabled', 0, 'local_aireader');
+
+        $gen = $this->getDataGenerator();
+        $course = $gen->create_course();
+        $page = $gen->create_module('page', ['course' => $course->id]);
+        $cm = get_coursemodule_from_instance('page', $page->id, $course->id, false, MUST_EXIST);
+
+        $teacher = $gen->create_and_enrol($course, 'editingteacher');
+        $this->setUser($teacher);
+
+        $this->expectException(\moodle_exception::class);
+        $this->expectExceptionMessage(get_string('error_narration_disabled', 'local_aireader'));
+        get_status::execute((int)$cm->id, 'page', 0, 'en');
+    }
+
+    /**
+     * The per-module switch (enable_page) also gates the WS for everyone.
+     *
+     * @covers ::execute
+     */
+    public function test_rejects_when_module_type_disabled(): void {
+        $this->resetAfterTest();
+        set_config('enabled_languages', 'en', 'local_aireader');
+        set_config('enable_page', 0, 'local_aireader');
+
+        $gen = $this->getDataGenerator();
+        $course = $gen->create_course();
+        $page = $gen->create_module('page', ['course' => $course->id]);
+        $cm = get_coursemodule_from_instance('page', $page->id, $course->id, false, MUST_EXIST);
+
+        $student = $gen->create_and_enrol($course, 'student');
+        $this->setUser($student);
+
+        $this->expectException(\moodle_exception::class);
+        $this->expectExceptionMessage(get_string('error_narration_disabled', 'local_aireader'));
+        get_status::execute((int)$cm->id, 'page', 0, 'en');
+    }
+
+    /**
+     * A voice outside the enabled set must be rejected up front, before any
+     * OpenAI work is queued — every (language, voice) pair is billed.
+     *
+     * @covers ::execute
+     */
+    public function test_rejects_voice_not_enabled(): void {
+        $this->resetAfterTest();
+        set_config('enabled_languages', 'en', 'local_aireader');
+        set_config('voice', 'marin', 'local_aireader');
+        set_config('enabled_voices', 'marin,alloy', 'local_aireader');
+
+        $gen = $this->getDataGenerator();
+        $course = $gen->create_course();
+        $page = $gen->create_module('page', ['course' => $course->id]);
+        $cm = get_coursemodule_from_instance('page', $page->id, $course->id, false, MUST_EXIST);
+
+        $student = $gen->create_and_enrol($course, 'student');
+        $this->setUser($student);
+
+        $this->expectException(\invalid_parameter_exception::class);
+        get_status::execute((int)$cm->id, 'page', 0, 'en', 'onyx');
+    }
+
+    /**
+     * An enabled non-default voice passes the gate and resolves its own asset,
+     * distinct from the default voice's asset.
+     *
+     * @covers ::execute
+     */
+    public function test_accepts_enabled_voice(): void {
+        $this->resetAfterTest();
+        set_config('enabled_languages', 'en', 'local_aireader');
+        set_config('voice', 'marin', 'local_aireader');
+        set_config('enabled_voices', 'marin,alloy', 'local_aireader');
+
+        $gen = $this->getDataGenerator();
+        $course = $gen->create_course();
+        $page = $gen->create_module('page', ['course' => $course->id]);
+        $cm = get_coursemodule_from_instance('page', $page->id, $course->id, false, MUST_EXIST);
+
+        $student = $gen->create_and_enrol($course, 'student');
+        $this->setUser($student);
+
+        $default = get_status::execute((int)$cm->id, 'page', 0, 'en');
+        $alloy = get_status::execute((int)$cm->id, 'page', 0, 'en', 'alloy');
+        $this->assertArrayHasKey('assetid', $alloy);
+        $this->assertNotEquals($default['assetid'], $alloy['assetid']);
+    }
+
+    /**
      * Modules other than page/book are rejected.
      *
      * @covers ::execute

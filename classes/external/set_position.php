@@ -91,6 +91,12 @@ class set_position extends external_api {
         self::validate_context($context);
         require_capability('local/aireader:listen', $context);
         asset_manager::assert_asset_visible($asset, $context);
+        asset_manager::assert_narration_available(
+            (string)$asset->module,
+            (int)$asset->cmid,
+            (int)$asset->chapterid,
+            $context
+        );
 
         $position = max(0, (int)$params['position']);
         position_manager::set((int)$USER->id, (int)$asset->id, $position);

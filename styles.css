@@ -332,7 +332,8 @@
     flex: 0 0 auto;
 }
 
-.local-aireader-langpicker {
+.local-aireader-langpicker,
+.local-aireader-voicepicker {
     display: inline-flex;
     align-items: center;
     gap: 4px;
@@ -345,23 +346,27 @@
     cursor: pointer;
 }
 
-.local-aireader-langpicker:hover {
+.local-aireader-langpicker:hover,
+.local-aireader-voicepicker:hover {
     background: var(--la-bg-hover);
     border-color: var(--la-text);
     color: var(--la-text);
 }
 
-.local-aireader-langpicker:focus-within {
+.local-aireader-langpicker:focus-within,
+.local-aireader-voicepicker:focus-within {
     outline: 2px solid var(--la-accent-soft);
     outline-offset: 1px;
 }
 
-.local-aireader-langicon {
+.local-aireader-langicon,
+.local-aireader-voiceicon {
     width: 14px;
     height: 14px;
     flex: 0 0 auto;
 }
 
+.local-aireader-voiceselect,
 .local-aireader-langselect {
     appearance: none;
     -webkit-appearance: none;
@@ -382,7 +387,8 @@
     background-repeat: no-repeat;
 }
 
-.local-aireader-langselect:focus {
+.local-aireader-langselect:focus,
+.local-aireader-voiceselect:focus {
     outline: none;
 }
 
@@ -874,5 +880,805 @@ mark.local-aireader-mark.is-current {
     mark.local-aireader-mark.is-current {
         background: color-mix(in srgb, var(--la-accent, #f86a01) 48%, transparent);
         color: #fff;
+    }
+}
+
+/* ==========================================================================
+   Redesigned admin settings page (amd/src/admin_settings.js).
+   Every selector is scoped to this page's body id because styles.css is
+   compiled into the site-wide theme CSS.
+   ========================================================================== */
+
+#page-admin-setting-local_aireader #region-main {
+    background: transparent;
+}
+
+/* Status chips under the page heading. */
+#page-admin-setting-local_aireader .la-statuschips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 4px 0 22px;
+}
+
+#page-admin-setting-local_aireader .la-statuschip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12.5px;
+    color: #4a5560;
+    background: #f4f5f7;
+    border: 1px solid #e3e7eb;
+    padding: 5px 12px;
+    border-radius: 99px;
+}
+
+#page-admin-setting-local_aireader .la-statuschip .la-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 99px;
+    background: #9aa5b0;
+}
+
+#page-admin-setting-local_aireader .la-statuschip.la-good .la-dot {
+    background: #2f9e44;
+}
+
+/* Two-column layout: sticky sidebar + section cards. */
+#page-admin-setting-local_aireader .la-layout {
+    display: grid;
+    grid-template-columns: 225px minmax(0, 1fr);
+    gap: 32px;
+    align-items: start;
+}
+
+#page-admin-setting-local_aireader .la-aside {
+    position: sticky;
+    top: 70px;
+}
+
+#page-admin-setting-local_aireader .la-filter {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 12px;
+    border: 1px solid #ccd3da;
+    border-radius: 6px;
+    font-size: 13px;
+    margin-bottom: 12px;
+    background: #fff;
+}
+
+#page-admin-setting-local_aireader .la-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+#page-admin-setting-local_aireader .la-navbtn {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: 8px 12px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: #4a5560;
+    font-weight: 500;
+    font-size: 13px;
+    cursor: pointer;
+    text-align: left;
+}
+
+#page-admin-setting-local_aireader .la-navbtn:hover {
+    background: #eceff2;
+}
+
+#page-admin-setting-local_aireader .la-navbtn.la-active {
+    background: #fdeadd;
+    color: #b3410a;
+    font-weight: 600;
+}
+
+#page-admin-setting-local_aireader .la-navcount {
+    font-size: 11px;
+    color: #9aa5b0;
+}
+
+#page-admin-setting-local_aireader .la-navbtn.la-active .la-navcount {
+    color: #d97c3f;
+    font-weight: 600;
+}
+
+#page-admin-setting-local_aireader .la-aside-note {
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: #8a95a1;
+    margin: 16px 4px 0;
+}
+
+/* Section cards. */
+#page-admin-setting-local_aireader .la-card {
+    background: #fff;
+    border: 1px solid #e3e7eb;
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 0 0 22px;
+}
+
+#page-admin-setting-local_aireader .la-card-head {
+    padding: 20px 28px 16px;
+}
+
+#page-admin-setting-local_aireader .la-card-head h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+#page-admin-setting-local_aireader .la-card-head .formsettingheading,
+#page-admin-setting-local_aireader .la-card-head .generalbox {
+    margin: 5px 0 0;
+    padding: 0;
+    border: none;
+    font-size: 13px;
+    color: #5e6b76;
+}
+
+/* Setting rows become a two-column grid inside the card. */
+#page-admin-setting-local_aireader .la-card .form-item {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr);
+    gap: 6px 32px;
+    padding: 18px 28px;
+    margin: 0;
+    border-top: 1px solid #eef0f3;
+}
+
+#page-admin-setting-local_aireader .la-card .form-item > .form-label,
+#page-admin-setting-local_aireader .la-card .form-item > .form-setting {
+    flex: none;
+    width: auto;
+    max-width: none;
+    padding: 0;
+    text-align: left;
+}
+
+#page-admin-setting-local_aireader .la-card .form-label label {
+    font-weight: 600;
+    font-size: 14px;
+    line-height: 1.35;
+    margin: 0;
+}
+
+#page-admin-setting-local_aireader .la-card .form-shortname {
+    display: block;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    color: #9aa5b0;
+    margin-top: 4px;
+}
+
+#page-admin-setting-local_aireader .la-card .form-description {
+    font-size: 13px;
+    color: #5e6b76;
+    margin-top: 9px;
+    line-height: 1.55;
+    max-width: 640px;
+}
+
+/* Our default/reset line replaces the stock default hint. */
+#page-admin-setting-local_aireader .la-card .form-defaultinfo {
+    display: none;
+}
+
+#page-admin-setting-local_aireader .la-default {
+    font-size: 12px;
+    color: #8a95a1;
+    margin-top: 8px;
+    line-height: 1.5;
+    font-weight: 400;
+}
+
+#page-admin-setting-local_aireader .la-badge {
+    display: inline-block;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #c2410c;
+    background: #feeadd;
+    padding: 2px 8px;
+    border-radius: 99px;
+    margin-left: 8px;
+    vertical-align: middle;
+}
+
+#page-admin-setting-local_aireader .la-linkbtn {
+    background: none;
+    border: none;
+    padding: 0;
+    color: #c2410c;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+#page-admin-setting-local_aireader .la-linkbtn:hover {
+    color: #9a3412;
+    text-decoration: underline;
+}
+
+#page-admin-setting-local_aireader .la-pill {
+    display: inline-block;
+    background: #e5f4e9;
+    color: #1e7b34;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 99px;
+    margin: 0 10px 8px 0;
+}
+
+/* Inputs. */
+#page-admin-setting-local_aireader .la-card .form-setting input[type="text"],
+#page-admin-setting-local_aireader .la-card .form-setting input[type="password"],
+#page-admin-setting-local_aireader .la-card .form-setting select,
+#page-admin-setting-local_aireader .la-card .form-setting textarea {
+    border: 1px solid #ccd3da;
+    border-radius: 6px;
+    font-size: 13.5px;
+    padding: 8px 12px;
+    background: #fff;
+    color: #1d2125;
+}
+
+#page-admin-setting-local_aireader .la-card .form-setting textarea {
+    width: 100%;
+    max-width: 640px;
+    line-height: 1.5;
+}
+
+#page-admin-setting-local_aireader .la-card .form-setting input[type="text"]:focus,
+#page-admin-setting-local_aireader .la-card .form-setting input[type="password"]:focus,
+#page-admin-setting-local_aireader .la-card .form-setting select:focus,
+#page-admin-setting-local_aireader .la-card .form-setting textarea:focus {
+    outline: 2px solid var(--la-accent, #f86a01);
+    outline-offset: 1px;
+}
+
+/* Single checkboxes become toggle switches (multicheckbox grids excluded). */
+#page-admin-setting-local_aireader .la-card .form-checkbox input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 42px;
+    height: 24px;
+    border-radius: 12px;
+    background: #b9c2cb;
+    border: none;
+    cursor: pointer;
+    position: relative;
+    vertical-align: middle;
+    transition: background-color 0.15s ease;
+}
+
+#page-admin-setting-local_aireader .la-card .form-checkbox input[type="checkbox"]::after {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 18px;
+    height: 18px;
+    border-radius: 9px;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+    transition: left 0.15s ease;
+}
+
+#page-admin-setting-local_aireader .la-card .form-checkbox input[type="checkbox"]:checked {
+    background: var(--la-accent, #f86a01);
+}
+
+#page-admin-setting-local_aireader .la-card .form-checkbox input[type="checkbox"]:checked::after {
+    left: 21px;
+}
+
+/* Multicheckbox as chips + expandable grid. */
+#page-admin-setting-local_aireader .la-chiplist {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    max-width: 640px;
+}
+
+#page-admin-setting-local_aireader .la-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12.5px;
+    color: #3c4650;
+    background: #f4f5f7;
+    border: 1px solid #dde1e6;
+    padding: 4px 11px;
+    border-radius: 99px;
+}
+
+#page-admin-setting-local_aireader .la-chip-tag {
+    font-size: 10.5px;
+    font-weight: 600;
+    color: #8a95a1;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+#page-admin-setting-local_aireader .la-chip-x {
+    background: none;
+    border: none;
+    padding: 0;
+    color: #9aa5b0;
+    font-size: 14px;
+    cursor: pointer;
+    line-height: 1;
+}
+
+#page-admin-setting-local_aireader .la-chip-x:hover {
+    color: #c2410c;
+}
+
+#page-admin-setting-local_aireader .la-chiplist-toggle {
+    margin-top: 10px;
+}
+
+#page-admin-setting-local_aireader .la-multigrid {
+    margin-top: 10px;
+    padding: 14px 16px;
+    background: #f6f7f9;
+    border-radius: 8px;
+    max-width: 640px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 3px 14px;
+}
+
+#page-admin-setting-local_aireader .la-multigrid[hidden] {
+    display: none;
+}
+
+#page-admin-setting-local_aireader .la-multigrid li,
+#page-admin-setting-local_aireader .la-multigrid .form-checkbox {
+    list-style: none;
+    margin: 0;
+}
+
+#page-admin-setting-local_aireader .la-multigrid ul {
+    display: contents;
+    margin: 0;
+    padding: 0;
+}
+
+#page-admin-setting-local_aireader .la-multigrid label {
+    font-size: 12.5px;
+    color: #4a5560;
+    margin: 0;
+}
+
+#page-admin-setting-local_aireader .la-multigrid input[type="checkbox"] {
+    accent-color: var(--la-accent, #f86a01);
+    margin-right: 6px;
+}
+
+/* Advanced settings area. */
+#page-admin-setting-local_aireader .la-adv {
+    border-top: 1px dashed #e3e7eb;
+}
+
+#page-admin-setting-local_aireader .la-adv[hidden] {
+    display: none;
+}
+
+#page-admin-setting-local_aireader .la-adv-foot {
+    border-top: 1px solid #eef0f3;
+    padding: 12px 28px;
+    background: #fafbfc;
+}
+
+#page-admin-setting-local_aireader .la-adv-foot .la-linkbtn {
+    color: #4a5560;
+}
+
+#page-admin-setting-local_aireader .la-adv-foot .la-linkbtn:hover {
+    color: #c2410c;
+}
+
+/* Sticky save bar. */
+#page-admin-setting-local_aireader .la-savebar {
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+    background: #fff;
+    border: 1px solid #e3e7eb;
+    border-bottom: none;
+    border-radius: 10px 10px 0 0;
+    padding: 14px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    box-shadow: 0 -6px 18px rgba(20, 30, 40, 0.07);
+}
+
+#page-admin-setting-local_aireader .la-modtext {
+    font-size: 13px;
+    color: #5e6b76;
+}
+
+#page-admin-setting-local_aireader .la-savebar-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+#page-admin-setting-local_aireader .la-discard {
+    padding: 9px 18px;
+    border: 1px solid #ccd3da;
+    border-radius: 6px;
+    background: #fff;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #3c4650;
+}
+
+#page-admin-setting-local_aireader .la-discard:hover {
+    background: #f4f5f7;
+}
+
+#page-admin-setting-local_aireader .la-savebar .btn-primary {
+    background: var(--la-accent, #f86a01);
+    border-color: var(--la-accent, #f86a01);
+    font-weight: 700;
+    padding: 9px 20px;
+}
+
+/* Filtering. */
+#page-admin-setting-local_aireader .la-hidden {
+    display: none !important;
+}
+
+#page-admin-setting-local_aireader .la-noresults {
+    background: #fff;
+    border: 1px solid #e3e7eb;
+    border-radius: 10px;
+    padding: 40px;
+    text-align: center;
+    font-size: 14px;
+    color: #5e6b76;
+}
+
+/* Collapse to a single column on narrow screens. */
+@media (max-width: 991px) {
+    #page-admin-setting-local_aireader .la-layout {
+        grid-template-columns: 1fr;
+    }
+
+    #page-admin-setting-local_aireader .la-aside {
+        position: static;
+    }
+
+    #page-admin-setting-local_aireader .la-card .form-item {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ==========================================================================
+   Slim player designs (slimbar / slimpill / dockpill) — one 56px row when
+   idle; speed, transcript, and the progress strip appear after first play
+   (.is-started); secondary controls live in the ⋯ overflow menu.
+   ========================================================================== */
+
+.local-aireader-slim {
+    border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(20, 30, 40, 0.05);
+}
+
+.local-aireader-slim-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 12px;
+    flex-wrap: nowrap;
+}
+
+.local-aireader-slim .local-aireader-playpause {
+    width: 38px;
+    height: 38px;
+}
+
+.local-aireader-slim .local-aireader-icon-play,
+.local-aireader-slim .local-aireader-icon-pause {
+    width: 17px;
+    height: 17px;
+}
+
+.local-aireader-slim-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+}
+
+.local-aireader-slim-title {
+    font-size: 13.5px;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--la-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.local-aireader-slim-sub {
+    font-size: 12px;
+    color: var(--la-muted);
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.local-aireader-slim-sub .local-aireader-meta::before {
+    content: none;
+}
+
+/* Elapsed time replaces the status line once playing and ready. */
+.local-aireader-slim .local-aireader-time {
+    display: none;
+    min-width: 0;
+    text-align: left;
+    font-size: 12px;
+}
+
+.local-aireader-slim.is-started[data-state="ready"] .local-aireader-time {
+    display: inline;
+}
+
+.local-aireader-slim.is-started[data-state="ready"] .local-aireader-meta {
+    display: none;
+}
+
+/* Speed + transcript pills appear only after the learner starts playback. */
+.local-aireader-slim .local-aireader-slim-afterstart {
+    display: none;
+}
+
+.local-aireader-slim.is-started .local-aireader-speed.local-aireader-slim-afterstart {
+    display: inline-flex;
+}
+
+.local-aireader-slim.is-started .local-aireader-transcript-toggle.local-aireader-slim-afterstart:not(.d-none) {
+    display: inline-flex;
+}
+
+/* Pills share one rounded look in the slim row. */
+.local-aireader-slim .local-aireader-speed,
+.local-aireader-slim .local-aireader-langpicker,
+.local-aireader-slim .local-aireader-voicepicker,
+.local-aireader-slim .local-aireader-transcript-toggle {
+    border: 1px solid var(--la-border);
+    border-radius: 99px;
+    padding: 5px 11px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--la-muted);
+    background: var(--la-bg);
+    flex: none;
+}
+
+.local-aireader-slim .local-aireader-transcript-toggle {
+    cursor: pointer;
+}
+
+.local-aireader-slim .local-aireader-speed:hover,
+.local-aireader-slim .local-aireader-langpicker:hover,
+.local-aireader-slim .local-aireader-voicepicker:hover,
+.local-aireader-slim .local-aireader-transcript-toggle:hover {
+    background: var(--la-bg-hover);
+    color: var(--la-text);
+}
+
+/* Overflow (…) menu. */
+.local-aireader-slim-menuwrap {
+    position: relative;
+    flex: none;
+}
+
+.local-aireader-slim-menubtn {
+    border: none;
+    background: none;
+    border-radius: 6px;
+    padding: 4px 8px;
+    color: var(--la-muted);
+    cursor: pointer;
+    line-height: 1;
+}
+
+.local-aireader-slim-menubtn svg {
+    width: 18px;
+    height: 18px;
+}
+
+.local-aireader-slim-menubtn:hover {
+    background: var(--la-bg-hover);
+    color: var(--la-text);
+}
+
+.local-aireader-slim-menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 6px);
+    z-index: 60;
+    min-width: 230px;
+    background: var(--la-bg);
+    border: 1px solid var(--la-border);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(20, 30, 40, 0.14);
+    padding: 6px;
+}
+
+.local-aireader-slim-menuitem {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 13px;
+    color: var(--la-text);
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.local-aireader-slim-menuitem:hover:not(:disabled) {
+    background: var(--la-bg-hover);
+    color: var(--la-text);
+    text-decoration: none;
+}
+
+.local-aireader-slim-menuitem:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+.local-aireader-slim-menudisclosure {
+    border-top: 1px solid var(--la-border);
+    margin-top: 6px;
+    padding: 8px 10px 4px;
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: var(--la-muted);
+}
+
+/* Bottom progress strip: hidden until started, then a slim edge-to-edge bar. */
+.local-aireader-slim .local-aireader-slim-progressrow {
+    display: none;
+    padding: 0;
+}
+
+.local-aireader-slim.is-started .local-aireader-slim-progressrow {
+    display: flex;
+}
+
+.local-aireader-slim .local-aireader-progress {
+    height: 10px;
+    margin: 0;
+}
+
+.local-aireader-slim .local-aireader-progress::before {
+    height: 3px;
+    border-radius: 0;
+    background: #f1f3f5;
+}
+
+.local-aireader-slim .local-aireader-progress-fill {
+    height: 3px;
+    border-radius: 0;
+}
+
+.local-aireader-slim .local-aireader-progress-thumb {
+    width: 10px;
+    height: 10px;
+}
+
+/* Slim disclosure lives in the menu; no footer line. */
+.local-aireader-slim > .local-aireader-disclosure {
+    display: none;
+}
+
+/* "Now playing" chip left in the content flow by the dockpill design. */
+.local-aireader-nowplaying {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #9a3412;
+    background: color-mix(in srgb, var(--la-accent, #f86a01) 8%, #fff);
+    border: 1px solid color-mix(in srgb, var(--la-accent, #f86a01) 35%, #fff);
+    border-radius: 99px;
+    padding: 6px 14px;
+}
+
+.local-aireader-nowplaying-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 99px;
+    background: var(--la-accent, #f86a01);
+}
+
+/* Docked variant: the bar pins to the bottom of the viewport. */
+.local-aireader-slim.is-docked {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 1040;
+    margin: 0;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    box-shadow: 0 -4px 12px rgba(20, 30, 40, 0.08);
+    display: flex;
+    flex-direction: column;
+    padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+/* Progress strip sits on the bar's top edge; transcript opens above it. */
+.local-aireader-slim.is-docked .local-aireader-slim-row {
+    order: 3;
+    padding: 8px 16px;
+}
+
+.local-aireader-slim.is-docked .local-aireader-slim-progressrow {
+    order: 2;
+}
+
+.local-aireader-slim.is-docked .local-aireader-transcript-pane {
+    order: 1;
+    max-height: 40vh;
+    overflow-y: auto;
+}
+
+.local-aireader-slim.is-docked .local-aireader-slim-title {
+    display: none;
+}
+
+.local-aireader-slim.is-docked .local-aireader-playpause {
+    width: 34px;
+    height: 34px;
+}
+
+.local-aireader-slim.is-docked .local-aireader-slim-menu {
+    top: auto;
+    bottom: calc(100% + 6px);
+}
+
+/* Keep page content readable above the fixed bar. */
+body.local-aireader-docked-open {
+    padding-bottom: 76px;
+}
+
+@media (max-width: 767px) {
+    .local-aireader-slim-row {
+        flex-wrap: wrap;
+    }
+
+    .local-aireader-slim.is-docked .local-aireader-slim-row {
+        flex-wrap: nowrap;
+    }
+
+    .local-aireader-slim.is-docked .local-aireader-langpicker,
+    .local-aireader-slim.is-docked .local-aireader-voicepicker,
+    .local-aireader-slim.is-docked .local-aireader-transcript-toggle {
+        display: none;
     }
 }

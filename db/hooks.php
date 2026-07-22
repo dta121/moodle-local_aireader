@@ -30,4 +30,9 @@ $callbacks = [
         'callback' => [\local_aireader\hook_callbacks::class, 'inject_player'],
         'priority' => 0,
     ],
+    [
+        'hook'     => \core\hook\output\before_standard_top_of_body_html_generation::class,
+        'callback' => [\local_aireader\hook_callbacks::class, 'inject_admin_settings_ui'],
+        'priority' => 0,
+    ],
 ];

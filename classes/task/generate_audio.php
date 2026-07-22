@@ -116,7 +116,7 @@ class generate_audio extends adhoc_task {
             $sourcelang = (string)($CFG->lang ?? 'en');
             $narrationtext = $extracted['text'];
             if (!translation_manager::is_same_language($sourcelang, (string)$asset->lang)) {
-                $translationmodel = (string)(get_config('local_aireader', 'translation_model') ?: 'gpt-4o-mini');
+                $translationmodel = (string)(get_config('local_aireader', 'translation_model') ?: 'gpt-5-mini');
                 mtrace("local_aireader: asset {$asset->id} translating {$sourcelang} -> {$asset->lang} via {$translationmodel}");
                 $translator = new openai_translator();
                 $narrationtext = translation_manager::get_or_translate(

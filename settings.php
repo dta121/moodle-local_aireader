@@ -17,6 +17,14 @@
 /**
  * Admin settings for local_aireader.
  *
+ * The page is organised into six sections matching the redesigned settings UI
+ * (see amd/src/admin_settings.js, which turns the rendered form into section
+ * cards with a sidebar): Setup & connection, Content & generation, Player,
+ * Cost tracking, Languages & translation, Transcript & highlighting. Settings
+ * listed in hook_callbacks::ADMIN_ADVANCED_SETTINGS render inside each
+ * section's collapsed "advanced" area, so keep that list in sync when adding
+ * settings here.
+ *
  * @package    local_aireader
  * @copyright  2026 Saylor Academy
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
@@ -52,6 +60,13 @@ if ($hassiteconfig) {
     $settings = new admin_settingpage('local_aireader', get_string('pluginname', 'local_aireader'));
     $ADMIN->add('localplugins', $settings);
 
+    // ---------------------------------------------------------------- Setup & connection.
+    $settings->add(new admin_setting_heading(
+        'local_aireader/heading_setup',
+        get_string('setting_heading_setup', 'local_aireader'),
+        get_string('setting_heading_setup_desc', 'local_aireader')
+    ));
+
     $settings->add(new admin_setting_configcheckbox(
         'local_aireader/enabled',
         get_string('setting_enabled', 'local_aireader'),
@@ -59,18 +74,11 @@ if ($hassiteconfig) {
         1
     ));
 
-    $settings->add(new admin_setting_configcheckbox(
-        'local_aireader/enable_page',
-        get_string('setting_enable_page', 'local_aireader'),
-        get_string('setting_enable_page_desc', 'local_aireader'),
-        1
-    ));
-
-    $settings->add(new admin_setting_configcheckbox(
-        'local_aireader/enable_book',
-        get_string('setting_enable_book', 'local_aireader'),
-        get_string('setting_enable_book_desc', 'local_aireader'),
-        1
+    $settings->add(new admin_setting_configpasswordunmask(
+        'local_aireader/openai_api_key',
+        get_string('setting_apikey', 'local_aireader'),
+        get_string('setting_apikey_desc', 'local_aireader'),
+        ''
     ));
 
     $settings->add(new admin_setting_configtext(
@@ -89,11 +97,20 @@ if ($hassiteconfig) {
         PARAM_ALPHANUMEXT
     ));
 
-    $settings->add(new admin_setting_configpasswordunmask(
-        'local_aireader/openai_api_key',
-        get_string('setting_apikey', 'local_aireader'),
-        get_string('setting_apikey_desc', 'local_aireader'),
-        ''
+    $settings->add(new admin_setting_configmulticheckbox(
+        'local_aireader/enabled_voices',
+        get_string('setting_enabledvoices', 'local_aireader'),
+        get_string('setting_enabledvoices_desc', 'local_aireader'),
+        ['marin' => 1],
+        \local_aireader\manager\openai_client::supported_voices()
+    ));
+
+    $settings->add(new admin_setting_configtext(
+        'local_aireader/enabled_voices_extra',
+        get_string('setting_enabledvoicesextra', 'local_aireader'),
+        get_string('setting_enabledvoicesextra_desc', 'local_aireader'),
+        '',
+        PARAM_TEXT
     ));
 
     $settings->add(new admin_setting_configtext(
@@ -102,6 +119,42 @@ if ($hassiteconfig) {
         get_string('setting_endpoint_desc', 'local_aireader'),
         'https://api.openai.com/v1/audio/speech',
         PARAM_URL
+    ));
+
+    // ---------------------------------------------------------------- Content & generation.
+    $settings->add(new admin_setting_heading(
+        'local_aireader/heading_content',
+        get_string('setting_heading_content', 'local_aireader'),
+        get_string('setting_heading_content_desc', 'local_aireader')
+    ));
+
+    $settings->add(new admin_setting_configcheckbox(
+        'local_aireader/enable_page',
+        get_string('setting_enable_page', 'local_aireader'),
+        get_string('setting_enable_page_desc', 'local_aireader'),
+        1
+    ));
+
+    $settings->add(new admin_setting_configcheckbox(
+        'local_aireader/enable_book',
+        get_string('setting_enable_book', 'local_aireader'),
+        get_string('setting_enable_book_desc', 'local_aireader'),
+        1
+    ));
+
+    $settings->add(new admin_setting_configcheckbox(
+        'local_aireader/auto_generate_on_save',
+        get_string('setting_autogen', 'local_aireader'),
+        get_string('setting_autogen_desc', 'local_aireader'),
+        1
+    ));
+
+    $settings->add(new admin_setting_configtextarea(
+        'local_aireader/narration_prompt',
+        get_string('setting_prompt', 'local_aireader'),
+        get_string('setting_prompt_desc', 'local_aireader'),
+        get_string('default_prompt', 'local_aireader'),
+        PARAM_TEXT
     ));
 
     $settings->add(new admin_setting_configtext(
@@ -120,13 +173,6 @@ if ($hassiteconfig) {
         PARAM_INT
     ));
 
-    $settings->add(new admin_setting_configcheckbox(
-        'local_aireader/auto_generate_on_save',
-        get_string('setting_autogen', 'local_aireader'),
-        get_string('setting_autogen_desc', 'local_aireader'),
-        1
-    ));
-
     $settings->add(new admin_setting_configtext(
         'local_aireader/stale_retention_days',
         get_string('setting_staleretention', 'local_aireader'),
@@ -143,48 +189,11 @@ if ($hassiteconfig) {
         PARAM_INT
     ));
 
-    $settings->add(new admin_setting_configcheckbox(
-        'local_aireader/allow_downloads',
-        get_string('setting_allowdownloads', 'local_aireader'),
-        get_string('setting_allowdownloads_desc', 'local_aireader'),
-        1
-    ));
-
-    $settings->add(new admin_setting_configtext(
-        'local_aireader/download_warn_threshold_mb',
-        get_string('setting_downloadwarnthreshold', 'local_aireader'),
-        get_string('setting_downloadwarnthreshold_desc', 'local_aireader'),
-        100,
-        PARAM_INT
-    ));
-
-    $settings->add(new admin_setting_configcheckbox(
-        'local_aireader/enable_completion',
-        get_string('setting_enablecompletion', 'local_aireader'),
-        get_string('setting_enablecompletion_desc', 'local_aireader'),
-        0
-    ));
-
-    $settings->add(new admin_setting_configtextarea(
-        'local_aireader/disclosure',
-        get_string('setting_disclosure', 'local_aireader'),
-        get_string('setting_disclosure_desc', 'local_aireader'),
-        get_string('default_disclosure', 'local_aireader'),
-        PARAM_TEXT
-    ));
-
-    $settings->add(new admin_setting_configtextarea(
-        'local_aireader/narration_prompt',
-        get_string('setting_prompt', 'local_aireader'),
-        get_string('setting_prompt_desc', 'local_aireader'),
-        get_string('default_prompt', 'local_aireader'),
-        PARAM_TEXT
-    ));
-
+    // ---------------------------------------------------------------- Player.
     $settings->add(new admin_setting_heading(
-        'local_aireader/heading_appearance',
-        get_string('setting_heading_appearance', 'local_aireader'),
-        get_string('setting_heading_appearance_desc', 'local_aireader')
+        'local_aireader/heading_player',
+        get_string('setting_heading_player', 'local_aireader'),
+        get_string('setting_heading_player_desc', 'local_aireader')
     ));
 
     $settings->add(new admin_setting_configselect(
@@ -194,6 +203,9 @@ if ($hassiteconfig) {
         'full',
         [
             'full'      => get_string('design_full', 'local_aireader'),
+            'slimbar'   => get_string('design_slimbar', 'local_aireader'),
+            'slimpill'  => get_string('design_slimpill', 'local_aireader'),
+            'dockpill'  => get_string('design_dockpill', 'local_aireader'),
             'banner'    => get_string('design_banner', 'local_aireader'),
             'pill'      => get_string('design_pill', 'local_aireader'),
             'accordion' => get_string('design_accordion', 'local_aireader'),
@@ -215,6 +227,37 @@ if ($hassiteconfig) {
         1
     ));
 
+    $settings->add(new admin_setting_configcheckbox(
+        'local_aireader/allow_downloads',
+        get_string('setting_allowdownloads', 'local_aireader'),
+        get_string('setting_allowdownloads_desc', 'local_aireader'),
+        1
+    ));
+
+    $settings->add(new admin_setting_configcheckbox(
+        'local_aireader/enable_completion',
+        get_string('setting_enablecompletion', 'local_aireader'),
+        get_string('setting_enablecompletion_desc', 'local_aireader'),
+        0
+    ));
+
+    $settings->add(new admin_setting_configtextarea(
+        'local_aireader/disclosure',
+        get_string('setting_disclosure', 'local_aireader'),
+        get_string('setting_disclosure_desc', 'local_aireader'),
+        get_string('default_disclosure', 'local_aireader'),
+        PARAM_TEXT
+    ));
+
+    $settings->add(new admin_setting_configtext(
+        'local_aireader/download_warn_threshold_mb',
+        get_string('setting_downloadwarnthreshold', 'local_aireader'),
+        get_string('setting_downloadwarnthreshold_desc', 'local_aireader'),
+        100,
+        PARAM_INT
+    ));
+
+    // ---------------------------------------------------------------- Cost tracking.
     $settings->add(new admin_setting_heading(
         'local_aireader/heading_cost',
         get_string('setting_heading_cost', 'local_aireader'),
@@ -229,17 +272,26 @@ if ($hassiteconfig) {
         PARAM_RAW
     ));
 
+    // ---------------------------------------------------------------- Languages & translation.
     $settings->add(new admin_setting_heading(
         'local_aireader/heading_languages',
         get_string('setting_heading_languages', 'local_aireader'),
-        ''
+        get_string('setting_heading_languages_desc', 'local_aireader')
     ));
 
-    $settings->add(new admin_setting_configtext(
+    $settings->add(new admin_setting_configmulticheckbox(
         'local_aireader/enabled_languages',
         get_string('setting_enabledlanguages', 'local_aireader'),
         get_string('setting_enabledlanguages_desc', 'local_aireader', $CFG->lang ?? 'en'),
-        'en',
+        ['en' => 1],
+        \local_aireader\manager\openai_translator::supported_languages()
+    ));
+
+    $settings->add(new admin_setting_configtext(
+        'local_aireader/enabled_languages_extra',
+        get_string('setting_enabledlanguagesextra', 'local_aireader'),
+        get_string('setting_enabledlanguagesextra_desc', 'local_aireader'),
+        '',
         PARAM_TEXT
     ));
 
@@ -254,7 +306,15 @@ if ($hassiteconfig) {
         'local_aireader/translation_model',
         get_string('setting_translationmodel', 'local_aireader'),
         get_string('setting_translationmodel_desc', 'local_aireader'),
-        'gpt-4o-mini',
+        'gpt-5-mini',
+        PARAM_TEXT
+    ));
+
+    $settings->add(new admin_setting_configtextarea(
+        'local_aireader/translation_prompt',
+        get_string('setting_translationprompt', 'local_aireader'),
+        get_string('setting_translationprompt_desc', 'local_aireader'),
+        get_string('default_translation_prompt', 'local_aireader'),
         PARAM_TEXT
     ));
 
@@ -266,18 +326,11 @@ if ($hassiteconfig) {
         PARAM_URL
     ));
 
-    $settings->add(new admin_setting_configtextarea(
-        'local_aireader/translation_prompt',
-        get_string('setting_translationprompt', 'local_aireader'),
-        get_string('setting_translationprompt_desc', 'local_aireader'),
-        get_string('default_translation_prompt', 'local_aireader'),
-        PARAM_TEXT
-    ));
-
+    // ---------------------------------------------------------------- Transcript & highlighting.
     $settings->add(new admin_setting_heading(
-        'local_aireader/heading_alignment',
-        get_string('setting_heading_alignment', 'local_aireader'),
-        ''
+        'local_aireader/heading_transcript',
+        get_string('setting_heading_transcript', 'local_aireader'),
+        get_string('setting_heading_transcript_desc', 'local_aireader')
     ));
 
     $settings->add(new admin_setting_configcheckbox(

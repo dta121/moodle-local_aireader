@@ -105,6 +105,14 @@ class set_progress extends external_api {
         self::validate_context($context);
         require_capability('local/aireader:listen', $context);
         asset_manager::assert_asset_visible($asset, $context);
+        // Also blocks listen-based activity completion from being farmed on a
+        // scope where the teacher has switched narration off.
+        asset_manager::assert_narration_available(
+            (string)$asset->module,
+            (int)$asset->cmid,
+            (int)$asset->chapterid,
+            $context
+        );
 
         $userid = (int)$USER->id;
         $position = max(0, (int)$params['position']);

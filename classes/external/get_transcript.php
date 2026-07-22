@@ -90,6 +90,12 @@ class get_transcript extends external_api {
         self::validate_context($context);
         require_capability('local/aireader:listen', $context);
         asset_manager::assert_asset_visible($asset, $context);
+        asset_manager::assert_narration_available(
+            (string)$asset->module,
+            (int)$asset->cmid,
+            (int)$asset->chapterid,
+            $context
+        );
 
         $rows = segment_manager::get_for_asset((int)$asset->id);
         $segments = [];

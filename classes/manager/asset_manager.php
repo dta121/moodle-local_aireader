@@ -138,6 +138,67 @@ class asset_manager {
     }
 
     /**
+     * Whether narration is actually available for a scope, mirroring the gates
+     * the player-injection hook applies before showing any UI.
+     *
+     * The web services and the pluginfile handler must enforce this server-side:
+     * relying on the player simply not being rendered would let any user with
+     * the listen capability call the AJAX endpoints directly and queue paid
+     * OpenAI generation (or stream audio/transcripts) for scopes where narration
+     * is switched off.
+     *
+     * Gate order matches {@see \local_aireader\hook_callbacks::inject_player()}:
+     * the plugin master switch and the per-module switch turn narration off for
+     * everyone (including managers); a per-activity/chapter override only turns
+     * it off for users without `local/aireader:manage`, who need continued
+     * access to re-enable and verify narration.
+     *
+     * @param string $module Module name (page or book).
+     * @param int $cmid Course module id.
+     * @param int $chapterid Book chapter id, or 0 for activity scope.
+     * @param \context_module $context Module context for the manage check.
+     * @return bool
+     */
+    public static function is_narration_available(
+        string $module,
+        int $cmid,
+        int $chapterid,
+        \context_module $context
+    ): bool {
+        if (!get_config('local_aireader', 'enabled')) {
+            return false;
+        }
+        $globalkey = $module === 'book' ? 'enable_book' : 'enable_page';
+        if (!get_config('local_aireader', $globalkey)) {
+            return false;
+        }
+        if (override_manager::is_enabled($cmid, $chapterid, $module)) {
+            return true;
+        }
+        return has_capability('local/aireader:manage', $context);
+    }
+
+    /**
+     * Throw when narration is not available for the scope.
+     *
+     * @param string $module Module name (page or book).
+     * @param int $cmid Course module id.
+     * @param int $chapterid Book chapter id, or 0 for activity scope.
+     * @param \context_module $context Module context for the manage check.
+     * @throws \moodle_exception When narration is disabled at this scope.
+     */
+    public static function assert_narration_available(
+        string $module,
+        int $cmid,
+        int $chapterid,
+        \context_module $context
+    ): void {
+        if (!self::is_narration_available($module, $cmid, $chapterid, $context)) {
+            throw new \moodle_exception('error_narration_disabled', 'local_aireader');
+        }
+    }
+
+    /**
      * Compute the canonical source hash for the (cm, chapter, voice, model, lang) variant.
      *
      * @param string $module Module name.
@@ -511,19 +572,63 @@ class asset_manager {
     /**
      * Return the trimmed, deduplicated list of enabled languages from settings.
      *
+     * Merges the checklist setting (`enabled_languages`, stored as a
+     * comma-separated code list) with the free-text escape hatch
+     * (`enabled_languages_extra`) that lets admins enable languages OpenAI
+     * ships before the plugin's built-in checklist catches up. Codes are
+     * normalised to Moodle's lowercase/underscore form so hand-typed variants
+     * like "PT-BR" match the codes the player and translator use.
+     *
      * @return string[]
      */
     public static function enabled_languages(): array {
         $raw = (string)(get_config('local_aireader', 'enabled_languages') ?: 'en');
-        $codes = preg_split('/[\s,;]+/', $raw, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $extra = (string)get_config('local_aireader', 'enabled_languages_extra');
+        $codes = preg_split('/[\s,;]+/', $raw . ',' . $extra, -1, PREG_SPLIT_NO_EMPTY) ?: [];
         $clean = [];
         foreach ($codes as $c) {
-            $c = trim($c);
+            $c = strtolower(str_replace('-', '_', trim($c)));
             if ($c !== '' && !in_array($c, $clean, true)) {
                 $clean[] = $c;
             }
         }
         return $clean ?: ['en'];
+    }
+
+    /**
+     * The site's default TTS voice: used when the client requests none, and
+     * always available to learners regardless of the enabled-voices checklist.
+     *
+     * @return string Lowercased voice id.
+     */
+    public static function default_voice(): string {
+        return strtolower(trim((string)(get_config('local_aireader', 'voice') ?: 'marin')));
+    }
+
+    /**
+     * Return the deduplicated list of voices learners may request.
+     *
+     * Mirrors {@see enabled_languages()}: merges the checklist setting
+     * (`enabled_voices`, stored as a comma-separated id list) with the
+     * free-text escape hatch (`enabled_voices_extra`) for voices OpenAI ships
+     * before the plugin's built-in checklist catches up. The default voice is
+     * always first — it is the initial selection and stays available even
+     * when unticked.
+     *
+     * @return string[] Voice ids, default voice first.
+     */
+    public static function enabled_voices(): array {
+        $raw = (string)get_config('local_aireader', 'enabled_voices');
+        $extra = (string)get_config('local_aireader', 'enabled_voices_extra');
+        $codes = preg_split('/[\s,;]+/', $raw . ',' . $extra, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $clean = [self::default_voice()];
+        foreach ($codes as $c) {
+            $c = strtolower(trim($c));
+            if ($c !== '' && !in_array($c, $clean, true)) {
+                $clean[] = $c;
+            }
+        }
+        return $clean;
     }
 
     /**

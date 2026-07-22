@@ -35,6 +35,195 @@ use local_aireader\manager\override_manager;
  */
 class hook_callbacks {
     /**
+     * Settings rendered inside each section's collapsed "advanced" area on the
+     * redesigned admin settings page. Order within settings.php decides which
+     * section card a setting belongs to; this list decides main vs advanced.
+     */
+    public const ADMIN_ADVANCED_SETTINGS = [
+        'openai_endpoint',
+        'enabled_voices_extra',
+        'chunk_size',
+        'poll_interval',
+        'stale_retention_days',
+        'max_narration_chars',
+        'download_warn_threshold_mb',
+        'translation_endpoint',
+        'alignment_model',
+        'alignment_endpoint',
+    ];
+
+    /**
+     * Boot the redesigned admin settings UI on this plugin's settings page.
+     *
+     * The enhancement is progressive: the native Moodle settings form remains
+     * the source of truth for values and saving; the AMD module regroups the
+     * rendered rows into section cards, adds the sidebar/filter/advanced
+     * collapse, and decorates rows with modified badges and reset links using
+     * the metadata computed here.
+     *
+     * @param \core\hook\output\before_standard_top_of_body_html_generation $hook
+     */
+    public static function inject_admin_settings_ui(
+        \core\hook\output\before_standard_top_of_body_html_generation $hook
+    ): void {
+        global $PAGE, $CFG;
+
+        if ($PAGE->pagetype !== 'admin-setting-local_aireader') {
+            return;
+        }
+
+        require_once($CFG->libdir . '/adminlib.php');
+        $settingspage = admin_get_root()->locate('local_aireader');
+        if (!$settingspage instanceof \admin_settingpage) {
+            return;
+        }
+
+        $meta = [];
+        $modcount = 0;
+        foreach ($settingspage->settings as $setting) {
+            if ($setting instanceof \admin_setting_heading) {
+                continue;
+            }
+            $name = (string)$setting->name;
+            $current = $setting->get_setting();
+            $default = $setting->get_defaultsetting();
+
+            $type = 'value';
+            if ($setting instanceof \admin_setting_configpasswordunmask) {
+                $type = 'secret';
+            } else if ($setting instanceof \admin_setting_configmulticheckbox) {
+                $type = 'multi';
+            } else if ($setting instanceof \admin_setting_configcheckbox) {
+                $type = 'checkbox';
+            }
+
+            $modified = $type !== 'secret'
+                && $current !== null
+                && self::normalise_setting_value($current) !== self::normalise_setting_value($default);
+            if ($modified) {
+                $modcount++;
+            }
+
+            $meta[$name] = [
+                'type'         => $type,
+                'modified'     => $modified,
+                'defaultlabel' => $type === 'secret' ? '' : self::describe_setting_default($setting, $default),
+                'reset'        => self::setting_reset_value($type, $default),
+                'secretset'    => $type === 'secret' && trim((string)$current) !== '',
+            ];
+        }
+
+        $enabled = (bool)get_config('local_aireader', 'enabled');
+        $apikey = trim((string)get_config('local_aireader', 'openai_api_key')) !== '';
+        $langcount = count(\local_aireader\manager\asset_manager::enabled_languages());
+        $alignment = (bool)get_config('local_aireader', 'enable_alignment');
+        $chips = [
+            [
+                'text' => get_string($enabled ? 'adminui_chip_enabled' : 'adminui_chip_disabled', 'local_aireader'),
+                'good' => $enabled,
+            ],
+            [
+                'text' => get_string($apikey ? 'adminui_chip_apikey' : 'adminui_chip_noapikey', 'local_aireader'),
+                'good' => $apikey,
+            ],
+            [
+                'text' => $langcount === 1
+                    ? get_string('adminui_chip_langs_one', 'local_aireader')
+                    : get_string('adminui_chip_langs', 'local_aireader', $langcount),
+                'good' => false,
+            ],
+            [
+                'text' => get_string($alignment ? 'adminui_chip_karaoke_on' : 'adminui_chip_karaoke_off', 'local_aireader'),
+                'good' => $alignment,
+            ],
+            [
+                'text' => get_string('adminui_modcount', 'local_aireader', $modcount),
+                'good' => false,
+            ],
+        ];
+
+        $PAGE->requires->js_call_amd('local_aireader/admin_settings', 'init', [[
+            'advanced'   => self::ADMIN_ADVANCED_SETTINGS,
+            'settings'   => $meta,
+            'chips'      => $chips,
+            'sourcelang' => strtolower(preg_replace('/[_-].*$/', '', (string)($CFG->lang ?? 'en'))),
+            'strings'    => [
+                'filter'       => get_string('adminui_filter', 'local_aireader'),
+                'modified'     => get_string('adminui_modified', 'local_aireader'),
+                'reset'        => get_string('adminui_reset', 'local_aireader'),
+                'showadvanced' => get_string('adminui_showadvanced', 'local_aireader', '%%'),
+                'hideadvanced' => get_string('adminui_hideadvanced', 'local_aireader'),
+                'modcount'     => get_string('adminui_modcount', 'local_aireader', '%%'),
+                'discard'      => get_string('adminui_discard', 'local_aireader'),
+                'configured'   => get_string('adminui_configured', 'local_aireader'),
+                'editlist'     => get_string('adminui_editlist', 'local_aireader', '%%'),
+                'hidelist'     => get_string('adminui_hidelist', 'local_aireader'),
+                'noresults'    => get_string('adminui_noresults', 'local_aireader'),
+                'sidebarnote'  => get_string('adminui_sidebar_note', 'local_aireader'),
+                'source'       => get_string('adminui_source', 'local_aireader'),
+                'default'      => get_string('adminui_default', 'local_aireader', '%%'),
+            ],
+        ]]);
+    }
+
+    /**
+     * Canonical string form of a setting value for changed-vs-default checks.
+     *
+     * @param mixed $value Scalar config value or multicheckbox array.
+     * @return string
+     */
+    private static function normalise_setting_value($value): string {
+        if (is_array($value)) {
+            $keys = array_keys(array_filter($value));
+            sort($keys);
+            return implode(',', $keys);
+        }
+        // Normalise line endings so textarea defaults compare stably.
+        return str_replace("\r\n", "\n", (string)$value);
+    }
+
+    /**
+     * Human-readable "Default: …" value for a setting row.
+     *
+     * @param \admin_setting $setting The setting instance.
+     * @param mixed $default Its default value.
+     * @return string
+     */
+    private static function describe_setting_default(\admin_setting $setting, $default): string {
+        if ($setting instanceof \admin_setting_configcheckbox) {
+            $label = $default ? get_string('yes') : get_string('no');
+        } else if (is_array($default)) {
+            $label = implode(', ', array_keys(array_filter($default)));
+        } else {
+            $label = trim(str_replace("\r\n", "\n", (string)$default));
+            $label = preg_replace('/\s+/', ' ', $label);
+        }
+        if ($label === '') {
+            $label = '—';
+        }
+        return shorten_text($label, 60);
+    }
+
+    /**
+     * The value payload the JS reset control applies to a row's inputs.
+     *
+     * @param string $type checkbox|multi|secret|value
+     * @param mixed $default The setting's default.
+     * @return array|string|null Keys for multi, scalar string otherwise; null when not resettable.
+     */
+    private static function setting_reset_value(string $type, $default) {
+        if ($type === 'secret') {
+            return null;
+        }
+        if ($type === 'multi') {
+            return array_keys(array_filter(is_array($default) ? $default : []));
+        }
+        if ($type === 'checkbox') {
+            return $default ? '1' : '0';
+        }
+        return (string)$default;
+    }
+    /**
      * Inject the player mount point and bootstrap JS on mod_page and mod_book views.
      *
      * @param \core\hook\output\before_standard_top_of_body_html_generation $hook
@@ -117,6 +306,15 @@ class hook_callbacks {
             $defaultlang = $enabledcodes[0];
         }
 
+        // Build the voice menu (default voice first; picker hides when only one).
+        $voices = [];
+        foreach (asset_manager::enabled_voices() as $voicecode) {
+            $voices[] = [
+                'code' => $voicecode,
+                'name' => \local_aireader\manager\openai_client::voice_display_name($voicecode),
+            ];
+        }
+
         // Resolve the human-readable scope label so the manager-toggle UI can
         // be properly localised: "Turn off for this page" / "...chapter" / "...book".
         $scopekey = 'page';
@@ -132,6 +330,8 @@ class hook_callbacks {
             'chapterid'        => $chapterid,
             'lang'             => $defaultlang,
             'languages'        => $languages,
+            'voice'            => asset_manager::default_voice(),
+            'voices'           => $voices,
             'pollinterval'     => $pollinterval,
             'disclosure'       => $disclosure,
             'enabled'          => $enabled,
@@ -186,6 +386,11 @@ class hook_callbacks {
             'showtranscript'     => get_string('player_show_transcript', 'local_aireader'),
             'transcriptlabel'    => get_string('player_transcript_label', 'local_aireader'),
             'language'           => get_string('player_language', 'local_aireader'),
+            'voice'              => get_string('player_voice', 'local_aireader'),
+            'preparingvoice'     => get_string('player_preparing_voice', 'local_aireader'),
+            'more'               => get_string('player_more_options', 'local_aireader'),
+            'aivoice'            => get_string('player_ai_voice_short', 'local_aireader'),
+            'nowplaying'         => get_string('player_now_playing', 'local_aireader'),
             'progress'           => get_string('player_progress', 'local_aireader'),
             'offlinedisabled'    => get_string('player_offline_disabled', 'local_aireader'),
             'turnonhere'         => get_string('player_turn_on_here', 'local_aireader', $scopelabel),

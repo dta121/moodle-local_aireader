@@ -4,6 +4,135 @@ All notable changes to `local_aireader` are documented in this file.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.8.0] — 2026-07-22
+
+### Added
+
+- **Three compact player designs** (design source: claude.ai/design project
+  "AI Reader settings redesign", AI Reader Player):
+  - **Slim bar** (`slimbar`) — one 56px row instead of the full player's
+    three: play button, "Listen to this content", and an idle subtitle that
+    folds the estimated length and the mandatory AI disclosure into
+    "2 min · AI-generated voice". Speed and transcript pills plus a slim
+    bottom progress strip appear only after the learner presses play;
+    skip ±15s, restart, download, regenerate, the manager on/off toggle, and
+    the full disclosure text live in a ⋯ overflow menu.
+  - **Slim pill** (`slimpill`) — near-zero idle footprint: a "Listen" pill
+    that swaps itself for the slim bar on click (honours autoplay-on-expand).
+  - **Pill + docked mini-player** (`dockpill`) — the pill becomes a
+    "Now playing · follows you as you read" chip while the slim bar docks to
+    the bottom of the viewport, so controls stay reachable on long pages and
+    while following karaoke highlighting. Reserves body padding so the fixed
+    bar never covers content, keeps safe-area insets on mobile, and opens the
+    transcript pane upward above the bar.
+
+  All three are variants of one new `player_slim` template that exposes the
+  same hooks as the full player, so playback, resume, transcript, karaoke,
+  language/voice switching, and completion tracking behave identically. The
+  existing designs (full, banner, pill, accordion, inline) are unchanged.
+
+## [1.7.0] — 2026-07-22
+
+### Changed
+
+- **Redesigned admin settings page.** The plugin settings
+  (`Site administration → Plugins → Local plugins → AI Reader`) are now
+  organised into six section cards — Setup & connection, Content & generation,
+  Player, Cost tracking, Languages & translation, Transcript & highlighting —
+  with a sticky sidebar (live filter + section navigation with scrollspy),
+  per-section collapsed "advanced settings", status chips (plugin state, API
+  key, learner languages, karaoke, modified count), toggle switches for
+  checkboxes, per-setting "Modified" badges with default values and one-click
+  reset, chip lists with an expandable grid for the language/voice checklists,
+  an API-key "Configured" pill, and a sticky save bar with a live
+  differs-from-default count and a Discard button. Implemented as progressive
+  enhancement (new `local_aireader/admin_settings` AMD module + page-scoped
+  CSS) over the native admin form, which remains the source of truth for
+  values, validation, and saving — if the enhancement cannot run, the stock
+  page renders unchanged. `settings.php` was reordered into the same six
+  sections. Design source: claude.ai/design project "AI Reader settings
+  redesign".
+
+## [1.6.0] — 2026-07-22
+
+### Added
+
+- **Learner voice picker.** Admins can tick which OpenAI TTS voices learners
+  may use ("Voices offered to learners" checklist, mirroring the language
+  checklist, plus an "Additional voice ids" escape hatch for voices OpenAI
+  ships before the built-in list is updated). When two or more voices are
+  enabled, the player shows a voice picker next to the language picker;
+  switching voices loads (or lazily generates) that voice's narration. The
+  existing "Voice" setting becomes the default voice, is always offered, and
+  remains the only voice used for teacher-save/eager pre-generation — extra
+  voices are generated on first learner request only. The webservices gain an
+  optional `voice` parameter with a server-side allowlist (each language ×
+  voice pair is a separately billed generation, so learners cannot request
+  arbitrary voices). No schema change: assets were already keyed by voice.
+  Course ZIP downloads include enabled non-default-voice files with a
+  "(lang, Voice)" filename marker. Master voice list lives in
+  `openai_client::supported_voices()` (last synced with OpenAI docs July
+  2026); note that tts-1 / tts-1-hd only accept the classic six voices.
+
+## [1.5.0] — 2026-07-22
+
+### Changed
+
+- **"Languages offered to learners" is now a checklist instead of a free-text
+  code field.** The admin setting lists every language OpenAI's speech models
+  officially support (plus common regional variants like Portuguese (Brazil)
+  and Chinese Simplified/Traditional), alphabetised by name — tick what you
+  want to offer instead of typing Moodle language codes. The stored format is
+  unchanged (comma-separated codes), so existing configurations migrate
+  automatically with the previously enabled languages pre-ticked. The list
+  lives in `openai_translator::supported_languages()`, which is also the
+  source for player language-picker display names.
+
+- **Translation defaults refreshed: gpt-5-mini and a stricter system prompt.**
+  The default translation model is now `gpt-5-mini` and the default
+  translation system prompt is a fuller professional-translator brief
+  (natural target-language phrasing, established academic terminology,
+  preserved structure/HTML/code/placeholders, output-only-the-translation).
+  An upgrade step migrates sites still holding the old defaults verbatim;
+  admin-customised values are left untouched. The request payload is now
+  model-aware: GPT-5/o-series reasoning models no longer receive the
+  `temperature` parameter they reject, and gpt-5-family models are asked for
+  `minimal` reasoning effort so translation stays fast and cheap. Note:
+  cached translations are keyed by model, so previously translated content
+  re-translates once on first request under the new model.
+
+### Added
+
+- **`enabled_languages_extra` setting** — a small free-text escape hatch for
+  language codes not on the checklist. OpenAI publishes no API to enumerate
+  supported languages, so when they add one before the plugin's list is
+  updated (or for unlisted regional locales), admins can enable it here
+  immediately; codes are merged with the checklist and normalised
+  (e.g. `PT-BR` → `pt_br`).
+
+## [1.4.3] — 2026-07-22
+
+### Security
+
+- **Narration enable state is now enforced server-side, not just in the UI.**
+  Previously the plugin master switch, the per-module switches
+  (`enable_page` / `enable_book`), and per-activity/chapter overrides were only
+  checked when deciding whether to inject the player. The web services and the
+  pluginfile handler trusted the client: any user with `local/aireader:listen`
+  could call the AJAX endpoints directly on a disabled scope to queue paid
+  OpenAI TTS/translation generation (`get_status`), stream stored audio
+  (pluginfile), read transcripts (`get_transcript`), and record listen progress
+  that could complete the activity (`set_progress`). All of these now assert
+  narration availability with the same gate order as the player-injection hook:
+  master and per-module switches block everyone; a per-scope override blocks
+  users without `local/aireader:manage` (managers keep access so they can
+  verify narration before re-enabling it). New helper
+  `asset_manager::is_narration_available()` / `assert_narration_available()`,
+  new `error_narration_disabled` lang string, and regression tests.
+- **Hardening:** the Whisper aligner now strips any path components from the
+  staged upload filename (`clean_param(..., PARAM_FILE)`). The filename is
+  plugin-generated today, so this was not exploitable — defense in depth only.
+
 ## [1.4.2] — 2026-07-08
 
 ### Added

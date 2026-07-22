@@ -145,6 +145,11 @@ class Player {
         this.managerBtn = this.managerBox && this.managerBox.querySelector('[data-action="toggle-enabled"]');
         this.langPicker = root.querySelector('[data-region="langpicker"]');
         this.langSelect = this.langPicker && this.langPicker.querySelector('[data-action="set-lang"]');
+        this.voicePicker = root.querySelector('[data-region="voicepicker"]');
+        this.voiceSelect = this.voicePicker && this.voicePicker.querySelector('[data-action="set-voice"]');
+        this.menuBtn = root.querySelector('[data-action="menu"]');
+        this.menuEl = root.querySelector('[data-region="menu"]');
+        this.isSlim = root.classList.contains('local-aireader-slim');
 
         this.polling = false;
         this.estimateSecs = 0;
@@ -181,6 +186,7 @@ class Player {
             this.managerBox.classList.remove('d-none');
         }
         this.populateLanguages();
+        this.populateVoices();
         this.applySavedSpeed();
 
         this.bindEvents();
@@ -207,6 +213,24 @@ class Player {
             this.langSelect.appendChild(opt);
         });
         this.langPicker.classList.remove('d-none');
+    }
+
+    populateVoices() {
+        const voices = Array.isArray(this.config.voices) ? this.config.voices : [];
+        if (!this.voicePicker || !this.voiceSelect || voices.length < 2) {
+            return;
+        }
+        this.voiceSelect.innerHTML = '';
+        voices.forEach((voice) => {
+            const opt = document.createElement('option');
+            opt.value = voice.code;
+            opt.textContent = voice.name || voice.code;
+            if (voice.code === this.config.voice) {
+                opt.selected = true;
+            }
+            this.voiceSelect.appendChild(opt);
+        });
+        this.voicePicker.classList.remove('d-none');
     }
 
     applySavedSpeed() {
@@ -284,6 +308,30 @@ class Player {
         }
         if (this.langSelect) {
             this.langSelect.addEventListener('change', () => this.changeLanguage(this.langSelect.value));
+        }
+        if (this.voiceSelect) {
+            this.voiceSelect.addEventListener('change', () => this.changeVoice(this.voiceSelect.value));
+        }
+        if (this.menuBtn && this.menuEl) {
+            this.menuBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggleMenu();
+            });
+            this.menuEl.addEventListener('click', (e) => {
+                if (e.target.closest('.local-aireader-slim-menuitem')) {
+                    this.toggleMenu(false);
+                }
+            });
+            document.addEventListener('click', (e) => {
+                if (!this.menuEl.classList.contains('d-none') && !this.root.contains(e.target)) {
+                    this.toggleMenu(false);
+                }
+            });
+            this.root.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    this.toggleMenu(false);
+                }
+            });
         }
 
         if (this.transcriptToggleBtn) {
@@ -471,6 +519,7 @@ class Player {
                 module: this.config.module,
                 chapterid: this.config.chapterid || 0,
                 lang: this.config.lang || 'en',
+                voice: this.config.voice || '',
             },
         }])[0];
     }
@@ -483,6 +532,7 @@ class Player {
                 module: this.config.module,
                 chapterid: this.config.chapterid || 0,
                 lang: this.config.lang || 'en',
+                voice: this.config.voice || '',
             },
         }])[0];
     }
@@ -581,6 +631,18 @@ class Player {
 
     setStatus(state, message) {
         this.root.dataset.state = state;
+        // The slim designs fold the estimated length and the mandatory AI
+        // disclosure into the idle subtitle ("2 min · AI-generated voice")
+        // instead of showing "Ready to play." — the full disclosure text
+        // stays available in the overflow menu.
+        if (this.isSlim && state === STATE.READY && !this.engaged) {
+            const bits = [];
+            if (this.estimateSecs > 0) {
+                bits.push(formatEstimateMinutes(this.estimateSecs));
+            }
+            bits.push(str(this.config, 'aivoice', 'AI-generated voice'));
+            message = bits.join(' · ');
+        }
         this.statusEl.textContent = message;
         const busy = state === STATE.LOADING || state === STATE.PENDING || state === STATE.GENERATING || state === STATE.STALE;
         this.statusEl.setAttribute('aria-busy', busy ? 'true' : 'false');
@@ -802,9 +864,29 @@ class Player {
         if (!newlang || newlang === this.config.lang) {
             return;
         }
+        this.config.lang = newlang;
+        this.resetForVariantChange(str(this.config, 'preparinglang', 'Preparing in selected language…'));
+    }
+
+    changeVoice(newvoice) {
+        if (!newvoice || newvoice === this.config.voice) {
+            return;
+        }
+        this.config.voice = newvoice;
+        this.resetForVariantChange(str(this.config, 'preparingvoice', 'Preparing with selected voice…'));
+    }
+
+    /**
+     * Tear down playback/transcript state and re-request status after the
+     * learner switches to another asset variant (language or voice). Each
+     * variant is its own asset, so resume position, transcript, and in-page
+     * marks all restart from the new asset's state.
+     *
+     * @param {string} statusmessage Status line shown while the variant loads.
+     */
+    resetForVariantChange(statusmessage) {
         this.flushProgressWrite();
         this.clearListenRange();
-        this.config.lang = newlang;
         this.audio.pause();
         this.audio.removeAttribute('src');
         this.playBtn.disabled = true;
@@ -819,7 +901,7 @@ class Player {
         this.pendingResumePosition = 0;
         this.appliedResume = false;
         this.lastPositionWriteAt = 0;
-        // Tear down any prior transcript so the new language's transcript loads cleanly.
+        // Tear down any prior transcript so the new variant's transcript loads cleanly.
         this.transcriptFetched = false;
         this.segments = [];
         this.activeSegIdx = -1;
@@ -830,9 +912,9 @@ class Player {
         });
         this.inPlaceMarks = [];
         this.useInPlace = false;
-        // Allow re-injection for the newly selected language; engagement itself
-        // persists across a language switch since the learner is actively using
-        // the reader.
+        // Allow re-injection for the newly selected variant; engagement itself
+        // persists across a language or voice switch since the learner is
+        // actively using the reader.
         this.inPlaceInjected = false;
         if (this.transcriptList) {
             this.transcriptList.innerHTML = '';
@@ -845,7 +927,7 @@ class Player {
             this.transcriptToggleBtn.classList.add('d-none');
         }
         this.renderTime();
-        this.setStatus(STATE.LOADING, str(this.config, 'preparinglang', 'Preparing in selected language…'));
+        this.setStatus(STATE.LOADING, statusmessage);
         this.polling = false;
         this.refresh();
     }
@@ -871,7 +953,24 @@ class Player {
             return;
         }
         this.engaged = true;
+        // The slim designs reveal the transport (speed, transcript, progress
+        // strip, elapsed time) only once the learner has started listening.
+        this.root.classList.add('is-started');
         this.injectInPlaceMarks();
+    }
+
+    /**
+     * Open or close the slim designs' overflow (⋯) menu.
+     *
+     * @param {boolean} [force] Explicit target state; toggles when omitted.
+     */
+    toggleMenu(force) {
+        if (!this.menuEl) {
+            return;
+        }
+        const open = force !== undefined ? force : this.menuEl.classList.contains('d-none');
+        this.menuEl.classList.toggle('d-none', !open);
+        this.menuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
     }
 
     /**
@@ -1515,6 +1614,9 @@ const applyAccent = (root, color) => {
 };
 
 const renderOffline = async(mount, config) => {
+    // If a docked player was replaced by the offline card, release the body
+    // padding that was reserving space for the fixed bar.
+    document.body.classList.remove('local-aireader-docked-open');
     try {
         const {html, js} = await Templates.renderForPromise('local_aireader/manager_offline', {
             message: str(config, 'offheremsg', 'AI narration is turned off here.'),
@@ -1541,28 +1643,38 @@ const renderOffline = async(mount, config) => {
     }
 };
 
+/**
+ * Shared template context for the full and slim player templates.
+ *
+ * @param {object} config Player config from PHP.
+ * @returns {object} Mustache context.
+ */
+const playerContext = (config) => ({
+    disclosure: config.disclosure || '',
+    managerlabelon: str(config, 'turnoffhere', 'Turn off'),
+    managerlabeloff: str(config, 'turnonhere', 'Turn on'),
+    stringListen: str(config, 'listentitle', 'Listen to this content'),
+    stringLoading: str(config, 'loading', 'Loading…'),
+    stringPlay: str(config, 'play', 'Play'),
+    stringSkipBack: str(config, 'skipback', 'Skip back 15 seconds'),
+    stringSkipForward: str(config, 'skipforward', 'Skip forward 15 seconds'),
+    stringLanguage: str(config, 'language', 'Language'),
+    stringVoice: str(config, 'voice', 'Voice'),
+    stringProgress: str(config, 'progress', 'Playback position'),
+    stringSpeed: str(config, 'speed', 'Speed'),
+    stringPlaybackSpeed: str(config, 'playbackspeed', 'Playback speed'),
+    stringRestart: str(config, 'restart', 'Restart from beginning'),
+    stringDownload: str(config, 'download', 'Download audio'),
+    stringRegenerate: str(config, 'regenerate', 'Regenerate audio'),
+    stringShowTranscript: str(config, 'showtranscript', 'Show transcript'),
+    stringTranscript: str(config, 'transcriptlabel', 'Transcript'),
+    stringPreparingTranscript: str(config, 'preparingtranscript', 'Preparing transcript…'),
+    stringMore: str(config, 'more', 'More options'),
+});
+
 const renderPlayer = async(target, config, autoplay) => {
     try {
-        const {html, js} = await Templates.renderForPromise('local_aireader/player', {
-            disclosure: config.disclosure || '',
-            managerlabelon: str(config, 'turnoffhere', 'Turn off'),
-            managerlabeloff: str(config, 'turnonhere', 'Turn on'),
-            stringListen: str(config, 'listentitle', 'Listen to this content'),
-            stringLoading: str(config, 'loading', 'Loading…'),
-            stringPlay: str(config, 'play', 'Play'),
-            stringSkipBack: str(config, 'skipback', 'Skip back 15 seconds'),
-            stringSkipForward: str(config, 'skipforward', 'Skip forward 15 seconds'),
-            stringLanguage: str(config, 'language', 'Language'),
-            stringProgress: str(config, 'progress', 'Playback position'),
-            stringSpeed: str(config, 'speed', 'Speed'),
-            stringPlaybackSpeed: str(config, 'playbackspeed', 'Playback speed'),
-            stringRestart: str(config, 'restart', 'Restart from beginning'),
-            stringDownload: str(config, 'download', 'Download audio'),
-            stringRegenerate: str(config, 'regenerate', 'Regenerate audio'),
-            stringShowTranscript: str(config, 'showtranscript', 'Show transcript'),
-            stringTranscript: str(config, 'transcriptlabel', 'Transcript'),
-            stringPreparingTranscript: str(config, 'preparingtranscript', 'Preparing transcript…'),
-        });
+        const {html, js} = await Templates.renderForPromise('local_aireader/player', playerContext(config));
         Templates.replaceNodeContents(target, html, js);
         const root = target.querySelector('.local-aireader-player');
         if (root) {
@@ -1575,6 +1687,56 @@ const renderPlayer = async(target, config, autoplay) => {
 };
 
 /**
+ * Render the slim single-row player (slimbar / slimpill / dockpill designs).
+ *
+ * @param {HTMLElement} target Container to render into.
+ * @param {object} config Player config.
+ * @param {boolean} autoplay Start playback once audio is ready.
+ * @param {boolean} docked Pin the bar to the bottom of the viewport (dockpill).
+ */
+const renderSlim = async(target, config, autoplay, docked) => {
+    try {
+        const {html, js} = await Templates.renderForPromise('local_aireader/player_slim', playerContext(config));
+        Templates.replaceNodeContents(target, html, js);
+        const root = target.querySelector('.local-aireader-slim');
+        if (root) {
+            if (docked) {
+                root.classList.add('is-docked');
+                // Reserve space so the fixed bar never covers the last lines
+                // of the page (or Moodle's own footer links).
+                document.body.classList.add('local-aireader-docked-open');
+            }
+            applyAccent(root, config.accentcolor);
+            new Player(root, config, autoplay);
+        }
+    } catch (e) {
+        Notification.exception(e);
+    }
+};
+
+/**
+ * Expand handler for the dockpill design: swap the trigger for a "Now
+ * playing" chip in the content flow and dock the slim player to the bottom
+ * of the viewport.
+ *
+ * @param {HTMLElement} target The trigger's expand region.
+ * @param {object} config Player config.
+ * @param {boolean} autoplay Start playback once audio is ready.
+ */
+const renderDocked = (target, config, autoplay) => {
+    const chip = document.createElement('span');
+    chip.className = 'local-aireader-nowplaying';
+    const dot = document.createElement('span');
+    dot.className = 'local-aireader-nowplaying-dot';
+    chip.appendChild(dot);
+    chip.appendChild(document.createTextNode(str(config, 'nowplaying', 'Now playing')));
+    target.appendChild(chip);
+    const dock = document.createElement('div');
+    target.appendChild(dock);
+    renderSlim(dock, config, autoplay, true);
+};
+
+/**
  * Render a compact design's trigger. Clicking it toggles an inline region that
  * holds the full player; the player is instantiated lazily on first expand, so
  * a collapsed widget makes no status request until the learner engages with it.
@@ -1582,11 +1744,13 @@ const renderPlayer = async(target, config, autoplay) => {
  * @param {HTMLElement} mount The hook-injected mount point.
  * @param {object} config Player config (including design + accentcolor).
  */
-const renderTrigger = async(mount, config) => {
-    const longtitle = config.design === 'banner' || config.design === 'accordion';
+const renderTrigger = async(mount, config, options = {}) => {
+    const render = options.render || renderPlayer;
+    const triggerdesign = options.triggerdesign || config.design;
+    const longtitle = triggerdesign === 'banner' || triggerdesign === 'accordion';
     try {
         const {html, js} = await Templates.renderForPromise('local_aireader/player_trigger', {
-            design: config.design,
+            design: triggerdesign,
             label: longtitle
                 ? str(config, 'listentitle', 'Listen to this content')
                 : str(config, 'listenshort', 'Listen'),
@@ -1609,7 +1773,12 @@ const renderTrigger = async(mount, config) => {
             expand.classList.toggle('d-none', isopen);
             if (!isopen && !instantiated) {
                 instantiated = true;
-                renderPlayer(expand, config, config.autoplay);
+                render(expand, config, config.autoplay);
+                // The slim designs replace the trigger rather than toggling
+                // beneath it: the bar (or the docked chip) takes over.
+                if (options.hidetrigger) {
+                    trigger.classList.add('d-none');
+                }
             }
         });
     } catch (e) {
@@ -1637,7 +1806,21 @@ export const init = async(config) => {
     // Expose the accent to in-page <mark> highlights, which are injected into the
     // activity body — outside the player's own (.local-aireader) scope.
     applyAccent(document.documentElement, config.accentcolor);
-    if (COMPACT_DESIGNS.indexOf(config.design) !== -1) {
+    if (config.design === 'slimbar') {
+        renderSlim(mount, config, false, false);
+    } else if (config.design === 'slimpill') {
+        renderTrigger(mount, config, {
+            render: (t, c, a) => renderSlim(t, c, a, false),
+            triggerdesign: 'pill',
+            hidetrigger: true,
+        });
+    } else if (config.design === 'dockpill') {
+        renderTrigger(mount, config, {
+            render: renderDocked,
+            triggerdesign: 'pill',
+            hidetrigger: true,
+        });
+    } else if (COMPACT_DESIGNS.indexOf(config.design) !== -1) {
         renderTrigger(mount, config);
     } else {
         renderPlayer(mount, config);

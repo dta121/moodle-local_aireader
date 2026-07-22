@@ -80,6 +80,12 @@ class openai_aligner {
         http_guard::assert_safe_url($this->endpoint);
 
         // Stage the audio in a tmp file so curl can attach it as multipart/form-data.
+        // Filenames come from our own stored files, but strip any path
+        // components anyway so this can never write outside the request dir.
+        $filename = clean_param($filename, PARAM_FILE);
+        if ($filename === '') {
+            $filename = 'audio.mp3';
+        }
         $tmppath = make_request_directory() . '/' . $filename;
         file_put_contents($tmppath, $audiobytes);
 

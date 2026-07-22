@@ -54,6 +54,7 @@ class get_status extends external_api {
             'module'    => new external_value(PARAM_ALPHA, 'page|book'),
             'chapterid' => new external_value(PARAM_INT, 'Book chapter id (0 for none)', VALUE_DEFAULT, 0),
             'lang'      => new external_value(PARAM_ALPHANUMEXT, 'Language code (e.g. en, es, zh_cn)', VALUE_DEFAULT, 'en'),
+            'voice'     => new external_value(PARAM_ALPHANUMEXT, 'Voice id ("" for the site default)', VALUE_DEFAULT, ''),
         ]);
     }
 
@@ -84,15 +85,23 @@ class get_status extends external_api {
      * @param string $module page|book
      * @param int $chapterid Book chapter id (0 for page).
      * @param string $lang Language code.
+     * @param string $voice Voice id, or '' for the site default voice.
      * @return array Matches execute_returns().
      */
-    public static function execute(int $cmid, string $module, int $chapterid = 0, string $lang = 'en'): array {
+    public static function execute(
+        int $cmid,
+        string $module,
+        int $chapterid = 0,
+        string $lang = 'en',
+        string $voice = ''
+    ): array {
         global $USER;
         $params = self::validate_parameters(self::execute_parameters(), [
             'cmid'      => $cmid,
             'module'    => $module,
             'chapterid' => $chapterid,
             'lang'      => $lang,
+            'voice'     => $voice,
         ]);
 
         if (!in_array($params['module'], ['page', 'book'], true)) {
@@ -104,6 +113,15 @@ class get_status extends external_api {
         // to spend the OpenAI translation+TTS budget on hundreds of variants.
         if (!in_array($params['lang'], asset_manager::enabled_languages(), true)) {
             throw new \invalid_parameter_exception('Language not enabled on this site');
+        }
+
+        // Same allowlist treatment for the voice: every (language, voice) pair
+        // is a separately billed TTS generation.
+        $voice = $params['voice'] !== ''
+            ? strtolower($params['voice'])
+            : asset_manager::default_voice();
+        if (!in_array($voice, asset_manager::enabled_voices(), true)) {
+            throw new \invalid_parameter_exception('Voice not enabled on this site');
         }
 
         [$course, $cm] = get_course_and_cm_from_cmid($params['cmid'], $params['module']);
@@ -121,7 +139,11 @@ class get_status extends external_api {
             asset_manager::assert_chapter_visible($cm, $chapterid, $context);
         }
 
-        $voice = (string)(get_config('local_aireader', 'voice') ?: 'marin');
+        // Enforce the enable state server-side: the player is only injected on
+        // enabled scopes, but this endpoint queues paid OpenAI generation and
+        // must not trust that the client stayed inside the UI.
+        asset_manager::assert_narration_available($params['module'], (int)$cm->id, $chapterid ?? 0, $context);
+
         $model = (string)(get_config('local_aireader', 'model') ?: 'gpt-4o-mini-tts');
 
         $extracted = content_extractor::extract($params['module'], (int)$cm->id, $chapterid);

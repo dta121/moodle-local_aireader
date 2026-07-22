@@ -84,14 +84,19 @@ $table->head = [
     get_string('downloadcourse_col_size', 'local_aireader'),
 ];
 $table->attributes['class'] = 'generaltable local-aireader-downloadlist';
+$defaultvoice = \local_aireader\manager\asset_manager::default_voice();
 foreach ($items as $item) {
     $label = $item->activityname;
     if ($item->chaptertitle !== '') {
         $label .= ' — ' . $item->chaptertitle;
     }
+    $langcell = core_text::strtoupper($item->lang);
+    if ($item->voice !== '' && $item->voice !== $defaultvoice) {
+        $langcell .= ' — ' . \local_aireader\manager\openai_client::voice_display_name($item->voice);
+    }
     $table->data[] = [
         s($label),
-        s(core_text::strtoupper($item->lang)),
+        s($langcell),
         display_size($item->bytesize),
     ];
 }

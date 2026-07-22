@@ -55,6 +55,52 @@ class openai_client {
     private $endpoint;
 
     /**
+     * The voices OpenAI's TTS models offer, keyed by voice id.
+     *
+     * Single source of truth for the "Voices offered to learners" admin
+     * checklist and the player's voice-picker labels. Mirrors the voice list
+     * in OpenAI's text-to-speech documentation for `gpt-4o-mini-tts` — the
+     * older `tts-1` / `tts-1-hd` models only accept the classic six (alloy,
+     * echo, fable, nova, onyx, shimmer) and reject the rest.
+     *
+     * OpenAI exposes no API to enumerate voices, so this list is maintained
+     * by hand — last synced with the OpenAI docs in July 2026. When OpenAI
+     * ships a voice before this list catches up, admins can enable it
+     * immediately via the "Additional voice ids" setting.
+     *
+     * @return array<string,string> Voice id => display label.
+     */
+    public static function supported_voices(): array {
+        return [
+            'alloy'   => 'Alloy',
+            'ash'     => 'Ash',
+            'ballad'  => 'Ballad',
+            'cedar'   => 'Cedar',
+            'coral'   => 'Coral',
+            'echo'    => 'Echo',
+            'fable'   => 'Fable',
+            'marin'   => 'Marin',
+            'nova'    => 'Nova',
+            'onyx'    => 'Onyx',
+            'sage'    => 'Sage',
+            'shimmer' => 'Shimmer',
+            'verse'   => 'Verse',
+        ];
+    }
+
+    /**
+     * Human-readable label for a voice id, falling back to a capitalised
+     * form of the raw id for voices enabled via the extra-ids setting.
+     *
+     * @param string $voice Voice id, e.g. 'marin'.
+     * @return string e.g. 'Marin'.
+     */
+    public static function voice_display_name(string $voice): string {
+        $key = strtolower(trim($voice));
+        return self::supported_voices()[$key] ?? \core_text::strtotitle($key);
+    }
+
+    /**
      * Construct a client, optionally overriding the configured key/endpoint.
      *
      * @param string|null $apikey
