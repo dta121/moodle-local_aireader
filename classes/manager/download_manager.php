@@ -90,6 +90,18 @@ class download_manager {
             'status'   => asset_manager::STATUS_READY,
         ], 'cmid ASC, chapterid ASC, lang ASC');
 
+        // Preload every referenced book chapter in one query rather than
+        // looking up title and visibility per asset.
+        $chapterids = [];
+        foreach ($assets as $asset) {
+            if ((int)$asset->chapterid > 0) {
+                $chapterids[(int)$asset->chapterid] = true;
+            }
+        }
+        $chapters = $chapterids
+            ? $DB->get_records_list('book_chapters', 'id', array_keys($chapterids), '', 'id, bookid, title, hidden')
+            : [];
+
         $items = [];
         $usednames = [];
         foreach ($assets as $asset) {
@@ -122,7 +134,8 @@ class download_manager {
             if (!override_manager::is_enabled($cmid, $chapterid, $module)) {
                 continue;
             }
-            if ($module === 'book' && $chapterid > 0 && !self::chapter_visible_for($cm, $chapterid, $context, $userid)) {
+            $chapter = $chapterid > 0 ? ($chapters[$chapterid] ?? null) : null;
+            if ($module === 'book' && $chapterid > 0 && !self::chapter_visible_for($cm, $chapter, $context, $userid)) {
                 continue;
             }
 
@@ -139,10 +152,7 @@ class download_manager {
             }
             $file = reset($files);
 
-            $chaptertitle = '';
-            if ($module === 'book' && $chapterid > 0) {
-                $chaptertitle = (string)$DB->get_field('book_chapters', 'title', ['id' => $chapterid]);
-            }
+            $chaptertitle = $chapter ? (string)$chapter->title : '';
 
             $archivename = self::unique_name(
                 self::build_archive_name(
@@ -219,27 +229,23 @@ class download_manager {
     }
 
     /**
-     * Non-throwing companion to {@see asset_manager::assert_chapter_visible()}.
+     * Non-throwing companion to {@see asset_manager::assert_chapter_visible()},
+     * evaluated against a preloaded chapter record.
      *
      * @param \cm_info $cm Book course module.
-     * @param int $chapterid Book chapter id.
+     * @param \stdClass|null $chapter Preloaded book_chapters row (id, bookid,
+     *                       title, hidden), or null when the chapter no longer exists.
      * @param \context_module $context Module context.
      * @param int $userid User the visibility is evaluated for.
      * @return bool Whether the chapter is visible to the user.
      */
     private static function chapter_visible_for(
         \cm_info $cm,
-        int $chapterid,
+        ?\stdClass $chapter,
         \context_module $context,
         int $userid
     ): bool {
-        global $DB;
-        $chapter = $DB->get_record(
-            'book_chapters',
-            ['id' => $chapterid, 'bookid' => $cm->instance],
-            'id, hidden'
-        );
-        if (!$chapter) {
+        if (!$chapter || (int)$chapter->bookid !== (int)$cm->instance) {
             return false;
         }
         if (!empty($chapter->hidden) && !\has_capability('mod/book:viewhiddenchapters', $context, $userid)) {

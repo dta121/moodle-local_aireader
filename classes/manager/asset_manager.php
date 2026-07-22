@@ -638,10 +638,7 @@ class asset_manager {
      */
     public static function purge_cm(int $cmid): void {
         global $DB;
-        $rows = $DB->get_records('local_aireader_asset', ['cmid' => $cmid]);
-        foreach ($rows as $row) {
-            self::purge_asset($row);
-        }
+        self::purge_assets($DB->get_records('local_aireader_asset', ['cmid' => $cmid]));
     }
 
     /**
@@ -651,10 +648,7 @@ class asset_manager {
      */
     public static function purge_chapter(int $chapterid): void {
         global $DB;
-        $rows = $DB->get_records('local_aireader_asset', ['chapterid' => $chapterid]);
-        foreach ($rows as $row) {
-            self::purge_asset($row);
-        }
+        self::purge_assets($DB->get_records('local_aireader_asset', ['chapterid' => $chapterid]));
     }
 
     /**
@@ -663,13 +657,34 @@ class asset_manager {
      * @param \stdClass $asset
      */
     public static function purge_asset(\stdClass $asset): void {
+        self::purge_assets([$asset]);
+    }
+
+    /**
+     * Delete a batch of asset rows, their stored files, and dependent data.
+     *
+     * Stored files must be deleted per (context, itemid) through the File API,
+     * but the dependent tables are cleaned with one IN-list query each rather
+     * than four queries per asset.
+     *
+     * @param \stdClass[] $assets Asset rows (id and contextid required).
+     */
+    private static function purge_assets(array $assets): void {
         global $DB;
+        if (!$assets) {
+            return;
+        }
         $fs = get_file_storage();
-        $fs->delete_area_files($asset->contextid, 'local_aireader', 'audio', $asset->id);
-        position_manager::purge_for_asset((int)$asset->id);
-        completion_manager::purge_for_asset((int)$asset->id);
-        segment_manager::purge_for_asset((int)$asset->id);
-        $DB->delete_records('local_aireader_asset', ['id' => $asset->id]);
+        $ids = [];
+        foreach ($assets as $asset) {
+            $fs->delete_area_files($asset->contextid, 'local_aireader', 'audio', $asset->id);
+            $ids[] = (int)$asset->id;
+        }
+        [$insql, $params] = $DB->get_in_or_equal($ids);
+        $DB->delete_records_select('local_aireader_position', "assetid {$insql}", $params);
+        $DB->delete_records_select('local_aireader_listen', "assetid {$insql}", $params);
+        $DB->delete_records_select('local_aireader_segment', "assetid {$insql}", $params);
+        $DB->delete_records_select('local_aireader_asset', "id {$insql}", $params);
     }
 
     /**
@@ -703,11 +718,7 @@ class asset_manager {
             0,
             $batchlimit > 0 ? $batchlimit : 0
         );
-        $purged = 0;
-        foreach ($rows as $row) {
-            self::purge_asset($row);
-            $purged++;
-        }
-        return $purged;
+        self::purge_assets($rows);
+        return count($rows);
     }
 }

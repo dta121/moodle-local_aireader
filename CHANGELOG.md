@@ -31,6 +31,19 @@ versions follow [Semantic Versioning](https://semver.org/).
   language/voice switching, and completion tracking behave identically. The
   existing designs (full, banner, pill, accordion, inline) are unchanged.
 
+### Fixed
+
+- **N+1 query batching** (GitHub #8): the privacy provider's export and
+  delete-for-user now run a fixed number of bulk queries grouped in memory
+  instead of four queries per module context; asset purges (module/chapter
+  deletion, stale cleanup) clean dependent tables with one IN-list query per
+  table instead of four queries per asset; and the course download page
+  preloads all referenced book chapters in one query instead of two lookups
+  per asset. Stored-file deletion remains per asset as the File API requires.
+- **No more innerHTML in the player** (GitHub #10): the four `innerHTML = ''`
+  container clears now use `replaceChildren()`; all player and admin-page DOM
+  is built via `createElement`/`textContent`, never HTML strings.
+
 ## [1.7.0] — 2026-07-22
 
 ### Changed

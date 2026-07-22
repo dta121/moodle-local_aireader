@@ -202,7 +202,7 @@ class Player {
         if (!this.langPicker || !this.langSelect || langs.length < 2) {
             return;
         }
-        this.langSelect.innerHTML = '';
+        this.langSelect.replaceChildren();
         langs.forEach((lang) => {
             const opt = document.createElement('option');
             opt.value = lang.code;
@@ -220,7 +220,7 @@ class Player {
         if (!this.voicePicker || !this.voiceSelect || voices.length < 2) {
             return;
         }
-        this.voiceSelect.innerHTML = '';
+        this.voiceSelect.replaceChildren();
         voices.forEach((voice) => {
             const opt = document.createElement('option');
             opt.value = voice.code;
@@ -917,7 +917,7 @@ class Player {
         // actively using the reader.
         this.inPlaceInjected = false;
         if (this.transcriptList) {
-            this.transcriptList.innerHTML = '';
+            this.transcriptList.replaceChildren();
         }
         if (this.transcriptEmpty) {
             this.transcriptEmpty.classList.remove('d-none');
@@ -1099,7 +1099,7 @@ class Player {
         if (!this.transcriptList) {
             return;
         }
-        this.transcriptList.innerHTML = '';
+        this.transcriptList.replaceChildren();
         this.paneSegments = [];
         if (!this.segments.length) {
             this.transcriptEmpty.classList.remove('d-none');

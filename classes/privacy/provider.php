@@ -225,98 +225,120 @@ class provider implements
 
         $userid = $contextlist->get_user()->id;
 
+        // Preload everything in four bulk queries and group in memory, rather
+        // than querying per context (a user can have data in hundreds of
+        // module contexts).
+        $modulecontexts = [];
         foreach ($contextlist->get_contexts() as $context) {
-            if ($context->contextlevel !== CONTEXT_MODULE) {
-                continue;
+            if ($context->contextlevel === CONTEXT_MODULE) {
+                $modulecontexts[$context->id] = $context;
             }
+        }
+        if (!$modulecontexts) {
+            return;
+        }
 
-            $positions = $DB->get_records_sql(
-                "SELECT p.id, p.position, p.timemodified, a.module, a.cmid, a.chapterid, a.lang
-                   FROM {local_aireader_position} p
-                   JOIN {local_aireader_asset} a ON a.id = p.assetid
-                  WHERE p.userid = :userid AND a.contextid = :contextid",
-                ['userid' => $userid, 'contextid' => $context->id]
-            );
-            $rows = [];
-            foreach ($positions as $p) {
-                $rows[] = [
-                    'module'    => $p->module,
-                    'cmid'      => (int)$p->cmid,
-                    'chapterid' => (int)$p->chapterid,
-                    'lang'      => $p->lang,
-                    'position'  => (int)$p->position,
-                    'updated'   => \core_privacy\local\request\transform::datetime((int)$p->timemodified),
-                ];
-            }
-            if ($rows) {
+        [$ctxsql, $ctxparams] = $DB->get_in_or_equal(array_keys($modulecontexts), SQL_PARAMS_NAMED, 'ctx');
+        $params = $ctxparams + ['userid' => $userid];
+
+        $positionsbyctx = [];
+        $positions = $DB->get_records_sql(
+            "SELECT p.id, a.contextid, p.position, p.timemodified, a.module, a.cmid, a.chapterid, a.lang
+               FROM {local_aireader_position} p
+               JOIN {local_aireader_asset} a ON a.id = p.assetid
+              WHERE p.userid = :userid AND a.contextid {$ctxsql}",
+            $params
+        );
+        foreach ($positions as $p) {
+            $positionsbyctx[(int)$p->contextid][] = [
+                'module'    => $p->module,
+                'cmid'      => (int)$p->cmid,
+                'chapterid' => (int)$p->chapterid,
+                'lang'      => $p->lang,
+                'position'  => (int)$p->position,
+                'updated'   => \core_privacy\local\request\transform::datetime((int)$p->timemodified),
+            ];
+        }
+
+        $listensbyctx = [];
+        $listens = $DB->get_records_sql(
+            "SELECT l.id, a.contextid, l.startms, l.endms, l.timemodified, a.module, a.cmid, a.chapterid, a.lang
+               FROM {local_aireader_listen} l
+               JOIN {local_aireader_asset} a ON a.id = l.assetid
+              WHERE l.userid = :userid AND a.contextid {$ctxsql}
+              ORDER BY a.id ASC, l.startms ASC",
+            $params
+        );
+        foreach ($listens as $listen) {
+            $listensbyctx[(int)$listen->contextid][] = [
+                'module'    => $listen->module,
+                'cmid'      => (int)$listen->cmid,
+                'chapterid' => (int)$listen->chapterid,
+                'lang'      => $listen->lang,
+                'startms'   => (int)$listen->startms,
+                'endms'     => (int)$listen->endms,
+                'updated'   => \core_privacy\local\request\transform::datetime((int)$listen->timemodified),
+            ];
+        }
+
+        $cmids = array_map(static function ($context) {
+            return (int)$context->instanceid;
+        }, $modulecontexts);
+        [$cmsql, $cmparams] = $DB->get_in_or_equal(array_values($cmids), SQL_PARAMS_NAMED, 'cm');
+        $cmparams['userid'] = $userid;
+
+        $overridesbycm = [];
+        $overrides = $DB->get_records_select(
+            'local_aireader_override',
+            "usermodified = :userid AND cmid {$cmsql}",
+            $cmparams
+        );
+        foreach ($overrides as $o) {
+            $overridesbycm[(int)$o->cmid][] = [
+                'chapterid' => (int)$o->chapterid,
+                'enabled'   => (bool)$o->enabled,
+                'updated'   => \core_privacy\local\request\transform::datetime((int)$o->timemodified),
+            ];
+        }
+
+        $completionsbycm = [];
+        $completions = $DB->get_records_select(
+            'local_aireader_completion',
+            "usermodified = :userid AND cmid {$cmsql}",
+            $cmparams
+        );
+        foreach ($completions as $completion) {
+            $completionsbycm[(int)$completion->cmid][] = [
+                'enabled'   => (bool)$completion->enabled,
+                'threshold' => (int)$completion->threshold,
+                'updated'   => \core_privacy\local\request\transform::datetime((int)$completion->timemodified),
+            ];
+        }
+
+        foreach ($modulecontexts as $contextid => $context) {
+            $cmid = (int)$context->instanceid;
+            if (!empty($positionsbyctx[$contextid])) {
                 writer::with_context($context)->export_data(
                     [get_string('pluginname', 'local_aireader'), 'positions'],
-                    (object)['rows' => $rows]
+                    (object)['rows' => $positionsbyctx[$contextid]]
                 );
             }
-
-            $listens = $DB->get_records_sql(
-                "SELECT l.id, l.startms, l.endms, l.timemodified, a.module, a.cmid, a.chapterid, a.lang
-                   FROM {local_aireader_listen} l
-                   JOIN {local_aireader_asset} a ON a.id = l.assetid
-                  WHERE l.userid = :userid AND a.contextid = :contextid
-                  ORDER BY a.id ASC, l.startms ASC",
-                ['userid' => $userid, 'contextid' => $context->id]
-            );
-            $lrows = [];
-            foreach ($listens as $listen) {
-                $lrows[] = [
-                    'module'    => $listen->module,
-                    'cmid'      => (int)$listen->cmid,
-                    'chapterid' => (int)$listen->chapterid,
-                    'lang'      => $listen->lang,
-                    'startms'   => (int)$listen->startms,
-                    'endms'     => (int)$listen->endms,
-                    'updated'   => \core_privacy\local\request\transform::datetime((int)$listen->timemodified),
-                ];
-            }
-            if ($lrows) {
+            if (!empty($listensbyctx[$contextid])) {
                 writer::with_context($context)->export_data(
                     [get_string('pluginname', 'local_aireader'), 'listened_ranges'],
-                    (object)['rows' => $lrows]
+                    (object)['rows' => $listensbyctx[$contextid]]
                 );
             }
-
-            $overrides = $DB->get_records('local_aireader_override', [
-                'cmid'         => $context->instanceid,
-                'usermodified' => $userid,
-            ]);
-            $orows = [];
-            foreach ($overrides as $o) {
-                $orows[] = [
-                    'chapterid' => (int)$o->chapterid,
-                    'enabled'   => (bool)$o->enabled,
-                    'updated'   => \core_privacy\local\request\transform::datetime((int)$o->timemodified),
-                ];
-            }
-            if ($orows) {
+            if (!empty($overridesbycm[$cmid])) {
                 writer::with_context($context)->export_data(
                     [get_string('pluginname', 'local_aireader'), 'overrides_set'],
-                    (object)['rows' => $orows]
+                    (object)['rows' => $overridesbycm[$cmid]]
                 );
             }
-
-            $completions = $DB->get_records('local_aireader_completion', [
-                'cmid'         => $context->instanceid,
-                'usermodified' => $userid,
-            ]);
-            $crows = [];
-            foreach ($completions as $completion) {
-                $crows[] = [
-                    'enabled'   => (bool)$completion->enabled,
-                    'threshold' => (int)$completion->threshold,
-                    'updated'   => \core_privacy\local\request\transform::datetime((int)$completion->timemodified),
-                ];
-            }
-            if ($crows) {
+            if (!empty($completionsbycm[$cmid])) {
                 writer::with_context($context)->export_data(
                     [get_string('pluginname', 'local_aireader'), 'completion_settings_changed'],
-                    (object)['rows' => $crows]
+                    (object)['rows' => $completionsbycm[$cmid]]
                 );
             }
         }
@@ -363,35 +385,50 @@ class provider implements
             return;
         }
         $userid = $contextlist->get_user()->id;
+
+        // Batch across all module contexts (four queries total) instead of
+        // four queries per context.
+        $contextids = [];
+        $cmids = [];
         foreach ($contextlist->get_contexts() as $context) {
-            if ($context->contextlevel !== CONTEXT_MODULE) {
-                continue;
+            if ($context->contextlevel === CONTEXT_MODULE) {
+                $contextids[] = $context->id;
+                $cmids[] = (int)$context->instanceid;
             }
-            $DB->delete_records_select(
-                'local_aireader_position',
-                'userid = :userid AND assetid IN (SELECT id FROM {local_aireader_asset} WHERE contextid = :contextid)',
-                ['userid' => $userid, 'contextid' => $context->id]
-            );
-            $DB->delete_records_select(
-                'local_aireader_listen',
-                'userid = :userid AND assetid IN (SELECT id FROM {local_aireader_asset} WHERE contextid = :contextid)',
-                ['userid' => $userid, 'contextid' => $context->id]
-            );
-            $DB->set_field_select(
-                'local_aireader_override',
-                'usermodified',
-                0,
-                'cmid = :cmid AND usermodified = :userid',
-                ['cmid' => $context->instanceid, 'userid' => $userid]
-            );
-            $DB->set_field_select(
-                'local_aireader_completion',
-                'usermodified',
-                0,
-                'cmid = :cmid AND usermodified = :userid',
-                ['cmid' => $context->instanceid, 'userid' => $userid]
-            );
         }
+        if (!$contextids) {
+            return;
+        }
+
+        [$ctxsql, $ctxparams] = $DB->get_in_or_equal($contextids, SQL_PARAMS_NAMED, 'ctx');
+        $params = $ctxparams + ['userid' => $userid];
+        $DB->delete_records_select(
+            'local_aireader_position',
+            "userid = :userid AND assetid IN (SELECT id FROM {local_aireader_asset} WHERE contextid {$ctxsql})",
+            $params
+        );
+        $DB->delete_records_select(
+            'local_aireader_listen',
+            "userid = :userid AND assetid IN (SELECT id FROM {local_aireader_asset} WHERE contextid {$ctxsql})",
+            $params
+        );
+
+        [$cmsql, $cmparams] = $DB->get_in_or_equal($cmids, SQL_PARAMS_NAMED, 'cm');
+        $cmparams['userid'] = $userid;
+        $DB->set_field_select(
+            'local_aireader_override',
+            'usermodified',
+            0,
+            "usermodified = :userid AND cmid {$cmsql}",
+            $cmparams
+        );
+        $DB->set_field_select(
+            'local_aireader_completion',
+            'usermodified',
+            0,
+            "usermodified = :userid AND cmid {$cmsql}",
+            $cmparams
+        );
     }
 
     /**
