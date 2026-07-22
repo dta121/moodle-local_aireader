@@ -36,7 +36,11 @@ typically on translated narrations or pages with embedded video.
 - Optional **karaoke-style highlighting** that lights up the words on the
   page as the audio reads them, with a click-to-seek transcript.
 - Optional **language picker** — the page is translated and re-narrated in
-  whichever languages you've enabled.
+  whichever languages you've enabled (a checklist of every language the
+  OpenAI speech models support).
+- Optional **voice picker** — enable two or more OpenAI voices and learners
+  choose who reads to them; each voice's audio is generated once and cached
+  like everything else.
 
 ## What instructors get
 
@@ -48,6 +52,12 @@ typically on translated narrations or pages with embedded video.
 - A regenerate button when content changes.
 - Hidden chapters stay hidden — students can't sneak audio for chapters
   they're not allowed to see.
+- **Eight player looks** to match the course design: the full player, a
+  one-row slim bar, pill triggers that expand on click, a banner, an
+  accordion, and a pill + bottom-docked mini-player whose controls follow
+  the learner down long pages.
+- A redesigned settings page: six sections with a filter, per-setting
+  defaults with one-click reset, and advanced options tucked away.
 
 ## What it's good for
 
@@ -111,9 +121,11 @@ HTTPS; loopback, private, and link-local addresses are blocked.
    fill in:
 
    - **OpenAI API key** — your `sk-…` key.
-   - **Voice** and **TTS model** (defaults work for most sites).
-   - *(Optional)* **Languages offered to learners** — a comma-separated list
-     like `en,es,fr,pt,zh_cn`. Leave as `en` to hide the language picker.
+   - **Default voice** and **TTS model** (defaults work for most sites).
+   - *(Optional)* **Voices offered to learners** — tick extra voices to give
+     learners a voice picker on the player.
+   - *(Optional)* **Languages offered to learners** — tick the languages to
+     offer; leave only English ticked to hide the language picker.
    - *(Optional)* **Enable Whisper alignment** — turns on the karaoke
      highlighting.
 
@@ -132,6 +144,9 @@ Roughly:
   page or chapter.
 - **~$0.0003** per 1000 words for each translated language, one-time.
 - **~$0.006** per minute of audio if you enable karaoke highlighting.
+- Each extra **voice** a learner actually requests is another one-time TTS
+  generation for that page — the enabled-voices checklist is your budget
+  lever.
 
 Multiply by however many of your pages and books learners actually open.
 Everything is cached on your Moodle site after first render, so a class

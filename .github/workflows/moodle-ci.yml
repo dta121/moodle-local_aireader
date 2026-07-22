@@ -131,30 +131,6 @@ jobs:
         if: ${{ !cancelled() }}
         run: moodle-plugin-ci grunt --max-lint-warnings 0
 
-      # TEMPORARY: capture CI's own AMD rebuild so the exact bytes can be
-      # committed (local rollup output is byte-different from CI's toolchain;
-      # moodle-plugin-ci reverts its rebuild after the stale check, so grunt
-      # must be re-run here to regenerate the files). Remove after committing.
-      - name: Capture rebuilt AMD bundles
-        if: ${{ !cancelled() && matrix.moodle-branch == 'MOODLE_405_STABLE' && matrix.php == '8.1' }}
-        run: |
-          PLUGIN_DIR=$(find . -maxdepth 5 -type d -path '*/local/aireader' \
-            -not -path '*/node_modules/*' -not -path '*/.git/*' \
-            -not -path './plugin' -not -path './plugin/*' \
-            -print -quit)
-          MOODLE_ROOT=$(dirname "$(dirname "$PLUGIN_DIR")")
-          REL=${PLUGIN_DIR#"$MOODLE_ROOT"/}
-          ( cd "$MOODLE_ROOT" && npx grunt amd --root="$REL" --force ) || true
-          mkdir -p /tmp/amd-capture
-          cp -v "$PLUGIN_DIR"/amd/build/* /tmp/amd-capture/
-
-      - name: Upload rebuilt AMD bundles
-        if: ${{ !cancelled() && matrix.moodle-branch == 'MOODLE_405_STABLE' && matrix.php == '8.1' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: amd-build-rebuilt
-          path: /tmp/amd-capture/
-
       - name: Lint AMD source (eslint, fail on warning)
         if: ${{ !cancelled() }}
         run: |
