@@ -61,12 +61,13 @@ function local_aireader_pluginfile($course, $cm, $context, $filearea, $args, $fo
 
     // Stored audio for a disabled scope behaves as if it does not exist, the
     // same gate download_manager applies when packaging the course ZIP.
-    if (!\local_aireader\manager\asset_manager::is_narration_available(
+    $narrationavailable = \local_aireader\manager\asset_manager::is_narration_available(
         (string)$asset->module,
         (int)$asset->cmid,
         (int)$asset->chapterid,
         $sourcecontext
-    )) {
+    );
+    if (!$narrationavailable) {
         send_file_not_found();
     }
 

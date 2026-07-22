@@ -34,7 +34,12 @@
 
 const tpl = (template, value) => String(template || '').replace('%%', String(value));
 
-const normalise = (value) => String(value == null ? '' : value).replace(/\r\n/g, '\n');
+const normalise = (value) => {
+    if (value === null || value === undefined) {
+        return '';
+    }
+    return String(value).replace(/\r\n/g, '\n');
+};
 
 /**
  * The option key of a multicheckbox input. Moodle names these
@@ -59,7 +64,10 @@ const multiKey = (box) => {
 const currentValue = (row, meta) => {
     if (meta.type === 'checkbox') {
         const box = row.querySelector('.form-setting input[type="checkbox"]');
-        return box ? (box.checked ? '1' : '0') : null;
+        if (!box) {
+            return null;
+        }
+        return box.checked ? '1' : '0';
     }
     if (meta.type === 'multi') {
         const boxes = row.querySelectorAll('.form-setting input[type="checkbox"]');

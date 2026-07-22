@@ -157,14 +157,14 @@ class openai_translator {
                 ['role' => 'user', 'content' => $cleantext],
             ],
         ];
-        // gpt-5-chat-* is the family's non-reasoning variant: it takes a
-        // temperature like gpt-4o and rejects reasoning_effort.
+        // The gpt-5-chat-* models are the family's non-reasoning variant:
+        // they take a temperature like gpt-4o and reject reasoning_effort.
         $isreasoning = (bool)preg_match('/^(gpt-5(?!-chat)|o\d)/i', $model);
         if (!$isreasoning) {
             $payload['temperature'] = 0.2;
         }
         if ($isreasoning && preg_match('/^gpt-5/i', $model)) {
-            // 'minimal' is gpt-5-only; o-series models would reject it.
+            // Only gpt-5 accepts 'minimal'; o-series models would reject it.
             $payload['reasoning_effort'] = 'minimal';
         }
         return $payload;

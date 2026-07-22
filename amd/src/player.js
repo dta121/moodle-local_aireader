@@ -1743,6 +1743,10 @@ const renderDocked = (target, config, autoplay) => {
  *
  * @param {HTMLElement} mount The hook-injected mount point.
  * @param {object} config Player config (including design + accentcolor).
+ * @param {object} [options] Expansion behaviour overrides.
+ * @param {Function} [options.render] Renderer for the expand region (defaults to the full player).
+ * @param {string} [options.triggerdesign] Visual design class for the trigger itself.
+ * @param {boolean} [options.hidetrigger] Hide the trigger once expanded (slim designs).
  */
 const renderTrigger = async(mount, config, options = {}) => {
     const render = options.render || renderPlayer;

@@ -60,7 +60,7 @@ if ($hassiteconfig) {
     $settings = new admin_settingpage('local_aireader', get_string('pluginname', 'local_aireader'));
     $ADMIN->add('localplugins', $settings);
 
-    // ---------------------------------------------------------------- Setup & connection.
+    // Section: Setup & connection.
     $settings->add(new admin_setting_heading(
         'local_aireader/heading_setup',
         get_string('setting_heading_setup', 'local_aireader'),
@@ -121,7 +121,7 @@ if ($hassiteconfig) {
         PARAM_URL
     ));
 
-    // ---------------------------------------------------------------- Content & generation.
+    // Section: Content & generation.
     $settings->add(new admin_setting_heading(
         'local_aireader/heading_content',
         get_string('setting_heading_content', 'local_aireader'),
@@ -189,7 +189,7 @@ if ($hassiteconfig) {
         PARAM_INT
     ));
 
-    // ---------------------------------------------------------------- Player.
+    // Section: Player.
     $settings->add(new admin_setting_heading(
         'local_aireader/heading_player',
         get_string('setting_heading_player', 'local_aireader'),
@@ -257,7 +257,7 @@ if ($hassiteconfig) {
         PARAM_INT
     ));
 
-    // ---------------------------------------------------------------- Cost tracking.
+    // Section: Cost tracking.
     $settings->add(new admin_setting_heading(
         'local_aireader/heading_cost',
         get_string('setting_heading_cost', 'local_aireader'),
@@ -272,7 +272,7 @@ if ($hassiteconfig) {
         PARAM_RAW
     ));
 
-    // ---------------------------------------------------------------- Languages & translation.
+    // Section: Languages & translation.
     $settings->add(new admin_setting_heading(
         'local_aireader/heading_languages',
         get_string('setting_heading_languages', 'local_aireader'),
@@ -326,7 +326,7 @@ if ($hassiteconfig) {
         PARAM_URL
     ));
 
-    // ---------------------------------------------------------------- Transcript & highlighting.
+    // Section: Transcript & highlighting.
     $settings->add(new admin_setting_heading(
         'local_aireader/heading_transcript',
         get_string('setting_heading_transcript', 'local_aireader'),
