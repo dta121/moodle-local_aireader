@@ -592,7 +592,9 @@ export const init = (cfg) => {
             new AdminUi(cfg, form, container).build();
         } catch (e) {
             // Progressive enhancement only: leave the stock form untouched.
-            window.console && window.console.warn('local_aireader admin UI skipped:', e);
+            if (window.console) {
+                window.console.warn('local_aireader admin UI skipped:', e);
+            }
         }
     };
     if (document.readyState === 'loading') {
