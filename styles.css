@@ -1379,6 +1379,12 @@ mark.local-aireader-mark.is-current {
 .local-aireader-slim {
     border-radius: 10px;
     box-shadow: 0 1px 3px rgba(20, 30, 40, 0.05);
+    /* The ⋯ overflow menu is an absolutely-positioned child that floats below
+       the row, outside the card's own bounds; it must not be clipped by the
+       base .local-aireader overflow:hidden (needed elsewhere for corner
+       clipping, but the slim variant already zeroes its own children's
+       border-radius instead of relying on that clip). */
+    overflow: visible;
 }
 
 .local-aireader-slim-row {
