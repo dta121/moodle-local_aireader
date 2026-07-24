@@ -303,7 +303,8 @@ class hook_callbacks {
         }
         $defaultlang = current_language();
         if (!in_array($defaultlang, $enabledcodes, true)) {
-            $defaultlang = $enabledcodes[0];
+            $sitelang = (string)($GLOBALS['CFG']->lang ?? 'en');
+            $defaultlang = in_array($sitelang, $enabledcodes, true) ? $sitelang : $enabledcodes[0];
         }
 
         // Build the voice menu (default voice first; picker hides when only one).
