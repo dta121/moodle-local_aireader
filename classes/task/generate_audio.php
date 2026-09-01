@@ -31,8 +31,10 @@ use local_aireader\manager\content_extractor;
 use local_aireader\manager\id3_writer;
 use local_aireader\manager\openai_client;
 use local_aireader\manager\openai_translator;
+use local_aireader\exception\api_http_error;
 use local_aireader\manager\storage;
 use local_aireader\manager\translation_manager;
+use local_aireader\manager\tts_splitter;
 use local_aireader\task\align_audio;
 
 /**
@@ -130,10 +132,12 @@ class generate_audio extends adhoc_task {
                 );
             }
 
-            $chunksize = (int)get_config('local_aireader', 'chunk_size');
-            if ($chunksize <= 0) {
-                $chunksize = openai_client::DEFAULT_CHUNK_SIZE;
-            }
+            // Token-capped models need a tighter character ceiling than the
+            // configured default; see openai_client::chunk_size_for().
+            $chunksize = openai_client::chunk_size_for(
+                (string)$asset->model,
+                (int)get_config('local_aireader', 'chunk_size')
+            );
             $chunks = openai_client::chunk_text($narrationtext, $chunksize);
             if (!$chunks) {
                 throw new \moodle_exception('error_empty_content', 'local_aireader');
@@ -146,7 +150,16 @@ class generate_audio extends adhoc_task {
             $audio = '';
             foreach ($chunks as $i => $chunk) {
                 mtrace("local_aireader: asset {$asset->id} chunk " . ($i + 1) . '/' . count($chunks));
-                $audio .= $client->synthesize($chunk, $asset->model, $asset->voice, $instructions);
+                // No local token count can be trusted for arbitrary translated
+                // content, so let the endpoint be the authority: if it rejects
+                // the chunk as too long, split it and retry the pieces.
+                $audio .= tts_splitter::synthesize_split(
+                    static function (string $piece) use ($client, $asset, $instructions): string {
+                        return $client->synthesize($piece, $asset->model, $asset->voice, $instructions);
+                    },
+                    $chunk,
+                    $chunksize
+                );
             }
 
             // Embed ID3 metadata so downloaded files are recognisable in a
@@ -175,6 +188,14 @@ class generate_audio extends adhoc_task {
             $message = $e->getMessage();
             mtrace("local_aireader: generation failed for asset {$asset->id}: {$message}");
             asset_manager::update_status($asset->id, asset_manager::STATUS_ERROR, $message);
+            // Rethrowing a permanent failure makes Moodle retry it daily
+            // forever, so the task never leaves the failed queue and the error
+            // is reported over and over. The asset already carries the error
+            // for the dashboard, so swallow what an identical retry cannot fix.
+            if ($e instanceof api_http_error && !api_http_error::retryable((int)$e->status)) {
+                mtrace("local_aireader: asset {$asset->id} failure is permanent, not retrying");
+                return;
+            }
             throw $e;
         }
     }

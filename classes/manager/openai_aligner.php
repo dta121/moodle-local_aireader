@@ -120,10 +120,9 @@ class openai_aligner {
         $status = (int)($info['http_code'] ?? 0);
 
         if ($status < 200 || $status >= 300) {
-            throw new \moodle_exception(
+            throw new \local_aireader\exception\api_http_error(
                 'error_alignment_http',
-                'local_aireader',
-                '',
+                $status,
                 http_guard::sanitize_error($status, $response)
             );
         }

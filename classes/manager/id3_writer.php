@@ -143,10 +143,13 @@ class id3_writer {
     /**
      * Remove an ID3v2 tag from the start of an mp3 if one is present.
      *
+     * Public because {@see mp3_splitter} needs to reach the first audio frame
+     * of a stored narration, which carries the tag this class wrote.
+     *
      * @param string $mp3 Raw mp3 bytes.
      * @return string The mp3 with any leading ID3v2 tag removed.
      */
-    private static function strip_leading_tag(string $mp3): string {
+    public static function strip_leading_tag(string $mp3): string {
         if (strlen($mp3) < 10 || strncmp($mp3, 'ID3', 3) !== 0) {
             return $mp3;
         }
