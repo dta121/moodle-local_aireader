@@ -49,6 +49,28 @@ class openai_client {
      */
     public const DEFAULT_MAX_TOKENS = 1800;
 
+    /**
+     * @var int Character ceiling for models that cap on tokens rather than characters.
+     *
+     * DEFAULT_MAX_TOKENS cannot enforce the 2000-token limit on its own:
+     * estimate_tokens() counts non-CJK text as length/4, so reaching 1800
+     * estimated tokens needs 7200+ characters, which the character cap makes
+     * unreachable. Latin text therefore passed the local check and was rejected
+     * by the API (observed: 2159 real tokens, roughly 1.8 chars per token).
+     *
+     * 2400 characters is the ceiling for token-capped models. Combined with the
+     * split-and-retry in {@see \local_aireader\manager\tts_splitter}, which
+     * subdivides to about 150 characters, this tolerates roughly 13 tokens per
+     * character before giving up, so no characters-per-token assumption is
+     * load-bearing.
+     */
+    public const MAX_CHUNK_SIZE_TOKEN_CAPPED = 2400;
+
+    /**
+     * @var array Models that cap input on tokens rather than characters.
+     */
+    private const TOKEN_CAPPED_MODELS = ['gpt-4o-mini-tts'];
+
     /** @var string Bearer API key. */
     private $apikey;
     /** @var string Endpoint URL. */
@@ -157,12 +179,13 @@ class openai_client {
         $status = (int)($info['http_code'] ?? 0);
 
         if ($status < 200 || $status >= 300) {
-            throw new \moodle_exception(
-                'error_tts_http',
-                'local_aireader',
-                '',
-                http_guard::sanitize_error($status, $response)
-            );
+            $detail = http_guard::sanitize_error($status, $response);
+            // An over-length input is recoverable by splitting, so it gets its
+            // own type; every other failure stays fatal as before.
+            if (\local_aireader\exception\tts_input_too_long::matches($status, $detail)) {
+                throw new \local_aireader\exception\tts_input_too_long($detail);
+            }
+            throw new \local_aireader\exception\api_http_error('error_tts_http', $status, $detail);
         }
 
         if (!is_string($response) || $response === '') {
@@ -185,6 +208,30 @@ class openai_client {
      * @param int $maxtokens Maximum estimated tokens per chunk (<=0 uses {@see DEFAULT_MAX_TOKENS}).
      * @return string[]
      */
+    /**
+     * Resolve the character cap to chunk with for a given TTS model.
+     *
+     * `tts-1` and `tts-1-hd` cap on 4096 characters, for which the historic
+     * 3800 is correct, so they keep it. Only token-capped models are held to
+     * the tighter ceiling: applying 2400 everywhere would make sites that never
+     * had this problem issue roughly 60% more TTS requests for no benefit.
+     *
+     * A smaller configured value is always honoured; a larger one is clamped.
+     *
+     * @param string $model TTS model id, e.g. 'gpt-4o-mini-tts'.
+     * @param int $configured The admin-configured chunk size in characters; <=0 uses the default.
+     * @return int Character cap to pass to {@see chunk_text()}.
+     */
+    public static function chunk_size_for(string $model, int $configured): int {
+        if ($configured <= 0) {
+            $configured = self::DEFAULT_CHUNK_SIZE;
+        }
+        $ceiling = in_array($model, self::TOKEN_CAPPED_MODELS, true)
+            ? self::MAX_CHUNK_SIZE_TOKEN_CAPPED
+            : self::DEFAULT_CHUNK_SIZE;
+        return min($configured, $ceiling);
+    }
+
     public static function chunk_text(string $text, int $maxchars, int $maxtokens = self::DEFAULT_MAX_TOKENS): array {
         $text = trim($text);
         if ($text === '') {

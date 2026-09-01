@@ -112,6 +112,7 @@ $string['error_translation_empty'] = 'Translation model returned an empty result
 $string['error_translation_http'] = 'Translation request failed: {$a}';
 $string['error_tts_empty'] = 'TTS response was empty.';
 $string['error_tts_http'] = 'TTS request failed: {$a}';
+$string['error_tts_input_too_long'] = 'TTS rejected the text as too long, even after splitting it: {$a}';
 $string['form_completion_enabled'] = 'Use AI narration listening for activity completion';
 $string['form_completion_enabled_help'] = 'When on, the activity is marked complete after the learner listens to the configured percentage of a generated AI Reader narration in the embedded Moodle player. Plain downloaded MP3 playback is not counted. Moodle activity completion must also be enabled for this activity.';
 $string['form_completion_note'] = 'When this is on, AI Reader sets this activity to automatic completion and removes Moodle\'s native "view the activity" completion rule on save, so viewing alone does not complete it.';

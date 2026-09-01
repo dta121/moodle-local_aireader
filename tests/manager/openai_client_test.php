@@ -93,4 +93,47 @@ final class openai_client_test extends \advanced_testcase {
         // 12 Latin chars -> ceil(12/4) = 3 tokens.
         $this->assertSame(3, openai_client::estimate_tokens('hello world!'));
     }
+
+    /**
+     * Token-capped models get the tighter character ceiling; character-capped ones do not.
+     *
+     * @covers ::chunk_size_for
+     */
+    public function test_chunk_size_for_is_model_aware(): void {
+        $this->assertSame(2400, openai_client::chunk_size_for('gpt-4o-mini-tts', 3800));
+        $this->assertSame(3800, openai_client::chunk_size_for('tts-1', 3800));
+        $this->assertSame(3800, openai_client::chunk_size_for('tts-1-hd', 5000));
+    }
+
+    /**
+     * A smaller configured chunk size is honoured; a larger one is clamped.
+     *
+     * The clamp is what actually fixes the live site: its stored chunk_size is
+     * the historic 3800, so changing only the default would have changed nothing.
+     *
+     * @covers ::chunk_size_for
+     */
+    public function test_chunk_size_for_clamps_rather_than_overrides(): void {
+        $this->assertSame(900, openai_client::chunk_size_for('gpt-4o-mini-tts', 900));
+        $this->assertSame(2400, openai_client::chunk_size_for('gpt-4o-mini-tts', 99999));
+        $this->assertSame(2400, openai_client::chunk_size_for('gpt-4o-mini-tts', 0));
+        $this->assertSame(3800, openai_client::chunk_size_for('tts-1', -5));
+    }
+
+    /**
+     * The estimator alone cannot enforce the token limit, which is why the
+     * character cap and the split-and-retry carry the guarantee.
+     *
+     * Documents the defect rather than asserting a fix: reaching the 1800-token
+     * ceiling needs 7200+ characters, which no chunk size here permits.
+     *
+     * @covers ::estimate_tokens
+     */
+    public function test_token_ceiling_is_unreachable_within_the_character_cap(): void {
+        $maxchunk = str_repeat('a', openai_client::MAX_CHUNK_SIZE_TOKEN_CAPPED);
+
+        $estimated = openai_client::estimate_tokens($maxchunk);
+
+        $this->assertLessThan(openai_client::DEFAULT_MAX_TOKENS, $estimated);
+    }
 }
