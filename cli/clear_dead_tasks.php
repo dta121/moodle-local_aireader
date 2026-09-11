@@ -22,7 +22,12 @@
  * silently block every attempt to re-queue narration for the same asset.
  * Removing them is what makes those narrations regenerable again.
  *
- * Deletes task rows only. No asset row, and no stored audio file, is touched.
+ * Since 1.8.3 the reap_dead_tasks scheduled task does this hourly on its own;
+ * this script is for clearing a backlog immediately without waiting for cron.
+ *
+ * Deletes task rows, and lifts the retry cool-down on the assets they named so
+ * the work is picked up on the next page view. No other asset field is changed
+ * and no stored audio file is touched.
  *
  * @package    local_aireader
  * @copyright  2026 Saylor Academy
@@ -54,9 +59,19 @@ if ($options['help']) {
 Clear AI Reader ad hoc tasks that have exhausted their retry attempts.
 
 These are the tasks showing "Next run: Never". They will never run again, and
-they block re-queueing narration for the assets they name. Deleting them lets a
-page view or the Regenerate button schedule fresh work with a full attempt
-budget. Audio files and asset rows are never touched.
+they block re-queueing work for the assets they name. Deleting them lets fresh
+work be scheduled with a full attempt budget:
+
+  generate_audio  re-queued when someone next opens the page, or straight away
+                  by an admin pressing Regenerate in the player.
+  align_audio     re-queued when someone next opens the page, because the asset
+                  is already "ready" and only a missing-segments check brings
+                  alignment back. (On releases before 1.8.3 nothing re-queued
+                  alignment at all.)
+
+The retry cool-down on those assets is lifted too, so the re-queue is not held
+back by a backoff set while the dead row was still in the way. Audio files are
+never touched, and no other asset field is changed.
 
 Run with --dry-run first to see exactly what would be deleted.
 
@@ -98,8 +113,24 @@ cli_writeln($dryrun
     : "{$count} task row(s) deleted. No audio was removed.");
 
 if (!$dryrun) {
-    cli_writeln('Narration for the listed assets can now be re-queued by viewing the '
-        . 'page or by pressing Regenerate in the player.');
+    $classes = array_unique(array_map(static function (\stdClass $row): string {
+        return $row->classname;
+    }, $rows));
+
+    cli_writeln('Retry cool-downs on the listed assets were lifted. What happens next:');
+    foreach ($classes as $class) {
+        if (strpos($class, 'generate_audio') !== false) {
+            cli_writeln('  generate_audio: narration is re-queued when someone next opens the '
+                . 'page, or straight away if an admin presses Regenerate.');
+        } else if (strpos($class, 'align_audio') !== false) {
+            cli_writeln('  align_audio: the asset is already "ready" and plays fine; only the '
+                . 'karaoke highlighting is missing. Alignment is re-queued when someone next '
+                . 'opens the page. Regenerate would also work but re-pays for the whole '
+                . 'narration, so it is the more expensive route.');
+        } else {
+            cli_writeln("  {$class}: re-queued by whichever flow creates it.");
+        }
+    }
 }
 
 exit(0);

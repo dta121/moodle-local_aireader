@@ -134,7 +134,11 @@ class request_regen extends external_api {
         );
 
         if ($existing) {
-            if (!asset_manager::queue_generation((int)$existing->id)) {
+            // Forced: this is a manager deliberately asking for the work, so it
+            // ignores the failure cool-down that holds back automatic
+            // re-queueing from page views. It is still subject to Moodle's own
+            // duplicate-payload check below.
+            if (!asset_manager::queue_generation((int)$existing->id, true)) {
                 // A task with this payload is already queued. Moving the asset
                 // to "pending" anyway would take a failed narration off the
                 // dashboard and replace the only signal the admin has with a

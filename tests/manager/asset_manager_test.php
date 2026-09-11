@@ -306,4 +306,200 @@ final class asset_manager_test extends \advanced_testcase {
         // A different asset is unaffected.
         $this->assertTrue(asset_manager::queue_generation(4343));
     }
+
+    /**
+     * Each failure pushes the next automatic attempt further out.
+     *
+     * Deleting the exhausted task row is what unblocks re-queueing, but it also
+     * removed the accidental spend cap that row provided, so the asset has to
+     * carry one of its own.
+     *
+     * @covers ::update_status
+     */
+    public function test_each_error_extends_the_cooldown(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $assetid = $this->create_asset(asset_manager::STATUS_PENDING);
+
+        asset_manager::update_status($assetid, asset_manager::STATUS_ERROR, 'HTTP 400');
+        $first = $DB->get_record('local_aireader_asset', ['id' => $assetid]);
+        $this->assertSame(1, (int)$first->failcount);
+        $this->assertEqualsWithDelta($first->timemodified + 3600, (int)$first->retryafter, 5);
+
+        asset_manager::update_status($assetid, asset_manager::STATUS_ERROR, 'HTTP 400');
+        $second = $DB->get_record('local_aireader_asset', ['id' => $assetid]);
+        $this->assertSame(2, (int)$second->failcount);
+        $this->assertEqualsWithDelta($second->timemodified + 7200, (int)$second->retryafter, 5);
+    }
+
+    /**
+     * An automatic caller is refused while the cool-down runs; a human asking
+     * for it explicitly is not. That is the whole point of the distinction —
+     * page views must not be able to spend money in a loop, and Regenerate must
+     * always do something.
+     *
+     * @covers ::queue_generation
+     */
+    public function test_the_cooldown_blocks_automatic_queues_but_not_forced_ones(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $assetid = $this->create_asset(asset_manager::STATUS_ERROR);
+        $DB->set_field('local_aireader_asset', 'retryafter', time() + 600, ['id' => $assetid]);
+
+        $this->assertFalse(asset_manager::queue_generation($assetid));
+        $this->assertFalse($DB->record_exists('task_adhoc', ['component' => 'local_aireader']));
+
+        $this->assertTrue(asset_manager::queue_generation($assetid, true));
+        $this->assertTrue($DB->record_exists('task_adhoc', ['component' => 'local_aireader']));
+    }
+
+    /**
+     * Once the cool-down has expired the automatic path works again.
+     *
+     * @covers ::queue_generation
+     */
+    public function test_an_expired_cooldown_allows_the_queue_again(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $assetid = $this->create_asset(asset_manager::STATUS_ERROR);
+        $DB->set_field('local_aireader_asset', 'retryafter', time() - 1, ['id' => $assetid]);
+
+        $this->assertTrue(asset_manager::queue_generation($assetid));
+    }
+
+    /**
+     * Success wipes the slate: new audio is new bytes, so nothing about the
+     * previous failures should hold back work on it.
+     *
+     * @covers ::record_generated
+     */
+    public function test_a_successful_generation_clears_both_cooldowns(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $assetid = $this->create_asset(asset_manager::STATUS_ERROR);
+        $DB->update_record('local_aireader_asset', (object)[
+            'id'              => $assetid,
+            'failcount'       => 4,
+            'retryafter'      => time() + 86400,
+            'alignfailcount'  => 3,
+            'alignretryafter' => time() + 86400,
+        ]);
+
+        asset_manager::record_generated($assetid, 0, 1024, null, 500);
+
+        $row = $DB->get_record('local_aireader_asset', ['id' => $assetid]);
+        $this->assertSame(0, (int)$row->failcount);
+        $this->assertNull($row->retryafter);
+        $this->assertSame(0, (int)$row->alignfailcount);
+        $this->assertNull($row->alignretryafter);
+    }
+
+    /**
+     * An alignment failure is recorded without disturbing the narration: the
+     * mp3 still plays, so the asset must stay ready, but the reason has to be
+     * written somewhere that outlives cron's log retention.
+     *
+     * @covers ::record_alignment_failure
+     */
+    public function test_an_alignment_failure_is_recorded_without_changing_status(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $assetid = $this->create_asset(asset_manager::STATUS_READY);
+
+        asset_manager::record_alignment_failure($assetid, 'Whisper returned no segments.');
+
+        $row = $DB->get_record('local_aireader_asset', ['id' => $assetid]);
+        $this->assertSame(asset_manager::STATUS_READY, $row->status);
+        $this->assertSame('Whisper returned no segments.', $row->lasterror);
+        $this->assertSame(1, (int)$row->alignfailcount);
+        $this->assertGreaterThan(time(), (int)$row->alignretryafter);
+        // The generation cool-down is a separate concern and must not move.
+        $this->assertSame(0, (int)$row->failcount);
+        $this->assertNull($row->retryafter);
+    }
+
+    /**
+     * Alignment has its own cool-down, on its own field, so a failing
+     * transcription cannot be re-attempted on every page view either.
+     *
+     * @covers ::queue_alignment
+     * @covers ::clear_alignment_failure
+     */
+    public function test_the_alignment_cooldown_gates_alignment_only(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $assetid = $this->create_asset(asset_manager::STATUS_READY);
+        asset_manager::record_alignment_failure($assetid, 'Whisper returned no segments.');
+
+        $this->assertFalse(asset_manager::queue_alignment($assetid));
+        // Generation is untouched by the alignment cool-down.
+        $this->assertTrue(asset_manager::queue_generation($assetid));
+
+        asset_manager::clear_alignment_failure($assetid);
+        $row = $DB->get_record('local_aireader_asset', ['id' => $assetid]);
+        $this->assertSame(0, (int)$row->alignfailcount);
+        $this->assertNull($row->alignretryafter);
+        $this->assertTrue(asset_manager::queue_alignment($assetid));
+    }
+
+    /**
+     * Lifting the cool-downs leaves the failure counts alone, so if the work
+     * fails again the backoff resumes rather than restarting at an hour.
+     *
+     * @covers ::clear_retry_cooldowns
+     */
+    public function test_clearing_cooldowns_keeps_the_failure_counts(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $assetid = $this->create_asset(asset_manager::STATUS_ERROR);
+        $DB->update_record('local_aireader_asset', (object)[
+            'id'              => $assetid,
+            'failcount'       => 3,
+            'retryafter'      => time() + 86400,
+            'alignfailcount'  => 2,
+            'alignretryafter' => time() + 86400,
+        ]);
+
+        $this->assertSame(1, asset_manager::clear_retry_cooldowns([$assetid, 0, $assetid]));
+
+        $row = $DB->get_record('local_aireader_asset', ['id' => $assetid]);
+        $this->assertNull($row->retryafter);
+        $this->assertNull($row->alignretryafter);
+        $this->assertSame(3, (int)$row->failcount);
+        $this->assertSame(2, (int)$row->alignfailcount);
+        $this->assertSame(0, asset_manager::clear_retry_cooldowns([]));
+    }
+
+    /**
+     * Create a minimal asset row against a real page activity.
+     *
+     * @param string $status One of the STATUS_* constants.
+     * @return int Asset id.
+     */
+    private function create_asset(string $status): int {
+        global $DB;
+        $gen = $this->getDataGenerator();
+        $course = $gen->create_course();
+        $page = $gen->create_module('page', ['course' => $course->id]);
+        $cm = get_coursemodule_from_instance('page', $page->id, $course->id, false, MUST_EXIST);
+        $context = \context_module::instance((int)$cm->id);
+
+        $now = time();
+        return (int)$DB->insert_record('local_aireader_asset', (object)[
+            'courseid'      => (int)$course->id,
+            'cmid'          => (int)$cm->id,
+            'contextid'     => (int)$context->id,
+            'module'        => 'page',
+            'instanceid'    => (int)$cm->instance,
+            'chapterid'     => 0,
+            'lang'          => 'en',
+            'voice'         => 'marin',
+            'model'         => 'gpt-4o-mini-tts',
+            'sourcehash'    => hash('sha256', 'backoff test ' . $status),
+            'status'        => $status,
+            'timecreated'   => $now,
+            'timemodified'  => $now,
+            'lastrequested' => $now,
+        ]);
+    }
 }

@@ -112,6 +112,76 @@ final class align_audio_test extends \advanced_testcase {
     }
 
     /**
+     * Giving up has to leave a trace on the asset.
+     *
+     * The task row is deleted the moment the failure is judged terminal, and
+     * before this the only record was cron output, pruned after
+     * task_logretention days. An asset could therefore end up permanently
+     * without karaoke highlighting with nothing anywhere to say why.
+     *
+     * @covers ::execute
+     */
+    public function test_a_terminal_failure_is_recorded_on_the_asset(): void {
+        global $DB;
+        $assetid = $this->create_ready_asset();
+
+        $task = new align_audio();
+        $task->set_custom_data(['assetid' => $assetid]);
+        $task->set_attempts_available(1);
+        $this->run_task($task);
+
+        $row = $DB->get_record('local_aireader_asset', ['id' => $assetid]);
+        $this->assertNotEmpty($row->lasterror);
+        $this->assertSame(1, (int)$row->alignfailcount);
+        $this->assertGreaterThan(time(), (int)$row->alignretryafter);
+    }
+
+    /**
+     * Having given up, the next page view must not immediately buy another
+     * attempt at the same transcription. Nothing re-queued alignment at all
+     * before 1.8.3; now that something does, it needs a limit.
+     *
+     * @covers ::execute
+     */
+    public function test_giving_up_starts_a_cooldown_on_requeueing(): void {
+        $assetid = $this->create_ready_asset();
+
+        $task = new align_audio();
+        $task->set_custom_data(['assetid' => $assetid]);
+        $task->set_attempts_available(1);
+        $this->run_task($task);
+
+        $this->assertFalse(asset_manager::queue_alignment($assetid));
+        $this->assertTrue(asset_manager::queue_alignment($assetid, true));
+    }
+
+    /**
+     * A failure that is still going to be retried is not recorded as a
+     * give-up, or a long outage would inflate the backoff on every attempt.
+     *
+     * @covers ::execute
+     */
+    public function test_a_retried_failure_does_not_start_a_cooldown(): void {
+        global $DB;
+        $assetid = $this->create_ready_asset();
+
+        $task = new align_audio();
+        $task->set_custom_data(['assetid' => $assetid]);
+        $task->set_attempts_available(12);
+
+        try {
+            $this->run_task($task);
+            $this->fail('Expected the failure to be rethrown');
+        } catch (\moodle_exception $e) {
+            $this->assertNotEmpty($e->getMessage());
+        }
+
+        $row = $DB->get_record('local_aireader_asset', ['id' => $assetid]);
+        $this->assertSame(0, (int)$row->alignfailcount);
+        $this->assertNull($row->alignretryafter);
+    }
+
+    /**
      * Execute a task with mtrace output captured so it does not leak into the
      * test runner's output.
      *

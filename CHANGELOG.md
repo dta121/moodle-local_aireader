@@ -4,6 +4,58 @@ All notable changes to `local_aireader` are documented in this file.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.8.3] - 2026-09-11
+
+Review follow-up to 1.8.2. The retry rule shipped there was sound but it was
+described as more complete than it is, and dropping the failed task row turned
+out to remove a throttle nothing had replaced.
+
+### Fixed
+
+- **Alignment failures are no longer invisible and no longer permanent.**
+  `align_audio` used to give up with nothing but an `mtrace()` line, which
+  `task_logretention` prunes; the asset stayed `ready`, so the failure appeared
+  on no screen at all. It is now recorded on the asset (`record_alignment_failure`),
+  and the report's error column no longer hides errors on non-`error` rows.
+  More importantly there is now a way back: `get_status` re-queues alignment
+  for a ready asset that has no segments, so viewing the page is enough.
+  Previously alignment was only ever queued at the tail of a successful
+  generation, so the only route was Regenerate — which re-pays for a full TTS
+  synthesis of the whole page to retry a transcription.
+- **A permanently-failing asset can no longer be re-queued on every page view.**
+  1.8.2 deletes the exhausted task row, which is what unblocks recovery, but
+  that row was also the only thing rate-limiting `get_status`, which re-queues
+  any pending/stale/error asset on every call with no cooldown. A deterministic
+  failure would therefore have been re-queued, run, failed and re-queued once
+  per cron cycle indefinitely. Assets now carry their own backoff
+  (`retry_backoff`: 1h doubling to a 24h cap, cleared on success), applied to
+  generation and alignment separately. Regenerate bypasses it — that is a human
+  deciding to spend the money.
+- **`failure_policy` no longer claims more than it delivers.** It runs inside
+  the task's `catch`, so it can only act on a failure that reaches PHP as a
+  `Throwable`. A run that dies without unwinding (PHP fatal, `memory_limit`,
+  OOM killer, worker restart) never enters it: core's `task_lock_cleanup_task`
+  fails the task itself and spends the attempt with no plugin code involved.
+  The docblock now says so, and both tasks call `raise_memory_limit(MEMORY_HUGE)`
+  because the whole mp3 is held in a PHP string.
+- **`clear_dead_tasks.php` printed the wrong recovery instruction for
+  `align_audio` rows**, which are half the symptom. It told the operator to
+  view the page or press Regenerate, which did nothing for an asset that is
+  already `ready`. The guidance is now per task class and accurate, and the
+  cleanup lifts the affected assets' cooldowns so the re-queue is not held back
+  by a backoff set while the dead row was in the way.
+
+### Added
+
+- **`reap_dead_tasks` scheduled task**, hourly. Removes this plugin's
+  zero-attempt ad hoc rows whatever created them, which is the only thing that
+  covers the failure paths `failure_policy` cannot see. A dead row now blocks
+  re-queueing for at most an hour instead of four weeks, and each removal is
+  logged as evidence of a failure that never reached a catch block.
+- Four columns on `local_aireader_asset` (`failcount`, `retryafter`,
+  `alignfailcount`, `alignretryafter`) backing the cooldown. Additive; existing
+  rows default to "no cooldown" and behave exactly as before.
+
 ## [1.8.2] - 2026-09-11
 
 ### Fixed

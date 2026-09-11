@@ -159,6 +159,64 @@ final class dead_task_cleaner_test extends \advanced_testcase {
     }
 
     /**
+     * Clearing the row also lifts the asset's cool-down.
+     *
+     * Otherwise the operator deletes the blocker and the work still does not
+     * happen, because a backoff set while the dead row was in the way holds it
+     * for up to another day. The failure counts stay, so the backoff picks up
+     * where it left off if the work fails again.
+     *
+     * @covers ::clear
+     */
+    public function test_clearing_lifts_the_assets_retry_cooldown(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        [$assetid] = $this->create_asset_with_audio();
+        $DB->update_record('local_aireader_asset', (object)[
+            'id'              => $assetid,
+            'failcount'       => 5,
+            'retryafter'      => time() + 86400,
+            'alignfailcount'  => 2,
+            'alignretryafter' => time() + 86400,
+        ]);
+        $this->insert_task('local_aireader\task\generate_audio', 'local_aireader', 0, $assetid);
+
+        dead_task_cleaner::clear(false);
+
+        $row = $DB->get_record('local_aireader_asset', ['id' => $assetid]);
+        $this->assertNull($row->retryafter);
+        $this->assertNull($row->alignretryafter);
+        $this->assertSame(5, (int)$row->failcount);
+        $this->assertSame(2, (int)$row->alignfailcount);
+    }
+
+    /**
+     * A dry run reports without lifting anything, so an operator can look
+     * before touching production.
+     *
+     * @covers ::clear
+     */
+    public function test_a_dry_run_leaves_the_cooldown_in_place(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        [$assetid] = $this->create_asset_with_audio();
+        $when = time() + 86400;
+        $DB->set_field('local_aireader_asset', 'retryafter', $when, ['id' => $assetid]);
+        $this->insert_task('local_aireader\task\generate_audio', 'local_aireader', 0, $assetid);
+
+        dead_task_cleaner::clear(true);
+
+        $this->assertSame(
+            $when,
+            (int)$DB->get_field('local_aireader_asset', 'retryafter', ['id' => $assetid])
+        );
+    }
+
+    /**
      * Insert a task_adhoc row directly, which is the only way to reach the
      * attempts values this class exists to handle.
      *

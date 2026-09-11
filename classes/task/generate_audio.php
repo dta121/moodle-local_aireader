@@ -25,7 +25,6 @@
 namespace local_aireader\task;
 
 use core\task\adhoc_task;
-use core\task\manager as task_manager;
 use local_aireader\manager\asset_manager;
 use local_aireader\manager\content_extractor;
 use local_aireader\manager\id3_writer;
@@ -34,7 +33,6 @@ use local_aireader\manager\openai_translator;
 use local_aireader\manager\storage;
 use local_aireader\manager\translation_manager;
 use local_aireader\manager\tts_splitter;
-use local_aireader\task\align_audio;
 
 /**
  * Ad hoc task that turns a pending or stale asset row into a stored mp3.
@@ -57,6 +55,14 @@ class generate_audio extends adhoc_task {
      * @return void
      */
     public function execute() {
+        // The whole mp3 is accumulated in a PHP string and then copied once
+        // more when the ID3 tag is written, so a long page needs well above the
+        // default cron allowance. Exceeding memory_limit is a fatal, not a
+        // Throwable: the process dies, failure_policy never runs, and core's
+        // lock cleanup spends the attempt for us. That is the one way this task
+        // can still leave a dead row, so give it the headroom not to.
+        raise_memory_limit(MEMORY_HUGE);
+
         $data = (array)($this->get_custom_data() ?? []);
         $assetid = (int)($data['assetid'] ?? 0);
         if ($assetid <= 0) {
@@ -178,10 +184,12 @@ class generate_audio extends adhoc_task {
             // Chain Whisper alignment as a separate task so the audio is
             // immediately playable; karaoke lights up as soon as alignment finishes.
             if (get_config('local_aireader', 'enable_alignment')) {
-                $aligntask = new align_audio();
-                $aligntask->set_custom_data(['assetid' => (int)$asset->id]);
-                task_manager::queue_adhoc_task($aligntask, true);
-                mtrace("local_aireader: queued align_audio for asset {$asset->id}");
+                // record_generated() has already cleared the alignment
+                // cool-down, so this is never held back by an earlier failure
+                // on different bytes.
+                if (asset_manager::queue_alignment((int)$asset->id)) {
+                    mtrace("local_aireader: queued align_audio for asset {$asset->id}");
+                }
             }
         } catch (\Throwable $e) {
             $message = $e->getMessage();

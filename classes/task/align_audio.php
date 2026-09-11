@@ -72,6 +72,13 @@ class align_audio extends adhoc_task {
      * Fetch the asset's mp3 and align it.
      */
     public function execute() {
+        // An oversized narration is held in memory whole and then again as
+        // parts, so the default cron limit is not necessarily enough. A fatal
+        // here is the one failure mode the task cannot classify: the process
+        // dies without unwinding, core fails the task on our behalf, and the
+        // attempt is spent with no code of ours involved.
+        raise_memory_limit(MEMORY_HUGE);
+
         $data = (array)($this->get_custom_data() ?? []);
         $assetid = (int)($data['assetid'] ?? 0);
         if ($assetid <= 0) {
@@ -121,7 +128,14 @@ class align_audio extends adhoc_task {
                 if ($segments === null) {
                     // Unsplittable audio: leave any existing segments alone and
                     // finish cleanly. The narration still plays; only the
-                    // karaoke highlighting is missing.
+                    // karaoke highlighting is missing. Recorded rather than
+                    // merely traced, because it is a permanent property of
+                    // these bytes and a page view would otherwise re-queue the
+                    // same doomed work every time.
+                    asset_manager::record_alignment_failure(
+                        $assetid,
+                        get_string('error_alignment_unsplittable', 'local_aireader')
+                    );
                     return;
                 }
             } else {
@@ -134,6 +148,13 @@ class align_audio extends adhoc_task {
             // re-queues of the narration itself, which is the part learners
             // actually need. See {@see failure_policy}.
             if (failure_policy::is_terminal($e, $this->get_attempts_available())) {
+                // Record it on the asset before letting Moodle delete the task
+                // row. Giving up used to leave no trace anywhere except cron
+                // output, which task_logretention prunes, so an asset could end
+                // up permanently without karaoke with nothing on any screen to
+                // say why. This also starts the cool-down that stops the next
+                // page view paying for the same transcription again.
+                asset_manager::record_alignment_failure($assetid, $e->getMessage());
                 mtrace("local_aireader: asset {$assetid} alignment failure is terminal, not retrying");
                 return;
             }
@@ -141,6 +162,7 @@ class align_audio extends adhoc_task {
         }
 
         segment_manager::store_for_asset($assetid, $segments);
+        asset_manager::clear_alignment_failure($assetid);
         mtrace("local_aireader: aligned asset {$assetid} into " . count($segments) . ' segment(s)');
     }
 
@@ -174,13 +196,19 @@ class align_audio extends adhoc_task {
         $stem = preg_replace('/\.mp3$/i', '', $filename);
         mtrace("local_aireader: asset {$assetid} split into " . count($parts) . ' part(s) for alignment');
 
+        // Shift parts off rather than iterating, so each part's bytes are freed
+        // once it has been uploaded instead of the whole split being held for
+        // the duration of the run on top of the original narration.
         $aligned = [];
-        foreach ($parts as $i => $part) {
-            $partname = $stem . '-part' . ($i + 1) . '.mp3';
+        $i = 0;
+        while ($parts) {
+            $part = array_shift($parts);
+            $partname = $stem . '-part' . (++$i) . '.mp3';
             $aligned[] = [
                 'segments' => $aligner->align($part['bytes'], $partname, $lang),
                 'duration' => $part['duration'],
             ];
+            unset($part);
         }
 
         return segment_stitcher::stitch($aligned);
