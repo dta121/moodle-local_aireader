@@ -134,8 +134,19 @@ class request_regen extends external_api {
         );
 
         if ($existing) {
+            if (!asset_manager::queue_generation((int)$existing->id)) {
+                // A task with this payload is already queued. Moving the asset
+                // to "pending" anyway would take a failed narration off the
+                // dashboard and replace the only signal the admin has with a
+                // wait that nothing is going to end, so leave it as it is and
+                // say so.
+                return [
+                    'status'  => (string)$existing->status,
+                    'queued'  => false,
+                    'message' => get_string('status_already_queued', 'local_aireader'),
+                ];
+            }
             asset_manager::update_status((int)$existing->id, asset_manager::STATUS_PENDING);
-            asset_manager::queue_generation((int)$existing->id);
             return [
                 'status'  => asset_manager::STATUS_PENDING,
                 'queued'  => true,

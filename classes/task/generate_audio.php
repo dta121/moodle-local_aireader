@@ -31,7 +31,6 @@ use local_aireader\manager\content_extractor;
 use local_aireader\manager\id3_writer;
 use local_aireader\manager\openai_client;
 use local_aireader\manager\openai_translator;
-use local_aireader\exception\api_http_error;
 use local_aireader\manager\storage;
 use local_aireader\manager\translation_manager;
 use local_aireader\manager\tts_splitter;
@@ -188,12 +187,14 @@ class generate_audio extends adhoc_task {
             $message = $e->getMessage();
             mtrace("local_aireader: generation failed for asset {$asset->id}: {$message}");
             asset_manager::update_status($asset->id, asset_manager::STATUS_ERROR, $message);
-            // Rethrowing a permanent failure makes Moodle retry it daily
-            // forever, so the task never leaves the failed queue and the error
-            // is reported over and over. The asset already carries the error
-            // for the dashboard, so swallow what an identical retry cannot fix.
-            if ($e instanceof api_http_error && !api_http_error::retryable((int)$e->status)) {
-                mtrace("local_aireader: asset {$asset->id} failure is permanent, not retrying");
+            // Rethrowing a failure that retrying cannot fix, or rethrowing on
+            // the last attempt, leaves a task row stuck at zero attempts. Cron
+            // then ignores it forever while it still matches (and silently
+            // blocks) every later re-queue for this asset. The line above has
+            // already put the error on the dashboard, so exit cleanly instead
+            // and let Moodle delete the row. See {@see failure_policy}.
+            if (failure_policy::is_terminal($e, $this->get_attempts_available())) {
+                mtrace("local_aireader: asset {$asset->id} failure is terminal, not retrying");
                 return;
             }
             throw $e;

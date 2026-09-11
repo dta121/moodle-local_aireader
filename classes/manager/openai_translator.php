@@ -24,6 +24,7 @@
 
 namespace local_aireader\manager;
 
+use local_aireader\exception\api_http_error;
 use local_aireader\manager\http_guard;
 
 /**
@@ -117,10 +118,15 @@ class openai_translator {
         $status = (int)($info['http_code'] ?? 0);
 
         if ($status < 200 || $status >= 300) {
-            throw new \moodle_exception(
+            // The status has to travel on the exception, not inside the
+            // message. Chat-completions rejects a model the key cannot use, a
+            // revoked key, or an unverified org with a flat 400/401/403, and
+            // folding that into a string left generate_audio unable to tell it
+            // from a 429 worth retrying, so every one of those burned the whole
+            // attempt budget.
+            throw new api_http_error(
                 'error_translation_http',
-                'local_aireader',
-                '',
+                $status,
                 http_guard::sanitize_error($status, $response)
             );
         }

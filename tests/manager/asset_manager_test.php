@@ -281,4 +281,29 @@ final class asset_manager_test extends \advanced_testcase {
         $this->expectException(\dml_exception::class);
         asset_manager::assert_chapter_visible($cmone, (int)$chapterintwo->id, $context);
     }
+
+    /**
+     * Queueing reports whether a task row was actually created.
+     *
+     * Moodle refuses a duplicate payload without looking at how many attempts
+     * the existing row has left, so a row that has already given up goes on
+     * suppressing every later queue. Callers have to be able to see that.
+     *
+     * @covers ::queue_generation
+     */
+    public function test_queue_generation_reports_a_blocked_queue(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        $this->assertTrue(asset_manager::queue_generation(4242));
+        $this->assertFalse(asset_manager::queue_generation(4242));
+
+        // The same suppression applies once the existing row is out of
+        // attempts, which is the state that stranded assets for four weeks.
+        $DB->set_field('task_adhoc', 'attemptsavailable', 0, ['component' => 'local_aireader']);
+        $this->assertFalse(asset_manager::queue_generation(4242));
+
+        // A different asset is unaffected.
+        $this->assertTrue(asset_manager::queue_generation(4343));
+    }
 }

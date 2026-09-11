@@ -4,6 +4,52 @@ All notable changes to `local_aireader` are documented in this file.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.8.2] - 2026-09-11
+
+### Fixed
+
+- **No narration task can leave a dead row again.** 1.8.1 decided whether to
+  retry from the exception's *type*, so only failures raised as
+  `api_http_error` could exit cleanly. Everything else kept its full retry
+  budget and, on the twelfth failure, left a row at `attemptsavailable = 0`.
+  Such a row is worse than useless: cron skips it forever, but it still
+  matches on payload, so it silently suppressed every later attempt to queue
+  narration for that asset until core's four-week purge removed it. Both
+  tasks now also give up on their last attempt (`failure_policy`), which
+  closes the hole for every failure path, known and unknown. The failure is
+  still recorded on the asset, so nothing disappears from the dashboard.
+- **Two deterministic failures are now classified.** A non-2xx from the
+  translation endpoint (`openai_translator`) threw a plain `moodle_exception`
+  with the status folded into a string, so a rejected model, a revoked key or
+  an unverified org burned all twelve attempts. A transcription that returns
+  HTTP 200 with no segments (`openai_aligner`) did the same, and for fixed
+  audio bytes that outcome never changes. Both now carry their status and are
+  classed non-retryable.
+- **Regenerate no longer reports work it did not schedule.**
+  `asset_manager::queue_generation()` returns whether a task row was actually
+  created, and `request_regen` passes that through instead of hard-coding
+  `queued => true`. When the queue is blocked it also leaves the asset on its
+  current status rather than moving a failed narration to "pending", which
+  used to hide the failure from the dashboard while nothing ran.
+
+### Added
+
+- **`cli/clear_dead_tasks.php`** to recover sites that already have rows stuck
+  at zero attempts. Supports `--dry-run`, is idempotent, and deletes task rows
+  only. Asset rows and stored audio are never touched, and the narration can
+  be re-queued immediately afterwards by a page view or the Regenerate button.
+
+## [1.8.1] - 2026-09-01
+
+### Fixed
+
+- **Permanently-failing audio tasks stopped retrying forever.** An
+  over-length TTS rejection is now re-split and retried against the endpoint
+  rather than relying on a characters-per-token estimate, the per-chunk
+  character cap is model-aware, oversized narrations are aligned in parts,
+  and API failures carry their HTTP status so a permanent rejection leaves
+  the failed-task queue instead of retrying daily.
+
 ## [1.8.0] — 2026-07-22
 
 ### Added

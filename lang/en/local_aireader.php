@@ -305,6 +305,7 @@ $string['setting_translationprompt'] = 'Translation system prompt';
 $string['setting_translationprompt_desc'] = 'System prompt sent before each translation. Supports {source} and {target} placeholders, which are replaced with the language names. Keep the "preserve technical terms" guidance unless you have a specific reason to relax it.';
 $string['setting_voice'] = 'Default voice';
 $string['setting_voice_desc'] = 'OpenAI voice used when a learner has not picked another one. Defaults to marin. Always available to learners regardless of the checklist below.';
+$string['status_already_queued'] = 'Audio generation is already queued for this content, so nothing new was scheduled.';
 $string['status_error'] = 'Audio generation failed.';
 $string['status_generating'] = 'Generating audio…';
 $string['status_pending'] = 'Audio is being prepared…';

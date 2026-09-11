@@ -425,12 +425,20 @@ class asset_manager {
     /**
      * Queue a generation ad hoc task for an asset id.
      *
+     * Returns false when Moodle declines because a task with this exact payload
+     * is already on the queue. That check ignores how many attempts the existing
+     * row has left, so a row that has already given up still suppresses the new
+     * one. Callers that report an outcome to a user must not treat that as
+     * success, or an admin pressing Regenerate is told work was scheduled when
+     * nothing was.
+     *
      * @param int $assetid
+     * @return bool True when a new task row was actually created.
      */
-    public static function queue_generation(int $assetid): void {
+    public static function queue_generation(int $assetid): bool {
         $task = new generate_audio();
         $task->set_custom_data(['assetid' => $assetid]);
-        task_manager::queue_adhoc_task($task, true);
+        return task_manager::queue_adhoc_task($task, true) !== false;
     }
 
     /**

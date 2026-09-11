@@ -25,7 +25,6 @@
 namespace local_aireader\task;
 
 use core\task\adhoc_task;
-use local_aireader\exception\api_http_error;
 use local_aireader\manager\asset_manager;
 use local_aireader\manager\mp3_splitter;
 use local_aireader\manager\openai_aligner;
@@ -130,11 +129,12 @@ class align_audio extends adhoc_task {
             }
         } catch (\Throwable $e) {
             mtrace("local_aireader: align_audio failed for asset {$assetid}: " . $e->getMessage());
-            // Alignment is an enhancement, not the deliverable, so a failure
-            // that an identical retry cannot fix must not sit in the failed
-            // task queue retrying daily forever.
-            if ($e instanceof api_http_error && !api_http_error::retryable((int)$e->status)) {
-                mtrace("local_aireader: asset {$assetid} alignment failure is permanent, not retrying");
+            // Alignment is an enhancement, not the deliverable, so it must
+            // never leave a row at zero attempts: that row would go on blocking
+            // re-queues of the narration itself, which is the part learners
+            // actually need. See {@see failure_policy}.
+            if (failure_policy::is_terminal($e, $this->get_attempts_available())) {
+                mtrace("local_aireader: asset {$assetid} alignment failure is terminal, not retrying");
                 return;
             }
             throw $e;
