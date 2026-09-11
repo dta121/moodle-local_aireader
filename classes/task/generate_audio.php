@@ -213,7 +213,7 @@ class generate_audio extends adhoc_task {
      * Resolve human-readable ID3 tag values for an asset.
      *
      * Album is the course (so a whole course groups together in a library),
-     * artist is the site, and the title is the activity — suffixed with the
+     * artist is the site, and the title is the activity, suffixed with the
      * chapter for books and with a language marker for non-source narrations.
      * The comment carries the configured AI disclosure.
      *

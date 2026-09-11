@@ -418,7 +418,7 @@ function xmldb_local_aireader_upgrade(int $oldversion): bool {
     if ($oldversion < 2026072211) {
         // New translation defaults: gpt-5-mini and a stricter system prompt.
         // Saving the settings page persists the visible defaults into config,
-        // so sites that never customised these hold the old default text —
+        // so sites that never customised these hold the old default text ,
         // migrate exactly those; any admin-customised value is left alone.
         $oldmodel = 'gpt-4o-mini';
         if (trim((string)get_config('local_aireader', 'translation_model')) === $oldmodel) {
@@ -450,7 +450,7 @@ function xmldb_local_aireader_upgrade(int $oldversion): bool {
 
     if ($oldversion < 2026072220) {
         // Redesigned admin settings page (section cards, sidebar, advanced
-        // collapse). Purely presentational — no schema or config change; the
+        // collapse). Purely presentational, no schema or config change; the
         // version bump rolls jsrev/themerev for the new admin_settings AMD
         // module and stylesheet, and registers the new hook callback.
         upgrade_plugin_savepoint(true, 2026072220, 'local', 'aireader');
@@ -459,7 +459,7 @@ function xmldb_local_aireader_upgrade(int $oldversion): bool {
     if ($oldversion < 2026072230) {
         // Three compact player designs (slimbar / slimpill / dockpill) built
         // on the new player_slim template. No schema change; existing
-        // player_design values keep working — the version bump rolls
+        // player_design values keep working, the version bump rolls
         // jsrev/themerev for the updated player bundle, template, and styles.
         upgrade_plugin_savepoint(true, 2026072230, 'local', 'aireader');
     }

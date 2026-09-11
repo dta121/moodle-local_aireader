@@ -28,8 +28,8 @@ namespace local_aireader\manager;
  * Exponential cool-down between automatic re-queues of a failing asset.
  *
  * Dropping a task row the moment a failure is judged permanent is right for
- * recoverability — a zero-attempt row blocks every later re-queue for that
- * asset — but it removes the only thing that was rate-limiting the work.
+ * recoverability, a zero-attempt row blocks every later re-queue for that
+ * asset, but it removes the only thing that was rate-limiting the work.
  * `get_status` re-queues any asset sitting in pending/stale/error on every
  * call, so without a cool-down a deterministic failure (a translation model
  * the key cannot use, audio Whisper returns no segments for) would be
@@ -43,7 +43,7 @@ namespace local_aireader\manager;
  * time we are here the task-level retries are already spent, and what is left
  * is a failure that has survived them.
  *
- * An admin pressing Regenerate bypasses this entirely — that is a human
+ * An admin pressing Regenerate bypasses this entirely, that is a human
  * deciding to spend the money, and it is self-limiting.
  *
  * @package local_aireader

@@ -29,8 +29,8 @@ namespace local_aireader\task;
  * Tests for {@see reap_dead_tasks}.
  *
  * This exists because {@see failure_policy} cannot cover every failure. A run
- * that dies without unwinding — PHP fatal, memory_limit, OOM killer, worker
- * restart — never enters the plugin's catch block; core's lock cleanup fails
+ * that dies without unwinding, PHP fatal, memory_limit, OOM killer, worker
+ * restart, never enters the plugin's catch block; core's lock cleanup fails
  * the task itself and spends the attempt. Twelve of those still produce a
  * zero-attempt row, and that row blocks every later re-queue for its asset
  * until core's four-week purge. The sweep closes that window to an hour.

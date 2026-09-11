@@ -31,8 +31,8 @@ use core\task\scheduled_task;
  *
  * {@see failure_policy} stops the tasks creating these rows when a failure
  * arrives as a catchable exception, which is most of them. It cannot stop the
- * rest. A run that dies without unwinding — PHP fatal, `memory_limit`, OOM
- * killer, worker restart — never enters the plugin's catch block at all; core's
+ * rest. A run that dies without unwinding, PHP fatal, `memory_limit`, OOM
+ * killer, worker restart, never enters the plugin's catch block at all; core's
  * `task_lock_cleanup_task` picks up the abandoned lock and fails the task
  * itself, decrementing `attemptsavailable` with no plugin code involved. Twelve
  * of those and the row is at zero.

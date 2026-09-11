@@ -49,7 +49,7 @@ use local_aireader\exception\api_http_error;
  * Scope, stated precisely, because an earlier version of this file claimed
  * more than it delivers: this rule runs inside the task's `catch`, so it can
  * only act on a failure that reaches PHP as a {@see \Throwable}. It does
- * nothing for a run that dies without unwinding — a PHP fatal, the OOM killer,
+ * nothing for a run that dies without unwinding, a PHP fatal, the OOM killer,
  * `memory_limit`, a worker restart mid-run. In that case nothing in this
  * plugin executes at all: core's `task_lock_cleanup_task` reacquires the
  * abandoned lock and calls `manager::adhoc_task_failed()` itself, which
@@ -62,7 +62,7 @@ use local_aireader\exception\api_http_error;
  * weeks. Between them the two cover every failure path; neither covers it
  * alone. If dead rows keep appearing after this release, the reaper's log line
  * is the signal, and memory exhaustion during synthesis is the first thing to
- * check — `generate_audio` holds the whole mp3 in a PHP string.
+ * check, `generate_audio` holds the whole mp3 in a PHP string.
  *
  * @package local_aireader
  */

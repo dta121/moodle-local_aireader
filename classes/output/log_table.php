@@ -225,8 +225,8 @@ class log_table extends \table_sql {
      * Failure reason recorded against the row; a dash when there is none.
      *
      * Not gated on `status === 'error'`. An asset whose Whisper alignment gave
-     * up stays `ready` — the narration plays, only the karaoke highlighting is
-     * missing — and the old gate meant that failure was rendered nowhere at
+     * up stays `ready`, the narration plays, only the karaoke highlighting is
+     * missing, and the old gate meant that failure was rendered nowhere at
      * all. `lasterror` is cleared on every successful generation, so a message
      * shown next to a ready row is current, not a leftover.
      *

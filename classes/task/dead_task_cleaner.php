@@ -45,7 +45,7 @@ use local_aireader\manager\asset_manager;
  *   page, because the asset is left in pending/stale/error, and immediately by
  *   an admin pressing Regenerate.
  * - `align_audio`: the asset is `ready`, so it used to be re-queued by nothing
- *   at all — alignment was only ever queued at the tail of a successful
+ *   at all, alignment was only ever queued at the tail of a successful
  *   generation, and `get_status` does not re-queue ready assets. Since 1.8.3
  *   `get_status` also queues alignment for a ready asset that has no segments,
  *   so viewing the page is enough for these too. On an older release the only

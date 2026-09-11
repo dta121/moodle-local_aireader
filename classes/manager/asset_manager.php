@@ -410,7 +410,7 @@ class asset_manager {
      *
      * Alignment is an enhancement: the mp3 plays fine without it, so the asset
      * stays `ready` and nothing about playback changes. But the failure used to
-     * be written nowhere at all — `align_audio` only called `mtrace()`, so once
+     * be written nowhere at all, `align_audio` only called `mtrace()`, so once
      * the task row went away the only evidence was task_log output, pruned
      * after `task_logretention` days. Putting it on the asset keeps it on the
      * report, and the cool-down stops a deterministic alignment failure being
@@ -495,7 +495,7 @@ class asset_manager {
      *
      * Returns false when the work was not scheduled, for either of two reasons.
      * Moodle declines when a task with this exact payload is already on the
-     * queue — that check ignores how many attempts the existing row has left,
+     * queue, that check ignores how many attempts the existing row has left,
      * so a row that has already given up still suppresses the new one. And this
      * method declines while the asset is inside its own failure cool-down,
      * which is what stops an automatic caller re-queueing a deterministic
@@ -766,7 +766,7 @@ class asset_manager {
      * (`enabled_voices`, stored as a comma-separated id list) with the
      * free-text escape hatch (`enabled_voices_extra`) for voices OpenAI ships
      * before the plugin's built-in checklist catches up. The default voice is
-     * always first — it is the initial selection and stays available even
+     * always first, it is the initial selection and stays available even
      * when unticked.
      *
      * @return string[] Voice ids, default voice first.

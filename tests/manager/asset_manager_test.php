@@ -334,7 +334,7 @@ final class asset_manager_test extends \advanced_testcase {
 
     /**
      * An automatic caller is refused while the cool-down runs; a human asking
-     * for it explicitly is not. That is the whole point of the distinction —
+     * for it explicitly is not. That is the whole point of the distinction ,
      * page views must not be able to spend money in a loop, and Regenerate must
      * always do something.
      *

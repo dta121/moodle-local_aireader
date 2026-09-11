@@ -226,7 +226,7 @@ final class get_status_test extends \advanced_testcase {
 
     /**
      * A voice outside the enabled set must be rejected up front, before any
-     * OpenAI work is queued — every (language, voice) pair is billed.
+     * OpenAI work is queued, every (language, voice) pair is billed.
      *
      * @covers ::execute
      */
@@ -300,8 +300,8 @@ final class get_status_test extends \advanced_testcase {
     /**
      * A ready asset with no segments gets alignment re-queued.
      *
-     * Until 1.8.3 alignment was queued in exactly one place — the tail of a
-     * successful generation — so an asset whose alignment task died was
+     * Until 1.8.3 alignment was queued in exactly one place, the tail of a
+     * successful generation, so an asset whose alignment task died was
      * stranded: it is ready, and ready assets were never re-queued. The only
      * route back was Regenerate, which re-pays for the whole narration to get
      * another go at the transcription.

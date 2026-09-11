@@ -36,7 +36,7 @@ use local_aireader\manager\segment_stitcher;
  *
  * Queued from `generate_audio::execute()` immediately after a successful TTS run
  * when `enable_alignment` is on. Decoupled from TTS so audio plays as soon as
- * it's stored — karaoke shows up moments later when alignment finishes.
+ * it's stored, karaoke shows up moments later when alignment finishes.
  *
  * @package local_aireader
  */

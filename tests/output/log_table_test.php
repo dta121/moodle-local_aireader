@@ -32,7 +32,7 @@ use moodle_url;
  *
  * Narrow on purpose: the one behaviour worth pinning is that a failure recorded
  * against an asset actually reaches a screen. An alignment failure leaves the
- * asset `ready` — the mp3 plays, only the karaoke highlighting is missing — and
+ * asset `ready`, the mp3 plays, only the karaoke highlighting is missing, and
  * the column used to be gated on `status === 'error'`, so that failure was
  * rendered nowhere at all.
  *
