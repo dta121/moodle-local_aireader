@@ -112,9 +112,11 @@ final class request_regen_test extends \advanced_testcase {
         [$course, $cm] = $this->create_page();
         $assetid = $this->create_failed_asset($course, $cm);
 
-        // A task that has exhausted its attempts still blocks the next queue.
+        // A task with the same payload is already queued, so Moodle's duplicate
+        // check refuses the new one. (Whether a row at zero attempts also
+        // blocks is version dependent, see dead_row_lifecycle_test; a live
+        // duplicate blocks on every supported release.)
         asset_manager::queue_generation($assetid);
-        $DB->set_field('task_adhoc', 'attemptsavailable', 0, ['component' => 'local_aireader']);
 
         $result = request_regen::execute((int)$cm->id, 'page', 0, 'en');
 

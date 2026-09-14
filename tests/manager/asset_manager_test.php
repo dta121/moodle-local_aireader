@@ -285,23 +285,27 @@ final class asset_manager_test extends \advanced_testcase {
     /**
      * Queueing reports whether a task row was actually created.
      *
-     * Moodle refuses a duplicate payload without looking at how many attempts
-     * the existing row has left, so a row that has already given up goes on
-     * suppressing every later queue. Callers have to be able to see that.
+     * Moodle refuses a duplicate payload, and on the releases this plugin was
+     * written against (4.5, 5.0) it does so without looking at how many
+     * attempts the existing row has left, so a row that has already given up
+     * goes on suppressing every later queue. Callers have to be able to see
+     * that. Core 5.1 changed the duplicate check to ignore exhausted rows, so
+     * the zero-attempts expectation is branch dependent.
      *
      * @covers ::queue_generation
      */
     public function test_queue_generation_reports_a_blocked_queue(): void {
-        global $DB;
+        global $CFG, $DB;
         $this->resetAfterTest();
 
         $this->assertTrue(asset_manager::queue_generation(4242));
         $this->assertFalse(asset_manager::queue_generation(4242));
 
-        // The same suppression applies once the existing row is out of
-        // attempts, which is the state that stranded assets for four weeks.
+        // Once the existing row is out of attempts: still suppressed before
+        // 5.1 (the state that stranded assets for four weeks), no longer so
+        // from 5.1, where a fresh row is created alongside the dead one.
         $DB->set_field('task_adhoc', 'attemptsavailable', 0, ['component' => 'local_aireader']);
-        $this->assertFalse(asset_manager::queue_generation(4242));
+        $this->assertSame((int)$CFG->branch >= 501, asset_manager::queue_generation(4242));
 
         // A different asset is unaffected.
         $this->assertTrue(asset_manager::queue_generation(4343));

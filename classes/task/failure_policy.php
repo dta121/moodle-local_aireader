@@ -36,7 +36,10 @@ use local_aireader\exception\api_http_error;
  * `get_queued_adhoc_task_record()` matches purely on classname, component and
  * customdata, so the dead row keeps matching every later re-queue for the same
  * asset. One exhausted row therefore blocks regeneration of that narration for
- * the four weeks until core's failed-task purge removes it.
+ * the four weeks until core's failed-task purge removes it. (Moodle 4.5 and
+ * 5.0; core 5.1 changed the duplicate check to skip exhausted rows, so there
+ * the row is inert clutter rather than a blocker, and this rule still spares
+ * the wasted attempts and billed calls.)
  *
  * An earlier draft of this fix asked the wrong question. It tested the
  * exception's *type*, so only failures that happened to arrive as
