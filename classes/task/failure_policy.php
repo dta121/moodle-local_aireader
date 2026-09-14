@@ -38,13 +38,13 @@ use local_aireader\exception\api_http_error;
  * asset. One exhausted row therefore blocks regeneration of that narration for
  * the four weeks until core's failed-task purge removes it.
  *
- * The v1.8.1 fix asked the wrong question. It tested the exception's *type*,
- * so only failures that happened to arrive as {@see api_http_error} could exit
- * cleanly, and the deterministic `moodle_exception` throw sites (a rejected
- * translation model, a transcription that comes back with no segments) still
- * burned every attempt and left a corpse. The question that actually matters
- * is "would rethrowing achieve anything?", and there are exactly two ways the
- * answer is no.
+ * An earlier draft of this fix asked the wrong question. It tested the
+ * exception's *type*, so only failures that happened to arrive as
+ * {@see api_http_error} could exit cleanly, and the deterministic
+ * `moodle_exception` throw sites (a rejected translation model, a
+ * transcription that comes back with no segments) still burned every attempt
+ * and left a corpse. The question that actually matters is "would rethrowing
+ * achieve anything?", and there are exactly two ways the answer is no.
  *
  * Scope, stated precisely, because an earlier version of this file claimed
  * more than it delivers: this rule runs inside the task's `catch`, so it can

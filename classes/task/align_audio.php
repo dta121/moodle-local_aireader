@@ -55,7 +55,9 @@ class align_audio extends adhoc_task {
      * Deliberately under MAX_UPLOAD_BYTES: the multipart envelope counts
      * towards the limit. The observed failure aborted at 26326537 bytes read
      * against a 26214400 ceiling, so a part sized exactly at the limit would
-     * still be rejected.
+     * still be rejected. For the same reason this, not MAX_UPLOAD_BYTES, is
+     * the threshold above which a narration is split at all: a whole file
+     * between the two would be uploaded unsplit and rejected with 413.
      */
     public const PART_TARGET_BYTES = 25165824;
 
@@ -122,9 +124,14 @@ class align_audio extends adhoc_task {
 
         try {
             $aligner = new openai_aligner();
-            if (strlen($bytes) > self::MAX_UPLOAD_BYTES) {
+            if (strlen($bytes) > self::PART_TARGET_BYTES) {
                 $segments = $this->align_in_parts(
-                    $aligner, $bytes, $file->get_filename(), (string)$asset->lang, $assetid);
+                    $aligner,
+                    $bytes,
+                    $file->get_filename(),
+                    (string)$asset->lang,
+                    $assetid
+                );
                 if ($segments === null) {
                     // Unsplittable audio: leave any existing segments alone and
                     // finish cleanly. The narration still plays; only the

@@ -139,7 +139,7 @@ final class align_audio_test extends \advanced_testcase {
     /**
      * Having given up, the next page view must not immediately buy another
      * attempt at the same transcription. Nothing re-queued alignment at all
-     * before 1.8.3; now that something does, it needs a limit.
+     * before 1.8.1; now that something does, it needs a limit.
      *
      * @covers ::execute
      */

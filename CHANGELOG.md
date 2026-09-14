@@ -4,103 +4,76 @@ All notable changes to `local_aireader` are documented in this file.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 versions follow [Semantic Versioning](https://semver.org/).
 
-## [1.8.3] - 2026-09-11
+## [1.8.1] — 2026-09-14
 
-Review follow-up to 1.8.2. The retry rule shipped there was sound but it was
-described as more complete than it is, and dropping the failed task row turned
-out to remove a throttle nothing had replaced.
+Two adhoc task types were failing deterministically in production and, after
+twelve retries, leaving `task_adhoc` rows at zero attempts. Such a row shows
+"Next run: Never", is never run again, and still matches Moodle's duplicate
+check, so it silently blocked every later attempt to re-queue narration for
+that asset until core's four-week purge removed it.
 
 ### Fixed
 
-- **Alignment failures are no longer invisible and no longer permanent.**
-  `align_audio` used to give up with nothing but an `mtrace()` line, which
-  `task_logretention` prunes; the asset stayed `ready`, so the failure appeared
-  on no screen at all. It is now recorded on the asset (`record_alignment_failure`),
-  and the report's error column no longer hides errors on non-`error` rows.
-  More importantly there is now a way back: `get_status` re-queues alignment
-  for a ready asset that has no segments, so viewing the page is enough.
-  Previously alignment was only ever queued at the tail of a successful
-  generation, so the only route was Regenerate — which re-pays for a full TTS
-  synthesis of the whole page to retry a transcription.
-- **A permanently-failing asset can no longer be re-queued on every page view.**
-  1.8.2 deletes the exhausted task row, which is what unblocks recovery, but
-  that row was also the only thing rate-limiting `get_status`, which re-queues
-  any pending/stale/error asset on every call with no cooldown. A deterministic
-  failure would therefore have been re-queued, run, failed and re-queued once
-  per cron cycle indefinitely. Assets now carry their own backoff
-  (`retry_backoff`: 1h doubling to a 24h cap, cleared on success), applied to
-  generation and alignment separately. Regenerate bypasses it — that is a human
-  deciding to spend the money.
-- **`failure_policy` no longer claims more than it delivers.** It runs inside
-  the task's `catch`, so it can only act on a failure that reaches PHP as a
-  `Throwable`. A run that dies without unwinding (PHP fatal, `memory_limit`,
-  OOM killer, worker restart) never enters it: core's `task_lock_cleanup_task`
-  fails the task itself and spends the attempt with no plugin code involved.
-  The docblock now says so, and both tasks call `raise_memory_limit(MEMORY_HUGE)`
-  because the whole mp3 is held in a PHP string.
-- **`clear_dead_tasks.php` printed the wrong recovery instruction for
-  `align_audio` rows**, which are half the symptom. It told the operator to
-  view the page or press Regenerate, which did nothing for an asset that is
-  already `ready`. The guidance is now per task class and accurate, and the
-  cleanup lifts the affected assets' cooldowns so the re-queue is not held back
-  by a backoff set while the dead row was in the way.
+- **TTS input limit** (`HTTP 400: Input of 2159 tokens is over the maximum
+  input limit of 2000 tokens`). `gpt-4o-mini-tts` caps input on tokens, but
+  `estimate_tokens()` counts Latin text at four characters per token, so the
+  1800-token ceiling was unreachable inside the 3800-character cap and never
+  fired. The endpoint is now the authority: an over-length rejection gets its
+  own exception type (`tts_input_too_long`) and `tts_splitter` re-splits the
+  chunk at sentence boundaries and retries the pieces, up to four levels deep.
+  The character cap is model-aware (`openai_client::chunk_size_for()`): 2400
+  for token-capped models, unchanged 3800 for `tts-1` / `tts-1-hd`, and a
+  larger configured `chunk_size` is clamped rather than trusted.
+- **Whisper upload limit** (`HTTP 413: Maximum content size limit (26214400)
+  exceeded`). Narrations over 24 MiB are split on mp3 frame boundaries in pure
+  PHP (`mp3_splitter`, no ffmpeg or getID3 dependency), each part is aligned
+  separately, and `segment_stitcher` shifts the timestamps back onto one
+  timeline using the frame-derived duration of each part. Parts target 24 MiB
+  rather than 25 because the multipart envelope counts towards the limit.
+  Audio that cannot be parsed skips alignment cleanly: the narration still
+  plays, only the karaoke highlighting is missing.
+- **Deterministic failures no longer retry forever.** `api_http_error` carries
+  the HTTP status (TTS, translation and alignment all throw it; it extends
+  `moodle_exception`, so existing catch blocks are unaffected), and a
+  transcription that returns 200 with no segments is classed the same way.
+  `failure_policy` ends the run cleanly, with the error already recorded on
+  the asset, when the status is one an identical retry cannot change
+  (400/401/403/404/413 and similar) or when this is the last attempt, so no
+  narration task can leave a zero-attempt row.
+- **Regenerate no longer reports work it did not schedule.**
+  `asset_manager::queue_generation()` returns whether a task row was actually
+  created; `request_regen` passes that through and leaves a blocked asset on
+  its current status instead of moving it to "pending".
+- **Alignment failures are recorded and recoverable.** `align_audio` used to
+  give up with nothing but an `mtrace()` line. The failure is now written to
+  the asset (`lasterror`, which the report shows for ready rows too), and
+  `get_status` re-queues alignment for a ready asset that has no segments, so
+  viewing the page is enough. Previously the only route was Regenerate, which
+  re-pays for the whole narration.
+- **A permanently failing asset is not re-queued on every page view.** Assets
+  carry their own backoff (`retry_backoff`: 1h doubling to a 24h cap, cleared
+  on success), applied to generation and alignment separately. Regenerate
+  bypasses it.
+- Both tasks call `raise_memory_limit(MEMORY_HUGE)`, since the whole mp3 is
+  held in a PHP string and a memory fatal is the one failure the task cannot
+  classify.
 
 ### Added
 
 - **`reap_dead_tasks` scheduled task**, hourly. Removes this plugin's
-  zero-attempt ad hoc rows whatever created them, which is the only thing that
-  covers the failure paths `failure_policy` cannot see. A dead row now blocks
-  re-queueing for at most an hour instead of four weeks, and each removal is
-  logged as evidence of a failure that never reached a catch block.
+  zero-attempt ad hoc rows however they were created (a PHP fatal or OOM never
+  reaches the task's catch block), and lifts the affected assets' cool-downs.
+- **`cli/clear_dead_tasks.php`** (`--dry-run`) to clear an existing backlog
+  immediately. Deletes task rows only; asset rows and stored audio are never
+  touched. Deploy the code first, then run it.
 - Four columns on `local_aireader_asset` (`failcount`, `retryafter`,
-  `alignfailcount`, `alignretryafter`) backing the cooldown. Additive; existing
-  rows default to "no cooldown" and behave exactly as before.
+  `alignfailcount`, `alignretryafter`) backing the cool-down. Additive;
+  existing rows default to "no cool-down" and behave exactly as before.
 
-## [1.8.2] - 2026-09-11
+### Changed
 
-### Fixed
-
-- **No narration task can leave a dead row again.** 1.8.1 decided whether to
-  retry from the exception's *type*, so only failures raised as
-  `api_http_error` could exit cleanly. Everything else kept its full retry
-  budget and, on the twelfth failure, left a row at `attemptsavailable = 0`.
-  Such a row is worse than useless: cron skips it forever, but it still
-  matches on payload, so it silently suppressed every later attempt to queue
-  narration for that asset until core's four-week purge removed it. Both
-  tasks now also give up on their last attempt (`failure_policy`), which
-  closes the hole for every failure path, known and unknown. The failure is
-  still recorded on the asset, so nothing disappears from the dashboard.
-- **Two deterministic failures are now classified.** A non-2xx from the
-  translation endpoint (`openai_translator`) threw a plain `moodle_exception`
-  with the status folded into a string, so a rejected model, a revoked key or
-  an unverified org burned all twelve attempts. A transcription that returns
-  HTTP 200 with no segments (`openai_aligner`) did the same, and for fixed
-  audio bytes that outcome never changes. Both now carry their status and are
-  classed non-retryable.
-- **Regenerate no longer reports work it did not schedule.**
-  `asset_manager::queue_generation()` returns whether a task row was actually
-  created, and `request_regen` passes that through instead of hard-coding
-  `queued => true`. When the queue is blocked it also leaves the asset on its
-  current status rather than moving a failed narration to "pending", which
-  used to hide the failure from the dashboard while nothing ran.
-
-### Added
-
-- **`cli/clear_dead_tasks.php`** to recover sites that already have rows stuck
-  at zero attempts. Supports `--dry-run`, is idempotent, and deletes task rows
-  only. Asset rows and stored audio are never touched, and the narration can
-  be re-queued immediately afterwards by a page view or the Regenerate button.
-
-## [1.8.1] - 2026-09-01
-
-### Fixed
-
-- **Permanently-failing audio tasks stopped retrying forever.** An
-  over-length TTS rejection is now re-split and retried against the endpoint
-  rather than relying on a characters-per-token estimate, the per-chunk
-  character cap is model-aware, oversized narrations are aligned in parts,
-  and API failures carry their HTTP status so a permanent rejection leaves
-  the failed-task queue instead of retrying daily.
+- `id3_writer::strip_leading_tag()` is now public so `mp3_splitter` can reach
+  the first audio frame.
 
 ## [1.8.0] — 2026-07-22
 

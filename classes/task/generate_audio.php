@@ -184,9 +184,9 @@ class generate_audio extends adhoc_task {
             // Chain Whisper alignment as a separate task so the audio is
             // immediately playable; karaoke lights up as soon as alignment finishes.
             if (get_config('local_aireader', 'enable_alignment')) {
-                // record_generated() has already cleared the alignment
-                // cool-down, so this is never held back by an earlier failure
-                // on different bytes.
+                // The record_generated() call above has already cleared the
+                // alignment cool-down, so this is never held back by an
+                // earlier failure on different bytes.
                 if (asset_manager::queue_alignment((int)$asset->id)) {
                     mtrace("local_aireader: queued align_audio for asset {$asset->id}");
                 }

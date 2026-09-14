@@ -51,7 +51,8 @@ final class tts_splitter_test extends \advanced_testcase {
             $this->calls[] = $piece;
             if (mb_strlen($piece) > $limit) {
                 throw new tts_input_too_long(
-                    'Input of 2159 tokens is over the maximum input limit of 2000 tokens.');
+                    'Input of 2159 tokens is over the maximum input limit of 2000 tokens.'
+                );
             }
             return '[' . $piece . ']';
         };

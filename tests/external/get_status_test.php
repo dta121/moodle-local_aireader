@@ -300,7 +300,7 @@ final class get_status_test extends \advanced_testcase {
     /**
      * A ready asset with no segments gets alignment re-queued.
      *
-     * Until 1.8.3 alignment was queued in exactly one place, the tail of a
+     * Until 1.8.1 alignment was queued in exactly one place, the tail of a
      * successful generation, so an asset whose alignment task died was
      * stranded: it is ready, and ready assets were never re-queued. The only
      * route back was Regenerate, which re-pays for the whole narration to get
@@ -421,7 +421,14 @@ final class get_status_test extends \advanced_testcase {
 
         $extracted = \local_aireader\manager\content_extractor::extract('page', (int)$cm->id, null);
         $hash = \local_aireader\manager\asset_manager::compute_hash(
-            'page', (int)$cm->id, null, 'en', 'marin', 'gpt-4o-mini-tts', $extracted['text']);
+            'page',
+            (int)$cm->id,
+            null,
+            'en',
+            'marin',
+            'gpt-4o-mini-tts',
+            $extracted['text']
+        );
 
         $now = time();
         $assetid = (int)$DB->insert_record('local_aireader_asset', (object)[

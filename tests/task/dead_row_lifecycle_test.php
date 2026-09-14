@@ -61,9 +61,11 @@ final class dead_row_lifecycle_test extends \advanced_testcase {
      */
     private function reload(int $assetid): ?generate_audio {
         global $DB;
-        $records = $DB->get_records('task_adhoc',
+        $records = $DB->get_records(
+            'task_adhoc',
             ['component' => 'local_aireader',
-             'classname' => '\\' . generate_audio::class]);
+            'classname' => '\\' . generate_audio::class]
+        );
         foreach ($records as $record) {
             $task = manager::adhoc_task_from_record($record);
             $data = $task->get_custom_data();
@@ -122,15 +124,21 @@ final class dead_row_lifecycle_test extends \advanced_testcase {
         $this->resetAfterTest();
 
         $task = $this->queue(4871);
-        $this->assertSame(12, $task->get_attempts_available(),
-            'Core starts an adhoc task at 12 attempts.');
+        $this->assertSame(
+            12,
+            $task->get_attempts_available(),
+            'Core starts an adhoc task at 12 attempts.'
+        );
 
         // Fail it the way cron does when execute() throws.
         $attempts = $this->exhaust(4871);
         $task = $this->reload(4871);
 
-        $this->assertSame(12, $attempts,
-            'It takes exactly 12 failures to exhaust the attempts.');
+        $this->assertSame(
+            12,
+            $attempts,
+            'It takes exactly 12 failures to exhaust the attempts.'
+        );
         $this->assertNotNull($task, 'The row still exists, it is just unrunnable.');
         $this->assertSame(0, $task->get_attempts_available());
 
@@ -139,12 +147,15 @@ final class dead_row_lifecycle_test extends \advanced_testcase {
         $this->assertSame(0, $task->get_attempts_available());
 
         // And this is why it never recovers on its own.
-        $this->assertNull(manager::get_next_adhoc_task(time() + YEARSECS),
-            'Cron must never hand out a task with no attempts left.');
+        $this->assertNull(
+            manager::get_next_adhoc_task(time() + YEARSECS),
+            'Cron must never hand out a task with no attempts left.'
+        );
 
         $this->assertTrue(
             $DB->record_exists('task_adhoc', ['id' => $task->get_id()]),
-            'The dead row stays in the table, which is why it shows in the failed list.');
+            'The dead row stays in the table, which is why it shows in the failed list.'
+        );
     }
 
     /**
@@ -167,17 +178,21 @@ final class dead_row_lifecycle_test extends \advanced_testcase {
         $again->set_custom_data(['assetid' => 4871]);
         manager::queue_adhoc_task($again, true);
 
-        $this->assertSame($before,
+        $this->assertSame(
+            $before,
             $DB->count_records('task_adhoc', ['component' => 'local_aireader']),
             'The duplicate check matches the dead row and drops the new task on the '
-            . 'floor, so the asset can never be regenerated while it sits there.');
+            . 'floor, so the asset can never be regenerated while it sits there.'
+        );
 
         // A different asset is unaffected, so the block is per asset.
         $other = new generate_audio();
         $other->set_custom_data(['assetid' => 9999]);
         manager::queue_adhoc_task($other, true);
-        $this->assertSame($before + 1,
-            $DB->count_records('task_adhoc', ['component' => 'local_aireader']));
+        $this->assertSame(
+            $before + 1,
+            $DB->count_records('task_adhoc', ['component' => 'local_aireader'])
+        );
     }
 
     /**
@@ -197,19 +212,25 @@ final class dead_row_lifecycle_test extends \advanced_testcase {
 
         $dry = dead_task_cleaner::clear(true);
         $this->assertNotEmpty($dry);
-        $this->assertTrue($DB->record_exists('task_adhoc', ['id' => $task->get_id()]),
-            'A dry run must not delete anything.');
+        $this->assertTrue(
+            $DB->record_exists('task_adhoc', ['id' => $task->get_id()]),
+            'A dry run must not delete anything.'
+        );
 
         dead_task_cleaner::clear(false);
-        $this->assertFalse($DB->record_exists('task_adhoc', ['id' => $task->get_id()]),
-            'The real run removes the dead row.');
+        $this->assertFalse(
+            $DB->record_exists('task_adhoc', ['id' => $task->get_id()]),
+            'The real run removes the dead row.'
+        );
 
         // The asset can now be queued again.
         $again = new generate_audio();
         $again->set_custom_data(['assetid' => 4871]);
         manager::queue_adhoc_task($again, true);
-        $this->assertNotNull($this->reload(4871),
-            'With the corpse gone, regeneration works again.');
+        $this->assertNotNull(
+            $this->reload(4871),
+            'With the corpse gone, regeneration works again.'
+        );
     }
 
     /**
@@ -224,9 +245,11 @@ final class dead_row_lifecycle_test extends \advanced_testcase {
 
         dead_task_cleaner::clear(false);
 
-        $this->assertSame($before,
+        $this->assertSame(
+            $before,
             $DB->count_records('task_adhoc', ['component' => 'local_aireader']),
-            'A task with attempts remaining must survive.');
+            'A task with attempts remaining must survive.'
+        );
     }
 
     /**
@@ -248,7 +271,9 @@ final class dead_row_lifecycle_test extends \advanced_testcase {
 
         dead_task_cleaner::clear(false);
 
-        $this->assertTrue($DB->record_exists('task_adhoc', ['id' => $foreign->id]),
-            'Another component\'s dead task is none of our business.');
+        $this->assertTrue(
+            $DB->record_exists('task_adhoc', ['id' => $foreign->id]),
+            'Another component\'s dead task is none of our business.'
+        );
     }
 }

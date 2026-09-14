@@ -223,9 +223,12 @@ class get_status extends external_api {
         // Say so when the reason nothing is happening is the cool-down rather
         // than a queue that is about to run, otherwise the player sits on
         // "Audio generation failed" with no hint that Regenerate would retry.
-        if ($asset->status === asset_manager::STATUS_ERROR
+        if (
+            $asset->status === asset_manager::STATUS_ERROR
                 && !retry_backoff::may_retry(
-                    $asset->retryafter === null ? null : (int)$asset->retryafter)) {
+                    $asset->retryafter === null ? null : (int)$asset->retryafter
+                )
+        ) {
             $message = get_string('status_cooling_down', 'local_aireader');
         }
 

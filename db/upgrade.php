@@ -418,7 +418,7 @@ function xmldb_local_aireader_upgrade(int $oldversion): bool {
     if ($oldversion < 2026072211) {
         // New translation defaults: gpt-5-mini and a stricter system prompt.
         // Saving the settings page persists the visible defaults into config,
-        // so sites that never customised these hold the old default text ,
+        // so sites that never customised these hold the old default text:
         // migrate exactly those; any admin-customised value is left alone.
         $oldmodel = 'gpt-4o-mini';
         if (trim((string)get_config('local_aireader', 'translation_model')) === $oldmodel) {
@@ -464,7 +464,7 @@ function xmldb_local_aireader_upgrade(int $oldversion): bool {
         upgrade_plugin_savepoint(true, 2026072230, 'local', 'aireader');
     }
 
-    if ($oldversion < 2026091101) {
+    if ($oldversion < 2026091400) {
         // Per-asset retry cool-down. Dropping the task row as soon as a failure
         // is judged permanent is what unblocks re-queueing, but it also removes
         // the only thing that was throttling it: get_status re-queues any
@@ -485,7 +485,7 @@ function xmldb_local_aireader_upgrade(int $oldversion): bool {
             }
         }
 
-        upgrade_plugin_savepoint(true, 2026091101, 'local', 'aireader');
+        upgrade_plugin_savepoint(true, 2026091400, 'local', 'aireader');
     }
 
     return true;

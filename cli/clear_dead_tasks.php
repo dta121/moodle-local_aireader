@@ -22,7 +22,7 @@
  * silently block every attempt to re-queue narration for the same asset.
  * Removing them is what makes those narrations regenerable again.
  *
- * Since 1.8.3 the reap_dead_tasks scheduled task does this hourly on its own;
+ * Since 1.8.1 the reap_dead_tasks scheduled task does this hourly on its own;
  * this script is for clearing a backlog immediately without waiting for cron.
  *
  * Deletes task rows, and lifts the retry cool-down on the assets they named so
@@ -66,7 +66,7 @@ work be scheduled with a full attempt budget:
                   by an admin pressing Regenerate in the player.
   align_audio     re-queued when someone next opens the page, because the asset
                   is already "ready" and only a missing-segments check brings
-                  alignment back. (On releases before 1.8.3 nothing re-queued
+                  alignment back. (On releases before 1.8.1 nothing re-queued
                   alignment at all.)
 
 The retry cool-down on those assets is lifted too, so the re-queue is not held

@@ -138,7 +138,13 @@ final class dead_task_cleaner_test extends \advanced_testcase {
         $this->assertSame(asset_manager::STATUS_ERROR, $reported[0]->assetstatus);
         $this->assertTrue($DB->record_exists('local_aireader_asset', ['id' => $assetid]));
         $this->assertNotEmpty(get_file_storage()->get_area_files(
-            $contextid, storage::COMPONENT, storage::FILEAREA, $assetid, 'itemid', false));
+            $contextid,
+            storage::COMPONENT,
+            storage::FILEAREA,
+            $assetid,
+            'itemid',
+            false
+        ));
     }
 
     /**

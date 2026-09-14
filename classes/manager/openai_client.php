@@ -195,20 +195,6 @@ class openai_client {
     }
 
     /**
-     * Split input into chunks at sentence boundaries, staying under both the
-     * character and the token ceiling.
-     *
-     * Sentence detection handles Western terminators (. ? !) and CJK ones
-     * (。．！？), the latter often having no trailing whitespace — without this
-     * an unspaced Japanese/Chinese narration is treated as one giant "sentence"
-     * and only the hard cut keeps it in bounds.
-     *
-     * @param string $text Input text.
-     * @param int $maxchars Maximum chars per chunk (<=0 uses {@see DEFAULT_CHUNK_SIZE}).
-     * @param int $maxtokens Maximum estimated tokens per chunk (<=0 uses {@see DEFAULT_MAX_TOKENS}).
-     * @return string[]
-     */
-    /**
      * Resolve the character cap to chunk with for a given TTS model.
      *
      * `tts-1` and `tts-1-hd` cap on 4096 characters, for which the historic
@@ -232,6 +218,20 @@ class openai_client {
         return min($configured, $ceiling);
     }
 
+    /**
+     * Split input into chunks at sentence boundaries, staying under both the
+     * character and the token ceiling.
+     *
+     * Sentence detection handles Western terminators (. ? !) and CJK ones
+     * (。．！？), the latter often having no trailing whitespace — without this
+     * an unspaced Japanese/Chinese narration is treated as one giant "sentence"
+     * and only the hard cut keeps it in bounds.
+     *
+     * @param string $text Input text.
+     * @param int $maxchars Maximum chars per chunk (<=0 uses {@see DEFAULT_CHUNK_SIZE}).
+     * @param int $maxtokens Maximum estimated tokens per chunk (<=0 uses {@see DEFAULT_MAX_TOKENS}).
+     * @return string[]
+     */
     public static function chunk_text(string $text, int $maxchars, int $maxtokens = self::DEFAULT_MAX_TOKENS): array {
         $text = trim($text);
         if ($text === '') {

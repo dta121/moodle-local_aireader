@@ -200,7 +200,7 @@ final class mp3_splitter_test extends \advanced_testcase {
      * @covers ::split
      */
     public function test_oversized_narration_splits_under_the_upload_target(): void {
-        // ~35.9 MB, matching the asset that failed in production.
+        // About 35.9 MB, matching the asset that failed in production.
         $audio = str_repeat($this->frame(128), 86000);
         $target = \local_aireader\task\align_audio::PART_TARGET_BYTES;
 

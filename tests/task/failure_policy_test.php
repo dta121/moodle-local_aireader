@@ -65,7 +65,7 @@ final class failure_policy_test extends \advanced_testcase {
     }
 
     /**
-     * The case v1.8.1 missed: a deterministic failure that arrives as a plain
+     * The case an earlier draft of this fix missed: a deterministic failure that arrives as a plain
      * moodle_exception rather than as api_http_error. It still gets its full
      * retry budget, but the last attempt exits cleanly instead of leaving a row
      * at zero attempts.
