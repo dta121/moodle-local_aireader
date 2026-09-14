@@ -25,6 +25,8 @@
 
 namespace local_aireader\external;
 
+use local_aireader\manager\asset_manager;
+
 /**
  * Tests for {@see request_regen}.
  *
@@ -85,6 +87,107 @@ final class request_regen_test extends \advanced_testcase {
 
         $this->expectException(\dml_exception::class);
         request_regen::execute((int)$cmone->id, 'book', (int)$chapterintwo->id, 'en');
+    }
+
+    /**
+     * A regeneration that Moodle refuses to queue must say so, and must leave
+     * the asset on the status it had.
+     *
+     * Reporting success and flipping a failed asset to "pending" took the only
+     * visible sign of the failure off the dashboard while nothing was actually
+     * scheduled, so an admin trying to recover destroyed their own evidence.
+     *
+     * @covers ::execute
+     */
+    public function test_blocked_regen_is_reported_and_leaves_the_asset_alone(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        set_config('enabled', 1, 'local_aireader');
+        set_config('enable_page', 1, 'local_aireader');
+        set_config('enabled_languages', 'en', 'local_aireader');
+        set_config('voice', 'marin', 'local_aireader');
+        set_config('model', 'gpt-4o-mini-tts', 'local_aireader');
+
+        [$course, $cm] = $this->create_page();
+        $assetid = $this->create_failed_asset($course, $cm);
+
+        // A task with the same payload is already queued, so Moodle's duplicate
+        // check refuses the new one. (Whether a row at zero attempts also
+        // blocks is version dependent, see dead_row_lifecycle_test; a live
+        // duplicate blocks on every supported release.)
+        asset_manager::queue_generation($assetid);
+
+        $result = request_regen::execute((int)$cm->id, 'page', 0, 'en');
+
+        $this->assertFalse($result['queued']);
+        $this->assertSame(asset_manager::STATUS_ERROR, $result['status']);
+        $row = $DB->get_record('local_aireader_asset', ['id' => $assetid]);
+        $this->assertSame(asset_manager::STATUS_ERROR, $row->status);
+        // Restoring the status must not look like a fresh failure: no new
+        // cool-down, failure count untouched.
+        $this->assertSame(0, (int)$row->failcount);
+        $this->assertNull($row->retryafter);
+    }
+
+    /**
+     * With a clear queue, regeneration is scheduled and the asset moves to
+     * pending as before.
+     *
+     * @covers ::execute
+     */
+    public function test_regen_queues_and_marks_pending(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        set_config('enabled', 1, 'local_aireader');
+        set_config('enable_page', 1, 'local_aireader');
+        set_config('enabled_languages', 'en', 'local_aireader');
+        set_config('voice', 'marin', 'local_aireader');
+        set_config('model', 'gpt-4o-mini-tts', 'local_aireader');
+
+        [$course, $cm] = $this->create_page();
+        $assetid = $this->create_failed_asset($course, $cm);
+
+        $result = request_regen::execute((int)$cm->id, 'page', 0, 'en');
+
+        $this->assertTrue($result['queued']);
+        $this->assertSame(asset_manager::STATUS_PENDING, $result['status']);
+        $this->assertSame(
+            asset_manager::STATUS_PENDING,
+            $DB->get_field('local_aireader_asset', 'status', ['id' => $assetid])
+        );
+    }
+
+    /**
+     * Create a failed asset row for a page, matching the default voice/model
+     * that request_regen resolves.
+     *
+     * @param \stdClass $course Course the page belongs to.
+     * @param \stdClass $cm Page course module.
+     * @return int Asset id.
+     */
+    private function create_failed_asset(\stdClass $course, \stdClass $cm): int {
+        global $DB;
+        $context = \context_module::instance((int)$cm->id);
+        $now = time();
+        return (int)$DB->insert_record('local_aireader_asset', (object)[
+            'courseid'      => (int)$course->id,
+            'cmid'          => (int)$cm->id,
+            'contextid'     => (int)$context->id,
+            'module'        => 'page',
+            'instanceid'    => (int)$cm->instance,
+            'chapterid'     => 0,
+            'lang'          => 'en',
+            'voice'         => 'marin',
+            'model'         => 'gpt-4o-mini-tts',
+            'sourcehash'    => hash('sha256', 'regen test'),
+            'status'        => asset_manager::STATUS_ERROR,
+            'lasterror'     => 'Translation request failed',
+            'timecreated'   => $now,
+            'timemodified'  => $now,
+            'lastrequested' => $now,
+        ]);
     }
 
     /**

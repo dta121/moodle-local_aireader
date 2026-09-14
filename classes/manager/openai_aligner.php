@@ -120,17 +120,26 @@ class openai_aligner {
         $status = (int)($info['http_code'] ?? 0);
 
         if ($status < 200 || $status >= 300) {
-            throw new \moodle_exception(
+            throw new \local_aireader\exception\api_http_error(
                 'error_alignment_http',
-                'local_aireader',
-                '',
+                $status,
                 http_guard::sanitize_error($status, $response)
             );
         }
 
         $decoded = json_decode((string)$response, true);
         if (!is_array($decoded) || empty($decoded['segments']) || !is_array($decoded['segments'])) {
-            throw new \moodle_exception('error_alignment_empty_response', 'local_aireader');
+            // A 200 with no segments is a property of these exact bytes and
+            // this exact model (near-silent or very short narration, or a
+            // transcription model that does not return verbose_json segment
+            // timestamps at all), so resubmitting returns the same body. The
+            // HTTP branch above is already classified; this one was missed, and
+            // it is the branch a fixed mp3 lands on every single time. 422 is
+            // already in the non-retryable set.
+            throw new \local_aireader\exception\api_http_error(
+                'error_alignment_empty_response',
+                422
+            );
         }
 
         $out = [];

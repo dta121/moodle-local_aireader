@@ -418,7 +418,7 @@ function xmldb_local_aireader_upgrade(int $oldversion): bool {
     if ($oldversion < 2026072211) {
         // New translation defaults: gpt-5-mini and a stricter system prompt.
         // Saving the settings page persists the visible defaults into config,
-        // so sites that never customised these hold the old default text —
+        // so sites that never customised these hold the old default text:
         // migrate exactly those; any admin-customised value is left alone.
         $oldmodel = 'gpt-4o-mini';
         if (trim((string)get_config('local_aireader', 'translation_model')) === $oldmodel) {
@@ -450,7 +450,7 @@ function xmldb_local_aireader_upgrade(int $oldversion): bool {
 
     if ($oldversion < 2026072220) {
         // Redesigned admin settings page (section cards, sidebar, advanced
-        // collapse). Purely presentational — no schema or config change; the
+        // collapse). Purely presentational, no schema or config change; the
         // version bump rolls jsrev/themerev for the new admin_settings AMD
         // module and stylesheet, and registers the new hook callback.
         upgrade_plugin_savepoint(true, 2026072220, 'local', 'aireader');
@@ -459,9 +459,33 @@ function xmldb_local_aireader_upgrade(int $oldversion): bool {
     if ($oldversion < 2026072230) {
         // Three compact player designs (slimbar / slimpill / dockpill) built
         // on the new player_slim template. No schema change; existing
-        // player_design values keep working — the version bump rolls
+        // player_design values keep working, the version bump rolls
         // jsrev/themerev for the updated player bundle, template, and styles.
         upgrade_plugin_savepoint(true, 2026072230, 'local', 'aireader');
+    }
+
+    if ($oldversion < 2026091400) {
+        // Per-asset retry cool-down. Dropping the task row as soon as a failure
+        // is judged permanent is what unblocks re-queueing, but it also removes
+        // the only thing that was throttling it: get_status re-queues any
+        // pending/stale/error asset on every call. These four fields let the
+        // asset carry its own backoff so a deterministic failure costs about
+        // one run a day instead of one per cron cycle.
+        $table = new xmldb_table('local_aireader_asset');
+
+        $fields = [
+            new xmldb_field('failcount', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0', 'lasterror'),
+            new xmldb_field('retryafter', XMLDB_TYPE_INTEGER, '10', null, null, null, null, 'failcount'),
+            new xmldb_field('alignfailcount', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0', 'retryafter'),
+            new xmldb_field('alignretryafter', XMLDB_TYPE_INTEGER, '10', null, null, null, null, 'alignfailcount'),
+        ];
+        foreach ($fields as $field) {
+            if (!$dbman->field_exists($table, $field)) {
+                $dbman->add_field($table, $field);
+            }
+        }
+
+        upgrade_plugin_savepoint(true, 2026091400, 'local', 'aireader');
     }
 
     return true;

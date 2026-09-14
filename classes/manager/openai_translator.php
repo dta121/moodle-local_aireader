@@ -24,6 +24,7 @@
 
 namespace local_aireader\manager;
 
+use local_aireader\exception\api_http_error;
 use local_aireader\manager\http_guard;
 
 /**
@@ -71,7 +72,7 @@ class openai_translator {
 
     /**
      * Translate cleaned narration text from $source to $target. Returns the
-     * translated text only — no surrounding commentary.
+     * translated text only, no surrounding commentary.
      *
      * @param string $cleantext
      * @param string $source Moodle language code.
@@ -117,10 +118,15 @@ class openai_translator {
         $status = (int)($info['http_code'] ?? 0);
 
         if ($status < 200 || $status >= 300) {
-            throw new \moodle_exception(
+            // The status has to travel on the exception, not inside the
+            // message. Chat-completions rejects a model the key cannot use, a
+            // revoked key, or an unverified org with a flat 400/401/403, and
+            // folding that into a string left generate_audio unable to tell it
+            // from a 429 worth retrying, so every one of those burned the whole
+            // attempt budget.
+            throw new api_http_error(
                 'error_translation_http',
-                'local_aireader',
-                '',
+                $status,
                 http_guard::sanitize_error($status, $response)
             );
         }
@@ -198,7 +204,7 @@ class openai_translator {
      * which map onto the same underlying model support.
      *
      * OpenAI exposes no API to enumerate supported languages, so this list is
-     * maintained by hand — last synced with the OpenAI docs in July 2026.
+     * maintained by hand, last synced with the OpenAI docs in July 2026.
      * When OpenAI adds a language before this list catches up, admins can
      * enable it immediately via the "Additional language codes" setting; no
      * code change is required.
@@ -281,7 +287,7 @@ class openai_translator {
      *
      * We don't rely on `get_string('thislanguageint', 'langconfig', null, $code)`
      * because Moodle silently falls back to the site language when the target
-     * lang pack isn't installed — which leaves every code looking like
+     * lang pack isn't installed, which leaves every code looking like
      * "English" on a default install and turns the translation prompt into a
      * no-op (translate English to English). {@see supported_languages()} covers
      * the locales most Moodle sites use; unknown codes pass through unchanged

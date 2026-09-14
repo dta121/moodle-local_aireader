@@ -25,6 +25,7 @@
 namespace local_aireader\manager;
 
 use core\task\manager as task_manager;
+use local_aireader\task\align_audio;
 use local_aireader\task\generate_audio;
 
 /**
@@ -369,6 +370,12 @@ class asset_manager {
     /**
      * Update an asset's status and optional error string.
      *
+     * Moving to `error` also advances the asset's own retry cool-down. The task
+     * row is deleted the moment a failure is judged permanent (otherwise it
+     * blocks every later re-queue), so the asset row is the only place left to
+     * record "this has been failing; stop paying to find out again on every
+     * page view". See {@see retry_backoff}. Reaching `ready` clears it.
+     *
      * @param int $id Asset id.
      * @param string $status One of the STATUS_* constants.
      * @param string|null $error Optional error message to record.
@@ -383,11 +390,94 @@ class asset_manager {
         if ($error !== null) {
             $update->lasterror = $error;
         }
+        if ($status === self::STATUS_ERROR) {
+            $current = $DB->get_field('local_aireader_asset', 'failcount', ['id' => $id]);
+            $failcount = (int)$current + 1;
+            $update->failcount = $failcount;
+            $update->retryafter = retry_backoff::next_attempt_time($failcount, $update->timemodified);
+        }
         if ($status === self::STATUS_READY) {
             $update->lastgenerated = $update->timemodified;
             $update->lasterror = null;
+            $update->failcount = 0;
+            $update->retryafter = null;
         }
         $DB->update_record('local_aireader_asset', $update);
+    }
+
+    /**
+     * Record an alignment failure without disturbing the narration.
+     *
+     * Alignment is an enhancement: the mp3 plays fine without it, so the asset
+     * stays `ready` and nothing about playback changes. But the failure used to
+     * be written nowhere at all, `align_audio` only called `mtrace()`, so once
+     * the task row went away the only evidence was task_log output, pruned
+     * after `task_logretention` days. Putting it on the asset keeps it on the
+     * report, and the cool-down stops a deterministic alignment failure being
+     * retried on every page view for the rest of the asset's life.
+     *
+     * @param int $id Asset id.
+     * @param string $error Message to store.
+     */
+    public static function record_alignment_failure(int $id, string $error): void {
+        global $DB;
+        $current = $DB->get_field('local_aireader_asset', 'alignfailcount', ['id' => $id]);
+        if ($current === false) {
+            return;
+        }
+        $failcount = (int)$current + 1;
+        $DB->update_record('local_aireader_asset', (object)[
+            'id'              => $id,
+            'lasterror'       => $error,
+            'alignfailcount'  => $failcount,
+            'alignretryafter' => retry_backoff::next_attempt_time($failcount),
+        ]);
+    }
+
+    /**
+     * Clear the alignment cool-down and error after a successful alignment.
+     *
+     * `lasterror` goes too. Alignment only runs on a ready asset, and reaching
+     * ready already cleared any generation error, so whatever is in the field
+     * at this point was written by {@see record_alignment_failure()} and is
+     * now stale. The report shows `lasterror` for ready rows, so leaving it
+     * would flag a fully aligned narration as failed indefinitely.
+     *
+     * @param int $id Asset id.
+     */
+    public static function clear_alignment_failure(int $id): void {
+        global $DB;
+        $DB->update_record('local_aireader_asset', (object)[
+            'id'              => $id,
+            'lasterror'       => null,
+            'alignfailcount'  => 0,
+            'alignretryafter' => null,
+        ]);
+    }
+
+    /**
+     * Put an asset that was just moved to pending back on its previous status.
+     *
+     * For {@see \local_aireader\external\request_regen}, which moves the asset
+     * to pending before queueing so a cron worker can never see a runnable task
+     * against a still-ready asset, and has to undo that when Moodle refuses the
+     * task as a duplicate. A plain field write rather than {@see update_status()},
+     * which would count a restored `error` as a fresh failure and extend the
+     * cool-down. Conditional on the row still being pending, so a run that
+     * finished in the meantime is not overwritten with a stale status.
+     *
+     * @param int $id Asset id.
+     * @param string $status The status to restore.
+     */
+    public static function revert_pending_status(int $id, string $status): void {
+        global $DB;
+        $DB->set_field_select(
+            'local_aireader_asset',
+            'status',
+            $status,
+            'id = :id AND status = :pending',
+            ['id' => $id, 'pending' => self::STATUS_PENDING]
+        );
     }
 
     /**
@@ -419,18 +509,111 @@ class asset_manager {
             'lasterror'     => null,
             'timemodified'  => $now,
             'lastgenerated' => $now,
+            // Fresh audio: both cool-downs start over. The new mp3 is different
+            // bytes, so a previous "Whisper returns no segments for this" says
+            // nothing about it.
+            'failcount'       => 0,
+            'retryafter'      => null,
+            'alignfailcount'  => 0,
+            'alignretryafter' => null,
         ]);
     }
 
     /**
      * Queue a generation ad hoc task for an asset id.
      *
+     * Returns false when the work was not scheduled, for either of two reasons.
+     * Moodle declines when a task with this exact payload is already on the
+     * queue, that check ignores how many attempts the existing row has left,
+     * so a row that has already given up still suppresses the new one. And this
+     * method declines while the asset is inside its own failure cool-down,
+     * which is what stops an automatic caller re-queueing a deterministic
+     * failure once per cron cycle forever ({@see retry_backoff}).
+     *
+     * Callers that report an outcome to a user must not treat false as success,
+     * or an admin pressing Regenerate is told work was scheduled when nothing
+     * was.
+     *
      * @param int $assetid
+     * @param bool $force True for a deliberate human request (Regenerate),
+     *                    which ignores the cool-down. Automatic callers such as
+     *                    `get_status` must leave this false.
+     * @return bool True when a new task row was actually created.
      */
-    public static function queue_generation(int $assetid): void {
+    public static function queue_generation(int $assetid, bool $force = false): bool {
+        if (!$force && !self::may_queue($assetid, 'retryafter')) {
+            return false;
+        }
         $task = new generate_audio();
         $task->set_custom_data(['assetid' => $assetid]);
-        task_manager::queue_adhoc_task($task, true);
+        return task_manager::queue_adhoc_task($task, true) !== false;
+    }
+
+    /**
+     * Queue an alignment ad hoc task for an asset id.
+     *
+     * Until this existed, `generate_audio` was the only place alignment was
+     * ever queued, at the tail of a successful synthesis run. So an asset whose
+     * alignment failed was stranded: it is `ready`, `get_status` does not
+     * re-queue `ready` assets, and the only way back was Regenerate, which
+     * re-pays for a full TTS synthesis of the whole page just to get a second
+     * shot at the alignment.
+     *
+     * @param int $assetid
+     * @param bool $force True to ignore the alignment cool-down.
+     * @return bool True when a new task row was actually created.
+     */
+    public static function queue_alignment(int $assetid, bool $force = false): bool {
+        if (!$force && !self::may_queue($assetid, 'alignretryafter')) {
+            return false;
+        }
+        $task = new align_audio();
+        $task->set_custom_data(['assetid' => $assetid]);
+        return task_manager::queue_adhoc_task($task, true) !== false;
+    }
+
+    /**
+     * Whether the asset's cool-down for this kind of work has expired.
+     *
+     * A missing asset returns true so the caller's own not-found handling runs
+     * instead of this silently swallowing the call.
+     *
+     * @param int $assetid Asset id.
+     * @param string $field Either 'retryafter' or 'alignretryafter'.
+     * @return bool
+     */
+    private static function may_queue(int $assetid, string $field): bool {
+        global $DB;
+        $value = $DB->get_field('local_aireader_asset', $field, ['id' => $assetid]);
+        if ($value === false) {
+            return true;
+        }
+        return retry_backoff::may_retry($value === null ? null : (int)$value);
+    }
+
+    /**
+     * Lift the automatic-requeue cool-down on a set of assets.
+     *
+     * For the recovery CLI: an operator who has just cleared a dead task row
+     * wants the work to be re-queued by the next page view, not held back for
+     * up to a day by a cool-down set before the row died. The failure counts
+     * are deliberately left in place, so if the work fails again the backoff
+     * resumes where it left off rather than restarting at an hour.
+     *
+     * @param int[] $assetids Asset ids.
+     * @return int Number of asset rows updated.
+     */
+    public static function clear_retry_cooldowns(array $assetids): int {
+        global $DB;
+        $ids = array_values(array_unique(array_filter(array_map('intval', $assetids))));
+        if (!$ids) {
+            return 0;
+        }
+        [$insql, $params] = $DB->get_in_or_equal($ids, SQL_PARAMS_NAMED);
+        $count = $DB->count_records_select('local_aireader_asset', "id {$insql}", $params);
+        $DB->set_field_select('local_aireader_asset', 'retryafter', null, "id {$insql}", $params);
+        $DB->set_field_select('local_aireader_asset', 'alignretryafter', null, "id {$insql}", $params);
+        return $count;
     }
 
     /**
@@ -612,7 +795,7 @@ class asset_manager {
      * (`enabled_voices`, stored as a comma-separated id list) with the
      * free-text escape hatch (`enabled_voices_extra`) for voices OpenAI ships
      * before the plugin's built-in checklist catches up. The default voice is
-     * always first — it is the initial selection and stays available even
+     * always first, it is the initial selection and stays available even
      * when unticked.
      *
      * @return string[] Voice ids, default voice first.

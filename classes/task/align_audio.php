@@ -26,19 +26,41 @@ namespace local_aireader\task;
 
 use core\task\adhoc_task;
 use local_aireader\manager\asset_manager;
+use local_aireader\manager\mp3_splitter;
 use local_aireader\manager\openai_aligner;
 use local_aireader\manager\segment_manager;
+use local_aireader\manager\segment_stitcher;
 
 /**
  * Ad hoc task: pull the mp3 for an asset, send it to Whisper, store segments.
  *
  * Queued from `generate_audio::execute()` immediately after a successful TTS run
  * when `enable_alignment` is on. Decoupled from TTS so audio plays as soon as
- * it's stored — karaoke shows up moments later when alignment finishes.
+ * it's stored, karaoke shows up moments later when alignment finishes.
  *
  * @package local_aireader
  */
 class align_audio extends adhoc_task {
+    /**
+     * @var int Upload ceiling the alignment endpoint enforces (25 MiB).
+     *
+     * Above this, Whisper aborts the read and returns HTTP 413, which retried
+     * identically forever.
+     */
+    public const MAX_UPLOAD_BYTES = 26214400;
+
+    /**
+     * @var int Bytes to target per part when splitting (24 MiB).
+     *
+     * Deliberately under MAX_UPLOAD_BYTES: the multipart envelope counts
+     * towards the limit. The observed failure aborted at 26326537 bytes read
+     * against a 26214400 ceiling, so a part sized exactly at the limit would
+     * still be rejected. For the same reason this, not MAX_UPLOAD_BYTES, is
+     * the threshold above which a narration is split at all: a whole file
+     * between the two would be uploaded unsplit and rejected with 413.
+     */
+    public const PART_TARGET_BYTES = 25165824;
+
     /**
      * Human-readable name shown in the scheduled-tasks admin UI.
      *
@@ -52,6 +74,13 @@ class align_audio extends adhoc_task {
      * Fetch the asset's mp3 and align it.
      */
     public function execute() {
+        // An oversized narration is held in memory whole and then again as
+        // parts, so the default cron limit is not necessarily enough. A fatal
+        // here is the one failure mode the task cannot classify: the process
+        // dies without unwinding, core fails the task on our behalf, and the
+        // attempt is spent with no code of ours involved.
+        raise_memory_limit(MEMORY_HUGE);
+
         $data = (array)($this->get_custom_data() ?? []);
         $assetid = (int)($data['assetid'] ?? 0);
         if ($assetid <= 0) {
@@ -79,14 +108,27 @@ class align_audio extends adhoc_task {
 
         $fs = get_file_storage();
         $files = $fs->get_area_files((int)$asset->contextid, 'local_aireader', 'audio', $assetid, 'itemid', false);
+        // Both skips below are recorded as alignment failures, not merely
+        // traced. get_status re-queues alignment for any ready asset without
+        // segments, so a clean return that stores nothing and starts no
+        // cool-down would be re-queued on every page view for the rest of the
+        // asset's life.
         if (!$files) {
             mtrace("local_aireader: align_audio asset {$assetid} has no stored mp3, skipping");
+            asset_manager::record_alignment_failure(
+                $assetid,
+                get_string('error_alignment_no_audio', 'local_aireader')
+            );
             return;
         }
         $file = reset($files);
         $bytes = $file->get_content();
         if ($bytes === '' || $bytes === false) {
             mtrace("local_aireader: align_audio asset {$assetid} stored file is empty, skipping");
+            asset_manager::record_alignment_failure(
+                $assetid,
+                get_string('error_alignment_empty_input', 'local_aireader')
+            );
             return;
         }
 
@@ -95,13 +137,112 @@ class align_audio extends adhoc_task {
 
         try {
             $aligner = new openai_aligner();
-            $segments = $aligner->align($bytes, $file->get_filename(), (string)$asset->lang);
+            if (strlen($bytes) > self::PART_TARGET_BYTES) {
+                $segments = $this->align_in_parts(
+                    $aligner,
+                    $bytes,
+                    $file->get_filename(),
+                    (string)$asset->lang,
+                    $assetid
+                );
+                if ($segments === null) {
+                    // Unsplittable audio: leave any existing segments alone and
+                    // finish cleanly. The narration still plays; only the
+                    // karaoke highlighting is missing. Recorded rather than
+                    // merely traced, because it is a permanent property of
+                    // these bytes and a page view would otherwise re-queue the
+                    // same doomed work every time.
+                    asset_manager::record_alignment_failure(
+                        $assetid,
+                        get_string('error_alignment_unsplittable', 'local_aireader')
+                    );
+                    return;
+                }
+            } else {
+                $segments = $aligner->align($bytes, $file->get_filename(), (string)$asset->lang);
+            }
         } catch (\Throwable $e) {
             mtrace("local_aireader: align_audio failed for asset {$assetid}: " . $e->getMessage());
+            // Alignment is an enhancement, not the deliverable, so it must
+            // never leave a row at zero attempts: that row would go on blocking
+            // re-queues of the narration itself, which is the part learners
+            // actually need. See {@see failure_policy}.
+            if (failure_policy::is_terminal($e, $this->get_attempts_available())) {
+                // Record it on the asset before letting Moodle delete the task
+                // row. Giving up used to leave no trace anywhere except cron
+                // output, which task_logretention prunes, so an asset could end
+                // up permanently without karaoke with nothing on any screen to
+                // say why. This also starts the cool-down that stops the next
+                // page view paying for the same transcription again.
+                asset_manager::record_alignment_failure($assetid, $e->getMessage());
+                mtrace("local_aireader: asset {$assetid} alignment failure is terminal, not retrying");
+                return;
+            }
             throw $e;
         }
 
         segment_manager::store_for_asset($assetid, $segments);
+        if (!segment_manager::has_for_asset($assetid)) {
+            // The endpoint answered, but every segment was blank once trimmed
+            // (near-silent audio, typically), so nothing was stored. For these
+            // bytes that outcome repeats, and without a cool-down the next page
+            // view would pay for the same transcription again.
+            mtrace("local_aireader: asset {$assetid} alignment produced no usable segments");
+            asset_manager::record_alignment_failure(
+                $assetid,
+                get_string('error_alignment_empty_response', 'local_aireader')
+            );
+            return;
+        }
+        asset_manager::clear_alignment_failure($assetid);
         mtrace("local_aireader: aligned asset {$assetid} into " . count($segments) . ' segment(s)');
+    }
+
+    /**
+     * Align an oversized narration by splitting it into uploadable parts.
+     *
+     * Each part is aligned on its own and the timestamps are shifted back onto
+     * one timeline, so karaoke works on long chapters instead of the task
+     * failing permanently.
+     *
+     * @param openai_aligner $aligner Alignment client.
+     * @param string $bytes Raw mp3 bytes of the whole narration.
+     * @param string $filename Stored filename, used to name the parts.
+     * @param string $lang Language hint passed through to the endpoint.
+     * @param int $assetid Asset id, for logging.
+     * @return array|null Merged segments, or null when the audio could not be split.
+     */
+    private function align_in_parts(
+        openai_aligner $aligner,
+        string $bytes,
+        string $filename,
+        string $lang,
+        int $assetid
+    ): ?array {
+        $parts = mp3_splitter::split($bytes, self::PART_TARGET_BYTES);
+        if (!$parts) {
+            mtrace("local_aireader: asset {$assetid} audio could not be split, skipping alignment");
+            return null;
+        }
+
+        $stem = preg_replace('/\.mp3$/i', '', $filename);
+        mtrace("local_aireader: asset {$assetid} split into " . count($parts) . ' part(s) for alignment');
+
+        // Shift parts off rather than iterating, so each part's bytes are freed
+        // once it has been uploaded instead of the whole split being held for
+        // the duration of the run on top of the original narration.
+        $aligned = [];
+        $i = 0;
+        while ($parts) {
+            $part = array_shift($parts);
+            $partname = $stem . '-part' . (++$i) . '.mp3';
+            $aligned[] = [
+                'segments' => $aligner->align($part['bytes'], $partname, $lang),
+                'duration' => $part['duration'],
+            ];
+            unset($part);
+        }
+
+        return segment_stitcher::stitch($aligned);
     }
 }

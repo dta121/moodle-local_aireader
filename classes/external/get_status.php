@@ -31,6 +31,8 @@ use core_external\external_value;
 use local_aireader\manager\asset_manager;
 use local_aireader\manager\content_extractor;
 use local_aireader\manager\position_manager;
+use local_aireader\manager\retry_backoff;
+use local_aireader\manager\segment_manager;
 use local_aireader\manager\storage;
 
 /**
@@ -177,8 +179,18 @@ class get_status extends external_api {
                 asset_manager::STATUS_ERROR,
             ];
             if (in_array($asset->status, $queueable, true)) {
+                // Not forced: an asset that keeps failing is on a cool-down, so
+                // this does not re-queue the same doomed synthesis once per
+                // cron cycle for as long as anyone keeps opening the page.
                 asset_manager::queue_generation((int)$asset->id);
             }
+        } else {
+            // A ready asset with no segments is one whose alignment never
+            // finished. Nothing else re-queues that: alignment is otherwise
+            // only queued at the tail of a successful generation, so without
+            // this the only route back is Regenerate, which re-pays for the
+            // whole narration to retry the transcription.
+            self::maybe_queue_alignment($asset);
         }
 
         $canregenerate = has_capability('local/aireader:manage', $context);
@@ -205,18 +217,54 @@ class get_status extends external_api {
         }
 
         $messagekey = 'status_' . $asset->status;
+        $message = get_string_manager()->string_exists($messagekey, 'local_aireader')
+            ? get_string($messagekey, 'local_aireader')
+            : get_string('status_pending', 'local_aireader');
+        // Say so when the reason nothing is happening is the cool-down rather
+        // than a queue that is about to run, otherwise the player sits on
+        // "Audio generation failed" with no hint that Regenerate would retry.
+        if (
+            $asset->status === asset_manager::STATUS_ERROR
+                && !retry_backoff::may_retry(
+                    $asset->retryafter === null ? null : (int)$asset->retryafter
+                )
+        ) {
+            $message = get_string('status_cooling_down', 'local_aireader');
+        }
+
         return [
             'status'         => $asset->status,
             'audiourl'       => '',
             'durationsecs'   => $estimatedduration,
             'canregenerate'  => $canregenerate,
-            'message'        => get_string_manager()->string_exists($messagekey, 'local_aireader')
-                ? get_string($messagekey, 'local_aireader')
-                : get_string('status_pending', 'local_aireader'),
+            'message'        => $message,
             'lastgenerated'  => (int)($asset->lastgenerated ?? 0),
             'assetid'        => (int)$asset->id,
             'resumeposition' => 0,
         ];
+    }
+
+    /**
+     * Re-queue alignment for a ready asset that has none.
+     *
+     * Kept cheap for the common case: the config check and the cool-down come
+     * from values already in hand, so the segment lookup only runs for assets
+     * where alignment is actually expected and not backed off.
+     *
+     * @param \stdClass $asset Ready asset row.
+     */
+    private static function maybe_queue_alignment(\stdClass $asset): void {
+        if (!get_config('local_aireader', 'enable_alignment')) {
+            return;
+        }
+        $retryafter = $asset->alignretryafter ?? null;
+        if (!retry_backoff::may_retry($retryafter === null ? null : (int)$retryafter)) {
+            return;
+        }
+        if (segment_manager::has_for_asset((int)$asset->id)) {
+            return;
+        }
+        asset_manager::queue_alignment((int)$asset->id);
     }
 
     /**

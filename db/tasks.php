@@ -34,4 +34,17 @@ $tasks = [
         'dayofweek' => '*',
         'month'     => '*',
     ],
+    [
+        // Hourly, because a zero-attempt row blocks every re-queue for its
+        // asset while it exists, and the failure paths that create one despite
+        // failure_policy (PHP fatal, OOM, worker restart) cannot be caught in
+        // the task itself.
+        'classname' => 'local_aireader\task\reap_dead_tasks',
+        'blocking'  => 0,
+        'minute'    => '43',
+        'hour'      => '*',
+        'day'       => '*',
+        'dayofweek' => '*',
+        'month'     => '*',
+    ],
 ];

@@ -4,6 +4,77 @@ All notable changes to `local_aireader` are documented in this file.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.8.1] — 2026-09-14
+
+Two adhoc task types were failing deterministically in production and, after
+twelve retries, leaving `task_adhoc` rows at zero attempts. Such a row shows
+"Next run: Never", is never run again, and still matches Moodle's duplicate
+check, so it silently blocked every later attempt to re-queue narration for
+that asset until core's four-week purge removed it.
+
+### Fixed
+
+- **TTS input limit** (`HTTP 400: Input of 2159 tokens is over the maximum
+  input limit of 2000 tokens`). `gpt-4o-mini-tts` caps input on tokens, but
+  `estimate_tokens()` counts Latin text at four characters per token, so the
+  1800-token ceiling was unreachable inside the 3800-character cap and never
+  fired. The endpoint is now the authority: an over-length rejection gets its
+  own exception type (`tts_input_too_long`) and `tts_splitter` re-splits the
+  chunk at sentence boundaries and retries the pieces, up to four levels deep.
+  The character cap is model-aware (`openai_client::chunk_size_for()`): 2400
+  for token-capped models, unchanged 3800 for `tts-1` / `tts-1-hd`, and a
+  larger configured `chunk_size` is clamped rather than trusted.
+- **Whisper upload limit** (`HTTP 413: Maximum content size limit (26214400)
+  exceeded`). Narrations over 24 MiB are split on mp3 frame boundaries in pure
+  PHP (`mp3_splitter`, no ffmpeg or getID3 dependency), each part is aligned
+  separately, and `segment_stitcher` shifts the timestamps back onto one
+  timeline using the frame-derived duration of each part. Parts target 24 MiB
+  rather than 25 because the multipart envelope counts towards the limit.
+  Audio that cannot be parsed skips alignment cleanly: the narration still
+  plays, only the karaoke highlighting is missing.
+- **Deterministic failures no longer retry forever.** `api_http_error` carries
+  the HTTP status (TTS, translation and alignment all throw it; it extends
+  `moodle_exception`, so existing catch blocks are unaffected), and a
+  transcription that returns 200 with no segments is classed the same way.
+  `failure_policy` ends the run cleanly, with the error already recorded on
+  the asset, when the status is one an identical retry cannot change
+  (400/401/403/404/413 and similar) or when this is the last attempt, so no
+  narration task can leave a zero-attempt row.
+- **Regenerate no longer reports work it did not schedule.**
+  `asset_manager::queue_generation()` returns whether a task row was actually
+  created; `request_regen` passes that through and leaves a blocked asset on
+  its current status instead of moving it to "pending".
+- **Alignment failures are recorded and recoverable.** `align_audio` used to
+  give up with nothing but an `mtrace()` line. The failure is now written to
+  the asset (`lasterror`, which the report shows for ready rows too), and
+  `get_status` re-queues alignment for a ready asset that has no segments, so
+  viewing the page is enough. Previously the only route was Regenerate, which
+  re-pays for the whole narration.
+- **A permanently failing asset is not re-queued on every page view.** Assets
+  carry their own backoff (`retry_backoff`: 1h doubling to a 24h cap, cleared
+  on success), applied to generation and alignment separately. Regenerate
+  bypasses it.
+- Both tasks call `raise_memory_limit(MEMORY_HUGE)`, since the whole mp3 is
+  held in a PHP string and a memory fatal is the one failure the task cannot
+  classify.
+
+### Added
+
+- **`reap_dead_tasks` scheduled task**, hourly. Removes this plugin's
+  zero-attempt ad hoc rows however they were created (a PHP fatal or OOM never
+  reaches the task's catch block), and lifts the affected assets' cool-downs.
+- **`cli/clear_dead_tasks.php`** (`--dry-run`) to clear an existing backlog
+  immediately. Deletes task rows only; asset rows and stored audio are never
+  touched. Deploy the code first, then run it.
+- Four columns on `local_aireader_asset` (`failcount`, `retryafter`,
+  `alignfailcount`, `alignretryafter`) backing the cool-down. Additive;
+  existing rows default to "no cool-down" and behave exactly as before.
+
+### Changed
+
+- `id3_writer::strip_leading_tag()` is now public so `mp3_splitter` can reach
+  the first audio frame.
+
 ## [1.8.0] — 2026-07-22
 
 ### Added

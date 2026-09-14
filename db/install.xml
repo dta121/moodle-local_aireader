@@ -30,6 +30,14 @@
         <FIELD NAME="inputchars" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"
             COMMENT="Character count of the narration text sent to the TTS model; basis for cost estimation."/>
         <FIELD NAME="lasterror" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="failcount" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
+            COMMENT="Consecutive generation failures; reset to 0 on success. Drives retryafter."/>
+        <FIELD NAME="retryafter" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"
+            COMMENT="Earliest time a page view may automatically re-queue generation. Null means no cool-down."/>
+        <FIELD NAME="alignfailcount" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
+            COMMENT="Consecutive alignment failures; reset to 0 when alignment succeeds."/>
+        <FIELD NAME="alignretryafter" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"
+            COMMENT="Earliest time a page view may automatically re-queue alignment. Null means no cool-down."/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="lastgenerated" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>

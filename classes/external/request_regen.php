@@ -134,8 +134,29 @@ class request_regen extends external_api {
         );
 
         if ($existing) {
+            // Status first, task second. A task row is runnable the moment it
+            // is inserted and generate_audio() leaves a ready asset alone, so
+            // a cron worker that claimed the row before the status changed
+            // would finish having done nothing, and this request would then
+            // leave the asset on "pending" for a job that has already gone.
             asset_manager::update_status((int)$existing->id, asset_manager::STATUS_PENDING);
-            asset_manager::queue_generation((int)$existing->id);
+
+            // Forced: this is a manager deliberately asking for the work, so it
+            // ignores the failure cool-down that holds back automatic
+            // re-queueing from page views. It is still subject to Moodle's own
+            // duplicate-payload check.
+            if (!asset_manager::queue_generation((int)$existing->id, true)) {
+                // A task with this payload is already queued. Leaving the asset
+                // on "pending" would take a failed narration off the dashboard
+                // and replace the only signal the admin has with a wait that
+                // nothing is going to end, so put the status back and say so.
+                asset_manager::revert_pending_status((int)$existing->id, (string)$existing->status);
+                return [
+                    'status'  => (string)$existing->status,
+                    'queued'  => false,
+                    'message' => get_string('status_already_queued', 'local_aireader'),
+                ];
+            }
             return [
                 'status'  => asset_manager::STATUS_PENDING,
                 'queued'  => true,

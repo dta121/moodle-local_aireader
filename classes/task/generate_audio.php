@@ -25,7 +25,6 @@
 namespace local_aireader\task;
 
 use core\task\adhoc_task;
-use core\task\manager as task_manager;
 use local_aireader\manager\asset_manager;
 use local_aireader\manager\content_extractor;
 use local_aireader\manager\id3_writer;
@@ -33,7 +32,7 @@ use local_aireader\manager\openai_client;
 use local_aireader\manager\openai_translator;
 use local_aireader\manager\storage;
 use local_aireader\manager\translation_manager;
-use local_aireader\task\align_audio;
+use local_aireader\manager\tts_splitter;
 
 /**
  * Ad hoc task that turns a pending or stale asset row into a stored mp3.
@@ -56,6 +55,14 @@ class generate_audio extends adhoc_task {
      * @return void
      */
     public function execute() {
+        // The whole mp3 is accumulated in a PHP string and then copied once
+        // more when the ID3 tag is written, so a long page needs well above the
+        // default cron allowance. Exceeding memory_limit is a fatal, not a
+        // Throwable: the process dies, failure_policy never runs, and core's
+        // lock cleanup spends the attempt for us. That is the one way this task
+        // can still leave a dead row, so give it the headroom not to.
+        raise_memory_limit(MEMORY_HUGE);
+
         $data = (array)($this->get_custom_data() ?? []);
         $assetid = (int)($data['assetid'] ?? 0);
         if ($assetid <= 0) {
@@ -130,10 +137,12 @@ class generate_audio extends adhoc_task {
                 );
             }
 
-            $chunksize = (int)get_config('local_aireader', 'chunk_size');
-            if ($chunksize <= 0) {
-                $chunksize = openai_client::DEFAULT_CHUNK_SIZE;
-            }
+            // Token-capped models need a tighter character ceiling than the
+            // configured default; see openai_client::chunk_size_for().
+            $chunksize = openai_client::chunk_size_for(
+                (string)$asset->model,
+                (int)get_config('local_aireader', 'chunk_size')
+            );
             $chunks = openai_client::chunk_text($narrationtext, $chunksize);
             if (!$chunks) {
                 throw new \moodle_exception('error_empty_content', 'local_aireader');
@@ -146,7 +155,16 @@ class generate_audio extends adhoc_task {
             $audio = '';
             foreach ($chunks as $i => $chunk) {
                 mtrace("local_aireader: asset {$asset->id} chunk " . ($i + 1) . '/' . count($chunks));
-                $audio .= $client->synthesize($chunk, $asset->model, $asset->voice, $instructions);
+                // No local token count can be trusted for arbitrary translated
+                // content, so let the endpoint be the authority: if it rejects
+                // the chunk as too long, split it and retry the pieces.
+                $audio .= tts_splitter::synthesize_split(
+                    static function (string $piece) use ($client, $asset, $instructions): string {
+                        return $client->synthesize($piece, $asset->model, $asset->voice, $instructions);
+                    },
+                    $chunk,
+                    $chunksize
+                );
             }
 
             // Embed ID3 metadata so downloaded files are recognisable in a
@@ -166,15 +184,27 @@ class generate_audio extends adhoc_task {
             // Chain Whisper alignment as a separate task so the audio is
             // immediately playable; karaoke lights up as soon as alignment finishes.
             if (get_config('local_aireader', 'enable_alignment')) {
-                $aligntask = new align_audio();
-                $aligntask->set_custom_data(['assetid' => (int)$asset->id]);
-                task_manager::queue_adhoc_task($aligntask, true);
-                mtrace("local_aireader: queued align_audio for asset {$asset->id}");
+                // The record_generated() call above has already cleared the
+                // alignment cool-down, so this is never held back by an
+                // earlier failure on different bytes.
+                if (asset_manager::queue_alignment((int)$asset->id)) {
+                    mtrace("local_aireader: queued align_audio for asset {$asset->id}");
+                }
             }
         } catch (\Throwable $e) {
             $message = $e->getMessage();
             mtrace("local_aireader: generation failed for asset {$asset->id}: {$message}");
             asset_manager::update_status($asset->id, asset_manager::STATUS_ERROR, $message);
+            // Rethrowing a failure that retrying cannot fix, or rethrowing on
+            // the last attempt, leaves a task row stuck at zero attempts. Cron
+            // then ignores it forever while it still matches (and silently
+            // blocks) every later re-queue for this asset. The line above has
+            // already put the error on the dashboard, so exit cleanly instead
+            // and let Moodle delete the row. See {@see failure_policy}.
+            if (failure_policy::is_terminal($e, $this->get_attempts_available())) {
+                mtrace("local_aireader: asset {$asset->id} failure is terminal, not retrying");
+                return;
+            }
             throw $e;
         }
     }
@@ -183,7 +213,7 @@ class generate_audio extends adhoc_task {
      * Resolve human-readable ID3 tag values for an asset.
      *
      * Album is the course (so a whole course groups together in a library),
-     * artist is the site, and the title is the activity — suffixed with the
+     * artist is the site, and the title is the activity, suffixed with the
      * chapter for books and with a language marker for non-source narrations.
      * The comment carries the configured AI disclosure.
      *
