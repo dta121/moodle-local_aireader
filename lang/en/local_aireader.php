@@ -103,6 +103,7 @@ $string['downloadcourse_warn'] = 'This download is large ({$a}). On a metered or
 $string['error_alignment_empty_input'] = 'Alignment was given empty audio input.';
 $string['error_alignment_empty_response'] = 'Whisper returned no segments.';
 $string['error_alignment_http'] = 'Whisper alignment request failed: {$a}';
+$string['error_alignment_no_audio'] = 'No stored audio file was found to align.';
 $string['error_alignment_unsplittable'] = 'Audio is over the alignment upload limit and could not be split, so karaoke highlighting is unavailable.';
 $string['error_asset_lock_timeout'] = 'Could not reserve the narration asset for generation. Please try again.';
 $string['error_empty_content'] = 'Activity content is empty after extraction.';

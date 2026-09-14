@@ -74,17 +74,28 @@ class mp3_splitter {
         $len = strlen($audio);
 
         $parts = [];
-        // Offsets rather than string concatenation: a 36 MB narration is ~26k
-        // frames, and appending per frame would be quadratic.
-        $startoffset = 0;
-        $partbytes = 0;
+        // A part is assembled from runs of contiguous frames. Copying per run
+        // rather than per frame keeps this linear (a 36 MB narration is ~26k
+        // frames), and copying at all, rather than one substr per part by
+        // offset, is what keeps non-frame bytes out of the upload: the
+        // narration is a concatenation of separately synthesised responses, so
+        // an ID3 tag can sit between frames mid-stream, and a part cut by
+        // offset alone would carry the tag and lose that many bytes off its
+        // tail, leaving Whisper a stream that is not frame-aligned.
+        $partbytes = '';
         $partduration = 0.0;
+        $runstart = -1;
         $offset = 0;
 
         while ($offset + 4 <= $len) {
             $frame = self::read_frame_header($audio, $offset);
             if ($frame === null) {
-                // Not a frame here. Resync one byte at a time over the garbage.
+                // Not a frame here. Close the current run, then resync one byte
+                // at a time over whatever this is.
+                if ($runstart >= 0) {
+                    $partbytes .= substr($audio, $runstart, $offset - $runstart);
+                    $runstart = -1;
+                }
                 $offset++;
                 continue;
             }
@@ -93,28 +104,28 @@ class mp3_splitter {
                 // Truncated final frame: drop it rather than upload a partial frame.
                 break;
             }
-            if ($partbytes > 0 && $partbytes + $framelen > $maxbytes) {
-                $parts[] = [
-                    'bytes' => substr($audio, $startoffset, $partbytes),
-                    'duration' => $partduration,
-                ];
-                $startoffset = $offset;
-                $partbytes = 0;
+            $pending = strlen($partbytes) + ($runstart >= 0 ? $offset - $runstart : 0);
+            if ($pending > 0 && $pending + $framelen > $maxbytes) {
+                if ($runstart >= 0) {
+                    $partbytes .= substr($audio, $runstart, $offset - $runstart);
+                    $runstart = -1;
+                }
+                $parts[] = ['bytes' => $partbytes, 'duration' => $partduration];
+                $partbytes = '';
                 $partduration = 0.0;
             }
-            if ($partbytes === 0) {
-                $startoffset = $offset;
+            if ($runstart < 0) {
+                $runstart = $offset;
             }
-            $partbytes += $framelen;
             $partduration += $frameduration;
             $offset += $framelen;
         }
 
-        if ($partbytes > 0) {
-            $parts[] = [
-                'bytes' => substr($audio, $startoffset, $partbytes),
-                'duration' => $partduration,
-            ];
+        if ($runstart >= 0) {
+            $partbytes .= substr($audio, $runstart, $offset - $runstart);
+        }
+        if ($partbytes !== '') {
+            $parts[] = ['bytes' => $partbytes, 'duration' => $partduration];
         }
 
         return $parts;

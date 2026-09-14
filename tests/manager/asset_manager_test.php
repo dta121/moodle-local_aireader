@@ -439,6 +439,9 @@ final class asset_manager_test extends \advanced_testcase {
         $row = $DB->get_record('local_aireader_asset', ['id' => $assetid]);
         $this->assertSame(0, (int)$row->alignfailcount);
         $this->assertNull($row->alignretryafter);
+        // The stale Whisper message goes too, or the report keeps flagging a
+        // narration whose alignment has since succeeded.
+        $this->assertNull($row->lasterror);
         $this->assertTrue(asset_manager::queue_alignment($assetid));
     }
 

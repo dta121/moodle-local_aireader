@@ -126,7 +126,11 @@ final class api_http_error_test extends \advanced_testcase {
         $message = 'Input of 2159 tokens is over the maximum input limit of 2000 tokens.';
 
         $this->assertTrue(tts_input_too_long::matches(400, $message));
+        $this->assertTrue(tts_input_too_long::matches(400, 'HTTP 400: string_too_long: input must be at most 4096 characters'));
         $this->assertFalse(tts_input_too_long::matches(400, 'Invalid value for voice: nope'));
+        // Same status, same words, different field: shrinking the text cannot
+        // fix an over-long narration prompt, so this must not take the split path.
+        $this->assertFalse(tts_input_too_long::matches(400, 'HTTP 400: Invalid instructions: instructions are too long.'));
         $this->assertFalse(tts_input_too_long::matches(429, $message));
         $this->assertFalse(tts_input_too_long::matches(413, 'Maximum content size limit exceeded'));
     }

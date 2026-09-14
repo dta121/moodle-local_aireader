@@ -181,6 +181,55 @@ final class mp3_splitter_test extends \advanced_testcase {
     }
 
     /**
+     * Metadata between frames is dropped without corrupting the part around it.
+     *
+     * A narration is a concatenation of separately synthesised responses, so a
+     * tag can sit in the middle of the stream, not only at the start. A part
+     * must contain frames only: cutting by offset would carry the tag and lose
+     * that many bytes off the part's tail, handing Whisper a stream that is not
+     * frame-aligned.
+     *
+     * @covers ::split
+     */
+    public function test_an_interior_tag_is_dropped_and_parts_stay_frame_aligned(): void {
+        $first = str_repeat($this->frame(128), 10);
+        $second = str_repeat($this->frame(128), 10);
+
+        $parts = mp3_splitter::split($first . $this->id3v2(200) . $second, 100000);
+
+        $this->assertSame($first . $second, implode('', array_column($parts, 'bytes')));
+        foreach ($parts as $part) {
+            $this->assertSame(0, strlen($part['bytes']) % 417, 'every part is a whole number of frames');
+            $this->assertSame("\xFF", substr($part['bytes'], 0, 1));
+        }
+        $this->assertEqualsWithDelta(
+            20 * self::SAMPLES / self::RATE,
+            array_sum(array_column($parts, 'duration')),
+            0.0001
+        );
+    }
+
+    /**
+     * The same holds when the interior tag falls inside a part that is then
+     * cut for size: both halves stay frame-aligned and nothing is lost.
+     *
+     * @covers ::split
+     */
+    public function test_an_interior_tag_near_a_part_boundary_loses_no_frames(): void {
+        $frames = str_repeat($this->frame(128), 30);
+        $withtag = substr($frames, 0, 417 * 12) . $this->id3v2(64) . substr($frames, 417 * 12);
+
+        // 417 * 15 = 6255, so a ceiling of 6300 fits fifteen frames per part.
+        $parts = mp3_splitter::split($withtag, 6300);
+
+        $this->assertSame($frames, implode('', array_column($parts, 'bytes')));
+        foreach ($parts as $part) {
+            $this->assertLessThanOrEqual(6300, strlen($part['bytes']));
+            $this->assertSame(0, strlen($part['bytes']) % 417);
+        }
+    }
+
+    /**
      * A truncated final frame is dropped rather than uploaded as a partial frame.
      *
      * @covers ::split

@@ -182,6 +182,34 @@ final class align_audio_test extends \advanced_testcase {
     }
 
     /**
+     * A clean skip with nothing to align still counts as giving up.
+     *
+     * get_status re-queues alignment for any ready asset without segments, so
+     * a skip that stored nothing and started no cool-down would be scheduled
+     * again on every page view for the rest of the asset's life.
+     *
+     * @covers ::execute
+     */
+    public function test_a_skip_with_no_audio_starts_a_cooldown(): void {
+        global $DB;
+        $assetid = $this->create_ready_asset();
+        $contextid = (int)$DB->get_field('local_aireader_asset', 'contextid', ['id' => $assetid]);
+        get_file_storage()->delete_area_files($contextid, storage::COMPONENT, storage::FILEAREA, $assetid);
+
+        $task = new align_audio();
+        $task->set_custom_data(['assetid' => $assetid]);
+        $task->set_attempts_available(12);
+        $output = $this->run_task($task);
+
+        $this->assertStringContainsString('no stored mp3', $output);
+        $row = $DB->get_record('local_aireader_asset', ['id' => $assetid]);
+        $this->assertSame(asset_manager::STATUS_READY, $row->status);
+        $this->assertSame(1, (int)$row->alignfailcount);
+        $this->assertNotEmpty($row->lasterror);
+        $this->assertFalse(asset_manager::queue_alignment($assetid));
+    }
+
+    /**
      * Execute a task with mtrace output captured so it does not leak into the
      * test runner's output.
      *

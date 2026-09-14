@@ -108,14 +108,27 @@ class align_audio extends adhoc_task {
 
         $fs = get_file_storage();
         $files = $fs->get_area_files((int)$asset->contextid, 'local_aireader', 'audio', $assetid, 'itemid', false);
+        // Both skips below are recorded as alignment failures, not merely
+        // traced. get_status re-queues alignment for any ready asset without
+        // segments, so a clean return that stores nothing and starts no
+        // cool-down would be re-queued on every page view for the rest of the
+        // asset's life.
         if (!$files) {
             mtrace("local_aireader: align_audio asset {$assetid} has no stored mp3, skipping");
+            asset_manager::record_alignment_failure(
+                $assetid,
+                get_string('error_alignment_no_audio', 'local_aireader')
+            );
             return;
         }
         $file = reset($files);
         $bytes = $file->get_content();
         if ($bytes === '' || $bytes === false) {
             mtrace("local_aireader: align_audio asset {$assetid} stored file is empty, skipping");
+            asset_manager::record_alignment_failure(
+                $assetid,
+                get_string('error_alignment_empty_input', 'local_aireader')
+            );
             return;
         }
 
@@ -169,6 +182,18 @@ class align_audio extends adhoc_task {
         }
 
         segment_manager::store_for_asset($assetid, $segments);
+        if (!segment_manager::has_for_asset($assetid)) {
+            // The endpoint answered, but every segment was blank once trimmed
+            // (near-silent audio, typically), so nothing was stored. For these
+            // bytes that outcome repeats, and without a cool-down the next page
+            // view would pay for the same transcription again.
+            mtrace("local_aireader: asset {$assetid} alignment produced no usable segments");
+            asset_manager::record_alignment_failure(
+                $assetid,
+                get_string('error_alignment_empty_response', 'local_aireader')
+            );
+            return;
+        }
         asset_manager::clear_alignment_failure($assetid);
         mtrace("local_aireader: aligned asset {$assetid} into " . count($segments) . ' segment(s)');
     }

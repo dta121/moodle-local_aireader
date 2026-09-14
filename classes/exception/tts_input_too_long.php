@@ -38,8 +38,13 @@ class tts_input_too_long extends api_http_error {
      * Whether an API error response is the "input too long" rejection.
      *
      * Matched on the message because the endpoint returns the same 400 status
-     * for unrelated problems, and the token counts in the text are the only
-     * thing distinguishing them.
+     * for unrelated problems, and the wording is the only thing distinguishing
+     * them. The match has to name the input: the token-capped models say
+     * "Input of N tokens is over the maximum input limit", the character-capped
+     * ones "string_too_long" / "at most 4096 characters". A bare "too long" is
+     * not enough, because the same 400 comes back for over-long *instructions*
+     * (the admin-configured narration prompt), and shrinking the text cannot
+     * fix that, so splitting would only spend money to fail identically.
      *
      * @param int $status HTTP status returned by the endpoint.
      * @param string $message Sanitised error message from the response body.
@@ -49,7 +54,11 @@ class tts_input_too_long extends api_http_error {
         if ($status !== 400) {
             return false;
         }
-        return (bool)preg_match('/maximum input limit|over the maximum input|too long/i', $message);
+        return (bool)preg_match(
+            '/maximum input limit|over the maximum input|shorten your input|string_too_long'
+            . '|at most 4096 characters|\binput\b[^.]{0,80}\btoo long/i',
+            $message
+        );
     }
 
     /**

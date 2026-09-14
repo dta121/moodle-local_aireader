@@ -120,10 +120,12 @@ final class request_regen_test extends \advanced_testcase {
 
         $this->assertFalse($result['queued']);
         $this->assertSame(asset_manager::STATUS_ERROR, $result['status']);
-        $this->assertSame(
-            asset_manager::STATUS_ERROR,
-            $DB->get_field('local_aireader_asset', 'status', ['id' => $assetid])
-        );
+        $row = $DB->get_record('local_aireader_asset', ['id' => $assetid]);
+        $this->assertSame(asset_manager::STATUS_ERROR, $row->status);
+        // Restoring the status must not look like a fresh failure: no new
+        // cool-down, failure count untouched.
+        $this->assertSame(0, (int)$row->failcount);
+        $this->assertNull($row->retryafter);
     }
 
     /**

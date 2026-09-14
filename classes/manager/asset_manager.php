@@ -435,10 +435,13 @@ class asset_manager {
     }
 
     /**
-     * Clear the alignment cool-down after a successful alignment.
+     * Clear the alignment cool-down and error after a successful alignment.
      *
-     * `lasterror` is deliberately left alone: a generation error is the asset's
-     * own to clear when it regenerates.
+     * `lasterror` goes too. Alignment only runs on a ready asset, and reaching
+     * ready already cleared any generation error, so whatever is in the field
+     * at this point was written by {@see record_alignment_failure()} and is
+     * now stale. The report shows `lasterror` for ready rows, so leaving it
+     * would flag a fully aligned narration as failed indefinitely.
      *
      * @param int $id Asset id.
      */
@@ -446,9 +449,35 @@ class asset_manager {
         global $DB;
         $DB->update_record('local_aireader_asset', (object)[
             'id'              => $id,
+            'lasterror'       => null,
             'alignfailcount'  => 0,
             'alignretryafter' => null,
         ]);
+    }
+
+    /**
+     * Put an asset that was just moved to pending back on its previous status.
+     *
+     * For {@see \local_aireader\external\request_regen}, which moves the asset
+     * to pending before queueing so a cron worker can never see a runnable task
+     * against a still-ready asset, and has to undo that when Moodle refuses the
+     * task as a duplicate. A plain field write rather than {@see update_status()},
+     * which would count a restored `error` as a fresh failure and extend the
+     * cool-down. Conditional on the row still being pending, so a run that
+     * finished in the meantime is not overwritten with a stale status.
+     *
+     * @param int $id Asset id.
+     * @param string $status The status to restore.
+     */
+    public static function revert_pending_status(int $id, string $status): void {
+        global $DB;
+        $DB->set_field_select(
+            'local_aireader_asset',
+            'status',
+            $status,
+            'id = :id AND status = :pending',
+            ['id' => $id, 'pending' => self::STATUS_PENDING]
+        );
     }
 
     /**
