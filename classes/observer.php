@@ -111,7 +111,7 @@ class observer {
         if ((int)$row->cmvisible === 0 || (int)$row->cvisible === 0) {
             return false;
         }
-        // enddate 0 means "no end date set", which is open-ended, not expired.
+        // An enddate of 0 means "no end date set", which is open-ended, not expired.
         if ((int)$row->enddate > 0 && (int)$row->enddate < time()) {
             return false;
         }

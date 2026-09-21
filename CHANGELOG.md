@@ -1,6 +1,10 @@
 # Changelog
 
-## 1.8.2
+All notable changes to `local_aireader` are documented in this file.
+Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
+versions follow [Semantic Versioning](https://semver.org/).
+
+## [1.8.2] — 2026-09-21
 
 ### Fixed
 
@@ -22,11 +26,6 @@
   conventions for archived shells; a retired course left visible with no end
   date still looks live to it, and the way to stop generating for those is to
   turn `auto_generate_on_save` off and let learner access drive synthesis.
-
-
-All notable changes to `local_aireader` are documented in this file.
-Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
-versions follow [Semantic Versioning](https://semver.org/).
 
 ## [1.8.1] — 2026-09-14
 

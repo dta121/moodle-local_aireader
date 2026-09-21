@@ -98,8 +98,10 @@ final class observer_test extends \advanced_testcase {
      */
     private function queued_tasks(): int {
         global $DB;
-        return $DB->count_records('task_adhoc',
-            ['classname' => '\\local_aireader\\task\\generate_audio']);
+        return $DB->count_records(
+            'task_adhoc',
+            ['classname' => '\\local_aireader\\task\\generate_audio']
+        );
     }
 
     /**
