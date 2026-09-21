@@ -68,6 +68,84 @@ final class asset_manager_test extends \advanced_testcase {
     }
 
     /**
+     * With nothing configured the default follows the site language, matched
+     * exactly or by base code, and only falls back to the first offered
+     * language when the site language is not offered at all.
+     *
+     * The first-offered fallback is the pre-1.8.3 behaviour that this setting
+     * exists to override: the checklist is alphabetical by name, so an English
+     * site that added Afrikaans and Arabic started every player in Afrikaans.
+     *
+     * @covers ::default_language
+     */
+    public function test_default_language_follows_the_site_language(): void {
+        global $CFG;
+        $this->resetAfterTest();
+        set_config('enabled_languages', 'af,ar,en', 'local_aireader');
+        set_config('default_language', '', 'local_aireader');
+
+        $CFG->lang = 'en';
+        $this->assertSame('en', asset_manager::default_language());
+
+        // A regional site language still lands on the offered base language.
+        $CFG->lang = 'en_us';
+        $this->assertSame('en', asset_manager::default_language());
+
+        // Site language not offered: first in the checklist, alphabetical.
+        $CFG->lang = 'fr';
+        $this->assertSame('af', asset_manager::default_language());
+    }
+
+    /**
+     * An explicit default wins over the site language, but only while it is
+     * actually offered; a stale choice is ignored rather than surfacing a
+     * language learners cannot pick.
+     *
+     * @covers ::default_language
+     */
+    public function test_configured_default_language_wins_when_offered(): void {
+        global $CFG;
+        $this->resetAfterTest();
+        set_config('enabled_languages', 'af,ar,en', 'local_aireader');
+        $CFG->lang = 'fr';
+
+        set_config('default_language', 'en', 'local_aireader');
+        $this->assertSame('en', asset_manager::default_language());
+
+        // Hand-typed variants are normalised like the checklist codes are.
+        set_config('enabled_languages_extra', 'pt_br', 'local_aireader');
+        set_config('default_language', 'PT-BR', 'local_aireader');
+        $this->assertSame('pt_br', asset_manager::default_language());
+
+        // Configured but no longer ticked: ignored, back to the automatic rule.
+        set_config('default_language', 'es', 'local_aireader');
+        $this->assertSame('af', asset_manager::default_language());
+    }
+
+    /**
+     * A learner whose interface language is offered gets it, exactly or by
+     * base code; anyone else gets the site default.
+     *
+     * @covers ::resolve_language
+     */
+    public function test_resolve_language_prefers_the_learners_language(): void {
+        global $CFG;
+        $this->resetAfterTest();
+        set_config('enabled_languages', 'af,ar,en', 'local_aireader');
+        set_config('default_language', 'en', 'local_aireader');
+        $CFG->lang = 'en';
+
+        $this->assertSame('ar', asset_manager::resolve_language('ar'));
+        $this->assertSame('en', asset_manager::resolve_language('en_gb'));
+        $this->assertSame('en', asset_manager::resolve_language('fr'));
+        $this->assertSame('en', asset_manager::resolve_language(''));
+
+        // A base-code request does not match a regional offering.
+        set_config('enabled_languages', 'en,pt_br', 'local_aireader');
+        $this->assertSame('en', asset_manager::resolve_language('pt'));
+    }
+
+    /**
      * The enabled-voices list always starts with the default voice, merges the
      * checklist and extra ids, normalises case, and deduplicates.
      *

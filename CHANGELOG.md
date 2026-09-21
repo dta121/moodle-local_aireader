@@ -4,6 +4,22 @@ All notable changes to `local_aireader` are documented in this file.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.8.3] — 2026-09-21
+
+### Added
+
+- **Default narration language setting** (`default_language`). The player
+  used to start in the first offered language whenever the learner's
+  interface language was not offered and the site language did not match
+  exactly, and the offered-languages checklist is alphabetical by name, so an
+  English site that added Afrikaans and Arabic started every player in
+  Afrikaans. The new setting names the starting language explicitly. Left on
+  Automatic, the site language now also matches by base code (`en_us` lands on
+  `en`) before falling back to the first offered language. Learners whose
+  interface language is offered still get that, as before. The default is
+  also listed first in the language picker, as the default voice is in the
+  voice picker.
+
 ## [1.8.2] — 2026-09-21
 
 ### Fixed

@@ -292,20 +292,20 @@ class hook_callbacks {
         $disclosure = (string)(get_config('local_aireader', 'disclosure')
             ?: get_string('default_disclosure', 'local_aireader'));
 
-        // Build the language menu the player should offer.
+        // Build the language menu the player should offer: the site's default
+        // language first (as the voice menu does with the default voice), the
+        // rest in checklist order. The initial selection follows the learner's
+        // interface language when that is offered, otherwise the site default.
         $enabledcodes = asset_manager::enabled_languages();
+        $sitedefault = asset_manager::default_language();
         $languages = [];
-        foreach ($enabledcodes as $code) {
+        foreach (array_unique(array_merge([$sitedefault], $enabledcodes)) as $code) {
             $languages[] = [
                 'code' => $code,
                 'name' => openai_translator::language_display_name($code),
             ];
         }
-        $defaultlang = current_language();
-        if (!in_array($defaultlang, $enabledcodes, true)) {
-            $sitelang = (string)($GLOBALS['CFG']->lang ?? 'en');
-            $defaultlang = in_array($sitelang, $enabledcodes, true) ? $sitelang : $enabledcodes[0];
-        }
+        $defaultlang = asset_manager::resolve_language(current_language());
 
         // Build the voice menu (default voice first; picker hides when only one).
         $voices = [];

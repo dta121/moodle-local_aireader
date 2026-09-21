@@ -126,6 +126,10 @@ HTTPS; loopback, private, and link-local addresses are blocked.
      learners a voice picker on the player.
    - *(Optional)* **Languages offered to learners** — tick the languages to
      offer; leave only English ticked to hide the language picker.
+   - *(Optional)* **Default narration language** — the language the player
+     starts in and lists first. Leave on Automatic to follow the site
+     language; set it explicitly if your site language code is a regional
+     variant or you want a different starting language.
    - *(Optional)* **Enable Whisper alignment** — turns on the karaoke
      highlighting.
 
