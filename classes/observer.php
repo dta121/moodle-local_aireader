@@ -79,6 +79,46 @@ class observer {
     }
 
     /**
+     * Whether a learner could actually open this activity.
+     *
+     * False when the activity is hidden, or its course is hidden, or the
+     * course has an end date that has passed. Those are the three states a
+     * retired or not-yet-released activity sits in, and in all of them a
+     * learner hitting the page is impossible, so pre-generating its audio is
+     * spend with no reader.
+     *
+     * Deliberately does NOT try to recognise naming conventions for archived
+     * shells -- that is site policy, not something a plugin should encode.
+     * A retired shell left visible with no end date still looks live here and
+     * is handled by turning auto_generate_on_save off.
+     *
+     * @param int $cmid Course module id.
+     * @return bool
+     */
+    private static function is_reachable_by_learners(int $cmid): bool {
+        global $DB;
+
+        $row = $DB->get_record_sql(
+            "SELECT cm.visible AS cmvisible, c.visible AS cvisible, c.enddate
+               FROM {course_modules} cm
+               JOIN {course} c ON c.id = cm.course
+              WHERE cm.id = :cmid",
+            ['cmid' => $cmid]
+        );
+        if (!$row) {
+            return false;
+        }
+        if ((int)$row->cmvisible === 0 || (int)$row->cvisible === 0) {
+            return false;
+        }
+        // An enddate of 0 means "no end date set", which is open-ended, not expired.
+        if ((int)$row->enddate > 0 && (int)$row->enddate < time()) {
+            return false;
+        }
+        return true;
+    }
+
+    /**
      * Invalidate cached audio for a course module if it is a supported type.
      *
      * @param int $cmid Course module id.
@@ -91,6 +131,19 @@ class observer {
         asset_manager::mark_cm_stale($cmid);
 
         if (!get_config('local_aireader', 'auto_generate_on_save')) {
+            return;
+        }
+
+        // Never pre-generate for content no learner can open. Marking stale
+        // above is still right -- if the activity is unhidden later the next
+        // view regenerates -- but synthesising now spends TTS and translation
+        // budget on audio nobody can reach.
+        //
+        // On learn.saylor.org this path had produced 4,866 assets (8% of all
+        // assets, 18.2M characters) against hidden activities and retired
+        // course shells, because an editor tidying an archived course fires
+        // the same update event as one editing a live one.
+        if (!self::is_reachable_by_learners($cmid)) {
             return;
         }
 

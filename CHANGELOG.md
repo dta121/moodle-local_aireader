@@ -4,6 +4,29 @@ All notable changes to `local_aireader` are documented in this file.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.8.2] — 2026-09-21
+
+### Fixed
+
+- **Auto-generate on save no longer synthesises audio nobody can reach.**
+  `auto_generate_on_save` fired on every Page/Book update event, with no check
+  on whether a learner could open the activity. An editor tidying a retired
+  course shell triggered exactly the same regeneration as one editing a live
+  course. On learn.saylor.org that produced 4,866 assets against hidden
+  activities and retired shells: 8% of all assets and 18.2M characters of TTS
+  and translation spend with no possible reader.
+
+  The save path now skips an activity that is hidden, whose course is hidden,
+  or whose course end date has passed. The stale mark still happens in all
+  three cases, so unhiding an activity later still regenerates on the next
+  view. This does not change on-demand behaviour: a learner opening a reading
+  has always generated through `get_status`, and still does.
+
+  This guard is deliberately general. It does not try to recognise site naming
+  conventions for archived shells; a retired course left visible with no end
+  date still looks live to it, and the way to stop generating for those is to
+  turn `auto_generate_on_save` off and let learner access drive synthesis.
+
 ## [1.8.1] — 2026-09-14
 
 Two adhoc task types were failing deterministically in production and, after
