@@ -779,6 +779,85 @@ class asset_manager {
     }
 
     /**
+     * The language the player starts in when nothing about the learner says
+     * otherwise.
+     *
+     * Resolution order, first hit wins, and only offered languages count:
+     *
+     * 1. The `default_language` setting, when set to an offered language.
+     * 2. The site language (`$CFG->lang`), exactly, then its base code, so a
+     *    site on `en_us` still lands on `en`.
+     * 3. The first offered language.
+     *
+     * Step 3 is the pre-1.8.3 behaviour and the reason this exists: the
+     * offered-languages checklist is alphabetical by name, so an English site
+     * that added Afrikaans and Arabic started every player in Afrikaans.
+     *
+     * @return string Moodle language code.
+     */
+    public static function default_language(): string {
+        global $CFG;
+        $enabled = self::enabled_languages();
+
+        $configured = self::normalise_language_code((string)get_config('local_aireader', 'default_language'));
+        if ($configured !== '' && in_array($configured, $enabled, true)) {
+            return $configured;
+        }
+
+        $match = self::match_offered_language((string)($CFG->lang ?? 'en'), $enabled);
+        return $match ?? $enabled[0];
+    }
+
+    /**
+     * The language the player should start in for a particular learner.
+     *
+     * A learner whose Moodle interface language is one of the offered
+     * languages gets that, on the same principle as the rest of their UI;
+     * everyone else gets {@see default_language()}.
+     *
+     * @param string $learnerlang The learner's interface language, i.e. current_language().
+     * @return string Moodle language code.
+     */
+    public static function resolve_language(string $learnerlang): string {
+        return self::match_offered_language($learnerlang, self::enabled_languages()) ?? self::default_language();
+    }
+
+    /**
+     * Find an offered language matching a code, exactly or by base code.
+     *
+     * `en_us` matches an offered `en`; `pt` does not match an offered `pt_br`,
+     * since a learner asking for Portuguese has not asked for Brazilian.
+     *
+     * @param string $code Language code to match.
+     * @param string[] $enabled Offered language codes, normalised.
+     * @return string|null The offered code, or null when nothing matches.
+     */
+    private static function match_offered_language(string $code, array $enabled): ?string {
+        $code = self::normalise_language_code($code);
+        if ($code === '') {
+            return null;
+        }
+        if (in_array($code, $enabled, true)) {
+            return $code;
+        }
+        $base = preg_replace('/_.*$/', '', $code);
+        if ($base !== $code && in_array($base, $enabled, true)) {
+            return $base;
+        }
+        return null;
+    }
+
+    /**
+     * Normalise a language code to the lowercase/underscore form used throughout.
+     *
+     * @param string $code Raw code, e.g. 'PT-BR'.
+     * @return string e.g. 'pt_br'; empty when the input was blank.
+     */
+    private static function normalise_language_code(string $code): string {
+        return strtolower(str_replace('-', '_', trim($code)));
+    }
+
+    /**
      * The site's default TTS voice: used when the client requests none, and
      * always available to learners regardless of the enabled-voices checklist.
      *

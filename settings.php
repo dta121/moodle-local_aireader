@@ -295,6 +295,28 @@ if ($hassiteconfig) {
         PARAM_TEXT
     ));
 
+    // Every supported language is selectable, plus any extra codes already
+    // enabled above, so a language added through the escape hatch can be the
+    // default too. A choice that is not currently offered is ignored at run
+    // time rather than rejected here, so unticking a language never leaves the
+    // settings page unsaveable.
+    $defaultlanguageoptions = ['' => get_string('setting_defaultlanguage_auto', 'local_aireader')];
+    foreach (\local_aireader\manager\openai_translator::supported_languages() as $code => $name) {
+        $defaultlanguageoptions[$code] = $name;
+    }
+    foreach (\local_aireader\manager\asset_manager::enabled_languages() as $code) {
+        if (!isset($defaultlanguageoptions[$code])) {
+            $defaultlanguageoptions[$code] = \local_aireader\manager\openai_translator::language_display_name($code);
+        }
+    }
+    $settings->add(new admin_setting_configselect(
+        'local_aireader/default_language',
+        get_string('setting_defaultlanguage', 'local_aireader'),
+        get_string('setting_defaultlanguage_desc', 'local_aireader', $CFG->lang ?? 'en'),
+        '',
+        $defaultlanguageoptions
+    ));
+
     $settings->add(new admin_setting_configcheckbox(
         'local_aireader/eager_languages_on_save',
         get_string('setting_eagerlanguages', 'local_aireader'),
