@@ -488,7 +488,14 @@ function xmldb_local_aireader_upgrade(int $oldversion): bool {
         upgrade_plugin_savepoint(true, 2026091400, 'local', 'aireader');
     }
 
-    if ($oldversion < 2026093000) {
+    if ($oldversion < 2026100200) {
+        // Single-language course downloads and the docked player's mobile
+        // language picker. No schema change; the bump rolls themerev for the
+        // updated stylesheet.
+        upgrade_plugin_savepoint(true, 2026100200, 'local', 'aireader');
+    }
+
+    if ($oldversion < 2026100300) {
         $table = new xmldb_table('local_aireader_asset');
         $fields = [
             new xmldb_field('s3objectid', XMLDB_TYPE_INTEGER, '10', null, null, null, null, 'fileid'),
@@ -523,10 +530,10 @@ function xmldb_local_aireader_upgrade(int $oldversion): bool {
         if (!$dbman->table_exists($table)) {
             $dbman->create_table($table);
         }
-        upgrade_plugin_savepoint(true, 2026093000, 'local', 'aireader');
+        upgrade_plugin_savepoint(true, 2026100300, 'local', 'aireader');
     }
 
-    if ($oldversion < 2026100100) {
+    if ($oldversion < 2026100301) {
         // OpenAI shuts gpt-5-mini (gpt-5-mini-2025-08-07) down on 2026-12-11
         // and names gpt-5.6-terra as its replacement. Sites that saved the
         // settings page hold the old default in config; move exactly those,
@@ -535,7 +542,7 @@ function xmldb_local_aireader_upgrade(int $oldversion): bool {
         if (in_array($current, ['gpt-5-mini', 'gpt-5-mini-2025-08-07'], true)) {
             set_config('translation_model', 'gpt-5.6-terra', 'local_aireader');
         }
-        upgrade_plugin_savepoint(true, 2026100100, 'local', 'aireader');
+        upgrade_plugin_savepoint(true, 2026100301, 'local', 'aireader');
     }
 
     return true;
