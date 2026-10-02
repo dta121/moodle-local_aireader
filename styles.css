@@ -1681,20 +1681,23 @@ body.local-aireader-docked-open {
         flex-wrap: wrap;
     }
 
-    /* The docked bar has no room for the language and voice pickers beside
-       the controls, but hiding them left phone users no way to switch
-       language (CPIT-448). Wrap them onto a second line under the controls
-       instead; the bar only grows when a picker is actually offered. */
+    /* The docked bar has no room for the language/voice pickers and the
+       transcript toggle beside the controls, but hiding them left phone users
+       no way to switch language (CPIT-448) or open the transcript. Wrap them
+       onto a second line under the controls instead; the bar only grows when
+       one of them is actually offered. */
     .local-aireader-slim.is-docked .local-aireader-slim-row {
         flex-wrap: wrap;
         row-gap: 6px;
     }
 
     .local-aireader-slim.is-docked .local-aireader-langpicker,
-    .local-aireader-slim.is-docked .local-aireader-voicepicker {
+    .local-aireader-slim.is-docked .local-aireader-voicepicker,
+    .local-aireader-slim.is-docked .local-aireader-transcript-toggle {
         order: 10;
-        flex: 1 1 calc(50% - 6px);
+        flex: 1 1 calc(33% - 6px);
         min-width: 0;
+        justify-content: center;
     }
 
     .local-aireader-slim.is-docked .local-aireader-langselect,
@@ -1702,11 +1705,10 @@ body.local-aireader-docked-open {
         width: 100%;
     }
 
-    .local-aireader-slim.is-docked .local-aireader-transcript-toggle {
-        display: none;
-    }
-
-    body.local-aireader-docked-open {
+    /* Reserve room for the second line only when something is on it. */
+    body.local-aireader-docked-open:has(.local-aireader-slim.is-docked .local-aireader-langpicker:not(.d-none)),
+    body.local-aireader-docked-open:has(.local-aireader-slim.is-docked .local-aireader-voicepicker:not(.d-none)),
+    body.local-aireader-docked-open:has(.local-aireader-slim.is-docked.is-started .local-aireader-transcript-toggle:not(.d-none)) {
         padding-bottom: 120px;
     }
 }

@@ -102,6 +102,24 @@ class download_manager {
             ? $DB->get_records_list('book_chapters', 'id', array_keys($chapterids), '', 'id, bookid, title, hidden')
             : [];
 
+        // Load every asset's stored file in one query. The page lists all
+        // languages to build its selector, so a lookup per asset multiplied
+        // the queries by the number of languages generated.
+        $filesbyasset = [];
+        if ($assets) {
+            [$insql, $params] = $DB->get_in_or_equal(array_keys($assets), SQL_PARAMS_NAMED);
+            $params += ['component' => storage::COMPONENT, 'filearea' => storage::FILEAREA, 'dot' => '.'];
+            $filerecords = $DB->get_records_select(
+                'files',
+                "component = :component AND filearea = :filearea AND itemid {$insql} AND filename <> :dot",
+                $params,
+                'itemid, id'
+            );
+            foreach ($filerecords as $record) {
+                $filesbyasset[(int)$record->itemid] ??= $fs->get_file_instance($record);
+            }
+        }
+
         $items = [];
         $usednames = [];
         foreach ($assets as $asset) {
@@ -139,18 +157,10 @@ class download_manager {
                 continue;
             }
 
-            $files = $fs->get_area_files(
-                $context->id,
-                storage::COMPONENT,
-                storage::FILEAREA,
-                (int)$asset->id,
-                'itemid',
-                false
-            );
-            if (!$files) {
+            $file = $filesbyasset[(int)$asset->id] ?? null;
+            if (!$file || (int)$file->get_contextid() !== (int)$context->id) {
                 continue;
             }
-            $file = reset($files);
 
             $chaptertitle = $chapter ? (string)$chapter->title : '';
 

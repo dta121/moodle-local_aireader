@@ -26,7 +26,6 @@
 require(__DIR__ . '/../../config.php');
 require_once($CFG->libdir . '/filelib.php');
 
-use local_aireader\manager\asset_manager;
 use local_aireader\manager\download_manager;
 use local_aireader\manager\openai_client;
 use local_aireader\manager\openai_translator;
@@ -109,23 +108,17 @@ echo html_writer::end_div();
 $table = new html_table();
 $table->head = [
     get_string('downloadcourse_col_activity', 'local_aireader'),
-    get_string('downloadcourse_col_language', 'local_aireader'),
     get_string('downloadcourse_col_size', 'local_aireader'),
 ];
 $table->attributes['class'] = 'generaltable local-aireader-downloadlist';
-$defaultvoice = asset_manager::default_voice();
+// Every row shares the selected language and voice, so only the activity varies.
 foreach ($items as $item) {
     $label = $item->activityname;
     if ($item->chaptertitle !== '') {
         $label .= ' — ' . $item->chaptertitle;
     }
-    $langcell = core_text::strtoupper($item->lang);
-    if ($item->voice !== '' && $item->voice !== $defaultvoice) {
-        $langcell .= ' — ' . openai_client::voice_display_name($item->voice);
-    }
     $table->data[] = [
         s($label),
-        s($langcell),
         display_size($item->bytesize),
     ];
 }
@@ -154,7 +147,7 @@ $downloadurl = new moodle_url('/local/aireader/download_course.php', [
 ]);
 echo $OUTPUT->single_button(
     $downloadurl,
-    get_string('downloadcourse_button', 'local_aireader', $a),
+    get_string('downloadcourse_downloadlang', 'local_aireader', $a),
     'get'
 );
 
