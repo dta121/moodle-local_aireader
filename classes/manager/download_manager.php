@@ -83,6 +83,7 @@ class download_manager {
         $enabledvoices = asset_manager::enabled_voices();
         $defaultvoice = asset_manager::default_voice();
         $modinfo = \get_fast_modinfo($course, $userid);
+        $fs = \get_file_storage();
 
         $assets = $DB->get_records('local_aireader_asset', [
             'courseid' => (int)$course->id,
