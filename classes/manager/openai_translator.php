@@ -171,7 +171,7 @@ class openai_translator {
             $payload['temperature'] = 0.2;
         }
         if ($isreasoning && preg_match('/^gpt-[5-9]/i', $model)) {
-            // o-series models reject every value used here, so they get none.
+            // The o-series models reject every value used here, so they get none.
             $payload['reasoning_effort'] = self::lowest_reasoning_effort($model);
         }
         return $payload;
