@@ -5,8 +5,8 @@
 Adds a **"Listen to this content"** audio player to the top of supported
 Moodle resources. Learners hit play; the page reads itself.
 
-Audio is generated once by AI, cached on your Moodle site, and reused for
-every student who visits the same activity afterwards. There's no
+Audio is generated once by AI, cached in Moodle or your private Amazon S3
+bucket, and reused for every student who visits the same activity afterwards. There's no
 per-student cost and no waiting on the API at page-load time.
 
 ## Screenshots
@@ -56,7 +56,10 @@ typically on translated narrations or pages with embedded video.
   one-row slim bar, pill triggers that expand on click, a banner, an
   accordion, and a pill + bottom-docked mini-player whose controls follow
   the learner down long pages.
-- A redesigned settings page: six sections with a filter, per-setting
+- Optional **Amazon S3 audio storage** — keep a local copy and mirror audio
+  to S3, or offload it after a verified upload. Existing audio transfers in
+  the background; learners keep using Moodle's access-controlled player.
+- A redesigned settings page: sections with a filter, per-setting
   defaults with one-click reset, and advanced options tucked away.
 
 ## What it's good for
@@ -82,6 +85,9 @@ You'll also need:
 - **Moodle cron running** — audio is generated in the background, not
   while a learner is staring at the page.
 - **Outbound HTTPS** from the Moodle server to your API endpoint.
+- *(Optional S3 storage)* The **AWS SDK for PHP v3**, a private S3 bucket,
+  and a server IAM role or other server-managed AWS credentials. See
+  [S3 storage setup](docs/s3-storage.md).
 
 ## Getting an OpenAI API key
 
@@ -140,6 +146,19 @@ HTTPS; loopback, private, and link-local addresses are blocked.
 That's it. Every learner who opens the same activity afterwards streams
 the cached file — no extra API cost.
 
+## Optional Amazon S3 storage
+
+Under **AI Reader → Storage**, choose **S3 mirror** to retain a Moodle copy
+while saving audio to S3, or **S3 primary** to remove local files after
+verified uploads. Enter the bucket, region and a separate prefix for each
+environment. Moodle storage remains the default.
+
+The scheduled sync runs every five minutes and also transfers existing
+audio. Upload failures leave local audio playable. The bucket stays private,
+and Moodle continues to check access for playback and downloads. AWS keys
+are supplied by the server, such as its EC2 IAM role, rather than saved in
+plugin settings. See [S3 setup, IAM permissions and migration instructions](docs/s3-storage.md).
+
 ## What does this cost to run?
 
 Roughly:
@@ -153,8 +172,11 @@ Roughly:
   lever.
 
 Multiply by however many of your pages and books learners actually open.
-Everything is cached on your Moodle site after first render, so a class
+Everything is cached after first render, so a class
 of 200 students reading the same chapter costs the same as one.
+
+When S3 storage is enabled, AWS storage, request and data-transfer charges
+also apply; the generation cost estimates above exclude these charges.
 
 A built-in **per-asset cap** (default 50,000 characters ≈ 50 minutes of
 audio, ~$3) prevents any single page from going wild.
@@ -164,6 +186,11 @@ audio, ~$3) prevents any single page from going wild.
 The plugin sends **cleaned activity text** to the configured OpenAI
 endpoint for narration and (optionally) translation. **No user
 identifiers — names, emails, IDs — are sent.**
+
+When optional S3 storage is enabled, generated narration audio is also
+sent to the private bucket configured by your site administrator. S3 audio
+contains the narrated course content; learner names, emails, playback
+positions and listening progress are not uploaded by this feature.
 
 It stores these pieces of per-user data on your Moodle site:
 

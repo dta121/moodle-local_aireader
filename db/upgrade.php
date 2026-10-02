@@ -488,5 +488,55 @@ function xmldb_local_aireader_upgrade(int $oldversion): bool {
         upgrade_plugin_savepoint(true, 2026091400, 'local', 'aireader');
     }
 
+    if ($oldversion < 2026093000) {
+        $table = new xmldb_table('local_aireader_asset');
+        $fields = [
+            new xmldb_field('s3objectid', XMLDB_TYPE_INTEGER, '10', null, null, null, null, 'fileid'),
+            new xmldb_field('s3retryafter', XMLDB_TYPE_INTEGER, '10', null, null, null, null, 's3objectid'),
+            new xmldb_field('s3lasterror', XMLDB_TYPE_TEXT, null, null, null, null, null, 's3retryafter'),
+        ];
+        foreach ($fields as $field) {
+            if (!$dbman->field_exists($table, $field)) {
+                $dbman->add_field($table, $field);
+            }
+        }
+
+        // Keep destinations after an asset is deleted so remote cleanup can retry safely.
+        $table = new xmldb_table('local_aireader_s3');
+        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE);
+        $table->add_field('assetid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL);
+        $table->add_field('bucket', XMLDB_TYPE_CHAR, '63', null, XMLDB_NOTNULL);
+        $table->add_field('region', XMLDB_TYPE_CHAR, '64', null, XMLDB_NOTNULL);
+        $table->add_field('objectkey', XMLDB_TYPE_CHAR, '255', null, XMLDB_NOTNULL);
+        $table->add_field('contenthash', XMLDB_TYPE_CHAR, '40', null, XMLDB_NOTNULL);
+        $table->add_field('filesize', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL);
+        $table->add_field('status', XMLDB_TYPE_CHAR, '16', null, XMLDB_NOTNULL, null, 'pending');
+        $table->add_field('failcount', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('retryafter', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('lasterror', XMLDB_TYPE_TEXT);
+        $table->add_field('timecreated', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL);
+        $table->add_field('timemodified', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL);
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+        $table->add_index('destination', XMLDB_INDEX_UNIQUE, ['bucket', 'objectkey']);
+        $table->add_index('assetid', XMLDB_INDEX_NOTUNIQUE, ['assetid']);
+        $table->add_index('status_retryafter', XMLDB_INDEX_NOTUNIQUE, ['status', 'retryafter']);
+        if (!$dbman->table_exists($table)) {
+            $dbman->create_table($table);
+        }
+        upgrade_plugin_savepoint(true, 2026093000, 'local', 'aireader');
+    }
+
+    if ($oldversion < 2026100100) {
+        // OpenAI shuts gpt-5-mini (gpt-5-mini-2025-08-07) down on 2026-12-11
+        // and names gpt-5.6-terra as its replacement. Sites that saved the
+        // settings page hold the old default in config; move exactly those,
+        // leaving any other admin-chosen model alone.
+        $current = trim((string)get_config('local_aireader', 'translation_model'));
+        if (in_array($current, ['gpt-5-mini', 'gpt-5-mini-2025-08-07'], true)) {
+            set_config('translation_model', 'gpt-5.6-terra', 'local_aireader');
+        }
+        upgrade_plugin_savepoint(true, 2026100100, 'local', 'aireader');
+    }
+
     return true;
 }

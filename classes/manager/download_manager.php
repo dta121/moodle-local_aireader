@@ -68,8 +68,8 @@ class download_manager {
      *
      * @param \stdClass $course Course record.
      * @param int $userid The user the download is being prepared for.
-     * @return array<int,\stdClass> Item objects with keys: assetid, file
-     *         (\stored_file), archivename, bytesize, cmid, chapterid, module,
+     * @return array<int,\stdClass> Item objects with keys: assetid, asset, file
+     *         (\stored_file|null), archivename, bytesize, cmid, chapterid, module,
      *         lang, activityname, chaptertitle.
      */
     public static function collect_for_course(\stdClass $course, int $userid): array {
@@ -83,7 +83,6 @@ class download_manager {
         $enabledvoices = asset_manager::enabled_voices();
         $defaultvoice = asset_manager::default_voice();
         $modinfo = \get_fast_modinfo($course, $userid);
-        $fs = \get_file_storage();
 
         $assets = $DB->get_records('local_aireader_asset', [
             'courseid' => (int)$course->id,
@@ -139,18 +138,13 @@ class download_manager {
                 continue;
             }
 
-            $files = $fs->get_area_files(
-                $context->id,
-                storage::COMPONENT,
-                storage::FILEAREA,
-                (int)$asset->id,
-                'itemid',
-                false
-            );
-            if (!$files) {
+            // Collect metadata only. Remote audio is fetched after the user
+            // confirms the course download, never while listing its contents.
+            $file = storage::get_local_file($asset);
+            $remote = $file ? null : s3_storage::get_remote($asset);
+            if (!$file && !$remote) {
                 continue;
             }
-            $file = reset($files);
 
             $chaptertitle = $chapter ? (string)$chapter->title : '';
 
@@ -168,9 +162,10 @@ class download_manager {
 
             $items[] = (object)[
                 'assetid'      => (int)$asset->id,
+                'asset'        => $asset,
                 'file'         => $file,
                 'archivename'  => $archivename,
-                'bytesize'     => (int)$file->get_filesize(),
+                'bytesize'     => $file ? (int)$file->get_filesize() : (int)$remote->filesize,
                 'cmid'         => $cmid,
                 'chapterid'    => $chapterid,
                 'module'       => $module,
@@ -211,18 +206,27 @@ class download_manager {
      * @return void This method does not return; send_temp_file() exits.
      */
     public static function serve_zip(\stdClass $course, array $items): void {
+        // Fetching a course's remote audio must not hold the learner's session lock.
+        \core\session\manager::write_close();
         $packer = \get_file_packer('application/zip');
+        $tempdir = \make_request_directory();
 
         $forzip = [];
         foreach ($items as $item) {
-            $forzip[$item->archivename] = $item->file;
+            if ($item->file) {
+                $forzip[$item->archivename] = $item->file;
+            } else {
+                $path = $tempdir . '/asset-' . (int)$item->assetid . '.mp3';
+                storage::copy_audio_to_path($item->asset, $path);
+                $forzip[$item->archivename] = $path;
+            }
         }
 
         $zipname = \clean_filename(
             \format_string($course->shortname) . ' - ' . \get_string('download_zip_suffix', 'local_aireader')
         ) . '.zip';
 
-        $temppath = \make_request_directory() . '/' . $zipname;
+        $temppath = $tempdir . '/' . $zipname;
         $packer->archive_to_pathname($forzip, $temppath);
 
         \send_temp_file($temppath, $zipname);

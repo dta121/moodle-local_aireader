@@ -65,7 +65,7 @@ class openai_translator {
         $this->endpoint = $endpoint ?? (string)(get_config('local_aireader', 'translation_endpoint')
             ?: 'https://api.openai.com/v1/chat/completions');
         $this->model = $model ?? (string)(get_config('local_aireader', 'translation_model')
-            ?: 'gpt-5-mini');
+            ?: 'gpt-5.6-terra');
         $this->prompt = $prompt ?? (string)(get_config('local_aireader', 'translation_prompt')
             ?: get_string('default_translation_prompt', 'local_aireader'));
     }
@@ -146,9 +146,10 @@ class openai_translator {
      *
      * GPT-5-series and o-series reasoning models reject any non-default
      * `temperature`, so it is only sent to models that accept it (the low
-     * value keeps translations close to deterministic there). GPT-5 models
+     * value keeps translations close to deterministic there). GPT-5+ models
      * additionally accept `reasoning_effort`; translation gains nothing from
-     * deliberation, so `minimal` keeps latency and cost down.
+     * deliberation, so the lowest value each model accepts keeps latency and
+     * cost down.
      *
      * @param string $model Chat-completion model id.
      * @param string $systemprompt Rendered system prompt.
@@ -163,17 +164,38 @@ class openai_translator {
                 ['role' => 'user', 'content' => $cleantext],
             ],
         ];
-        // The gpt-5-chat-* models are the family's non-reasoning variant:
+        // The gpt-5*-chat-* models are the family's non-reasoning variant:
         // they take a temperature like gpt-4o and reject reasoning_effort.
-        $isreasoning = (bool)preg_match('/^(gpt-5(?!-chat)|o\d)/i', $model);
+        $isreasoning = (bool)preg_match('/^(gpt-[5-9](?![.\d]*-chat)|o\d)/i', $model);
         if (!$isreasoning) {
             $payload['temperature'] = 0.2;
         }
-        if ($isreasoning && preg_match('/^gpt-5/i', $model)) {
-            // Only gpt-5 accepts 'minimal'; o-series models would reject it.
-            $payload['reasoning_effort'] = 'minimal';
+        if ($isreasoning && preg_match('/^gpt-[5-9]/i', $model)) {
+            // o-series models reject every value used here, so they get none.
+            $payload['reasoning_effort'] = self::lowest_reasoning_effort($model);
         }
         return $payload;
+    }
+
+    /**
+     * The cheapest reasoning effort a GPT reasoning model accepts.
+     *
+     * Each generation narrowed the accepted values differently: the original
+     * gpt-5 snapshots take 'minimal'; gpt-5.1 through gpt-5.6 replaced it with
+     * 'none' and reject 'minimal' with a 400; some GPT-6 models reject both,
+     * while 'low' is accepted across that family.
+     *
+     * @param string $model Model id, already known to be a GPT-5+ reasoning model.
+     * @return string
+     */
+    public static function lowest_reasoning_effort(string $model): string {
+        if (preg_match('/^gpt-5(?:-|$)/i', $model)) {
+            return 'minimal';
+        }
+        if (preg_match('/^gpt-5\.\d/i', $model)) {
+            return 'none';
+        }
+        return 'low';
     }
 
     /**

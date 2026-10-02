@@ -17,9 +17,9 @@
 /**
  * Admin settings for local_aireader.
  *
- * The page is organised into six sections matching the redesigned settings UI
+ * The page is organised into sections matching the redesigned settings UI
  * (see amd/src/admin_settings.js, which turns the rendered form into section
- * cards with a sidebar): Setup & connection, Content & generation, Player,
+ * cards with a sidebar): Setup & connection, Content & generation, Storage, Player,
  * Cost tracking, Languages & translation, Transcript & highlighting. Settings
  * listed in hook_callbacks::ADMIN_ADVANCED_SETTINGS render inside each
  * section's collapsed "advanced" area, so keep that list in sync when adding
@@ -59,6 +59,13 @@ $ADMIN->add('reports', new admin_externalpage(
 if ($hassiteconfig) {
     $settings = new admin_settingpage('local_aireader', get_string('pluginname', 'local_aireader'));
     $ADMIN->add('localplugins', $settings);
+
+    $ADMIN->add('localplugins', new admin_externalpage(
+        'local_aireader_storage',
+        get_string('s3_page_title', 'local_aireader'),
+        new moodle_url('/local/aireader/s3storage.php'),
+        'moodle/site:config'
+    ));
 
     // Section: Setup & connection.
     $settings->add(new admin_setting_heading(
@@ -187,6 +194,53 @@ if ($hassiteconfig) {
         get_string('setting_maxnarrationchars_desc', 'local_aireader'),
         50000,
         PARAM_INT
+    ));
+
+    // Section: Storage.
+    $settings->add(new admin_setting_heading(
+        'local_aireader/heading_storage',
+        get_string('setting_heading_storage', 'local_aireader'),
+        get_string(
+            'setting_heading_storage_desc',
+            'local_aireader',
+            (new moodle_url('/local/aireader/s3storage.php'))->out(false)
+        )
+    ));
+
+    $settings->add(new admin_setting_configselect(
+        'local_aireader/storage_mode',
+        get_string('setting_storagemode', 'local_aireader'),
+        get_string('setting_storagemode_desc', 'local_aireader'),
+        'local',
+        [
+            'local' => get_string('storage_mode_local', 'local_aireader'),
+            'mirror' => get_string('storage_mode_mirror', 'local_aireader'),
+            'primary' => get_string('storage_mode_primary', 'local_aireader'),
+        ]
+    ));
+
+    $settings->add(new admin_setting_configtext(
+        'local_aireader/s3_bucket',
+        get_string('setting_s3bucket', 'local_aireader'),
+        get_string('setting_s3bucket_desc', 'local_aireader'),
+        '',
+        '/\A(?:(?![0-9]+(?:\.[0-9]+){3}\z)(?!.*\.\.)[a-z0-9][a-z0-9.-]{1,61}[a-z0-9])?\z/'
+    ));
+
+    $settings->add(new admin_setting_configtext(
+        'local_aireader/s3_region',
+        get_string('setting_s3region', 'local_aireader'),
+        get_string('setting_s3region_desc', 'local_aireader'),
+        'us-east-1',
+        '/\A[a-z]{2}(?:-[a-z]+)+-\d+\z/'
+    ));
+
+    $settings->add(new admin_setting_configtext(
+        'local_aireader/s3_prefix',
+        get_string('setting_s3prefix', 'local_aireader'),
+        get_string('setting_s3prefix_desc', 'local_aireader'),
+        'moodle-aireader',
+        '/\A[a-z0-9\/_-]{0,100}\z/'
     ));
 
     // Section: Player.
@@ -328,7 +382,7 @@ if ($hassiteconfig) {
         'local_aireader/translation_model',
         get_string('setting_translationmodel', 'local_aireader'),
         get_string('setting_translationmodel_desc', 'local_aireader'),
-        'gpt-5-mini',
+        'gpt-5.6-terra',
         PARAM_TEXT
     ));
 

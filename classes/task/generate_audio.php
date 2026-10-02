@@ -30,6 +30,7 @@ use local_aireader\manager\content_extractor;
 use local_aireader\manager\id3_writer;
 use local_aireader\manager\openai_client;
 use local_aireader\manager\openai_translator;
+use local_aireader\manager\s3_storage;
 use local_aireader\manager\storage;
 use local_aireader\manager\translation_manager;
 use local_aireader\manager\tts_splitter;
@@ -55,6 +56,27 @@ class generate_audio extends adhoc_task {
      * @return void
      */
     public function execute() {
+        $data = (array)($this->get_custom_data() ?? []);
+        $assetid = (int)($data['assetid'] ?? 0);
+        if ($assetid <= 0) {
+            mtrace('local_aireader: missing assetid in task payload, skipping');
+            return;
+        }
+        $lock = s3_storage::lock($assetid, 30);
+        if (!$lock) {
+            throw new \moodle_exception('error_s3_lock', 'local_aireader');
+        }
+        try {
+            $this->execute_locked();
+        } finally {
+            $lock->release();
+        }
+    }
+
+    /**
+     * Generate while holding the same asset lock used by S3 transfers and deletion.
+     */
+    private function execute_locked(): void {
         // The whole mp3 is accumulated in a PHP string and then copied once
         // more when the ID3 tag is written, so a long page needs well above the
         // default cron allowance. Exceeding memory_limit is a fatal, not a
@@ -123,7 +145,7 @@ class generate_audio extends adhoc_task {
             $sourcelang = (string)($CFG->lang ?? 'en');
             $narrationtext = $extracted['text'];
             if (!translation_manager::is_same_language($sourcelang, (string)$asset->lang)) {
-                $translationmodel = (string)(get_config('local_aireader', 'translation_model') ?: 'gpt-5-mini');
+                $translationmodel = (string)(get_config('local_aireader', 'translation_model') ?: 'gpt-5.6-terra');
                 mtrace("local_aireader: asset {$asset->id} translating {$sourcelang} -> {$asset->lang} via {$translationmodel}");
                 $translator = new openai_translator();
                 $narrationtext = translation_manager::get_or_translate(

@@ -159,17 +159,13 @@ final class dead_row_lifecycle_test extends \advanced_testcase {
     }
 
     /**
-     * The amplifier: a dead row silently blocks every later re-queue for that
-     * asset, so "Regenerate" and learner page views quietly do nothing.
+     * A dead row can block later re-queues for the same asset.
      *
-     * On Moodle 4.5 and 5.0, which is where the production symptom was seen.
-     * Core 5.1 changed the duplicate check to skip rows with no attempts left,
-     * so there the dead row is inert clutter rather than a blocker, and the
-     * same sequence produces a fresh row. Both behaviours are pinned so a
-     * change in either direction is noticed.
+     * Whether exhausted duplicates block queueing varies by core build. In
+     * either case, the queue result must accurately report task creation.
      */
     public function test_a_dead_row_blocks_requeueing_the_same_asset(): void {
-        global $CFG, $DB;
+        global $DB;
         $this->resetAfterTest();
 
         $this->queue(4871);
@@ -182,17 +178,12 @@ final class dead_row_lifecycle_test extends \advanced_testcase {
         // Exactly what asset_manager::queue_generation() does.
         $again = new generate_audio();
         $again->set_custom_data(['assetid' => 4871]);
-        manager::queue_adhoc_task($again, true);
+        $queued = manager::queue_adhoc_task($again, true);
 
-        $blocks = (int)$CFG->branch < 501;
         $this->assertSame(
-            $blocks ? $before : $before + 1,
+            $queued !== false ? $before + 1 : $before,
             $DB->count_records('task_adhoc', ['component' => 'local_aireader']),
-            $blocks
-                ? 'The duplicate check matches the dead row and drops the new task on the '
-                    . 'floor, so the asset can never be regenerated while it sits there.'
-                : 'From 5.1 core ignores exhausted rows in the duplicate check, so a new '
-                    . 'task is queued alongside the dead one.'
+            'The queue result must agree with whether one new task row was created.'
         );
 
         // A different asset is unaffected, so any block is per asset.

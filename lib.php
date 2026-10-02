@@ -35,15 +35,14 @@
  * @return void
  */
 function local_aireader_pluginfile($course, $cm, $context, $filearea, $args, $forcedownload, array $options = []): void {
-    global $DB;
+    global $DB, $CFG;
 
-    if ($filearea !== 'audio') {
+    if ($filearea !== 'audio' || $context->contextlevel !== CONTEXT_MODULE || count($args) !== 2) {
         send_file_not_found();
     }
 
     $itemid = (int)array_shift($args);
     $filename = array_pop($args);
-    $filepath = '/';
 
     $asset = $DB->get_record('local_aireader_asset', ['id' => $itemid], '*', MUST_EXIST);
 
@@ -56,6 +55,10 @@ function local_aireader_pluginfile($course, $cm, $context, $filearea, $args, $fo
 
     $sourcecontext = \context_module::instance($asset->cmid);
     require_capability('local/aireader:listen', $sourcecontext);
+
+    if ((int)$context->id !== (int)$sourcecontext->id || $filename !== 'asset-' . (int)$asset->id . '.mp3') {
+        send_file_not_found();
+    }
 
     \local_aireader\manager\asset_manager::assert_asset_visible($asset, $sourcecontext);
 
@@ -76,16 +79,8 @@ function local_aireader_pluginfile($course, $cm, $context, $filearea, $args, $fo
         send_file_not_found();
     }
 
-    $fs = get_file_storage();
-    $file = $fs->get_file(
-        $sourcecontext->id,
-        'local_aireader',
-        'audio',
-        $itemid,
-        $filepath,
-        $filename
-    );
-    if (!$file || $file->is_directory()) {
+    $file = \local_aireader\manager\storage::get_local_file($asset);
+    if (!$file && !\local_aireader\manager\s3_storage::get_remote($asset)) {
         send_file_not_found();
     }
 
@@ -107,7 +102,31 @@ function local_aireader_pluginfile($course, $cm, $context, $filearea, $args, $fo
         $options['filename'] = clean_filename($label . ' (' . $asset->lang . ').mp3');
     }
 
-    send_stored_file($file, 0, 0, $forcedownload, $options);
+    if ($file) {
+        send_stored_file($file, 0, 0, $forcedownload, $options);
+        return;
+    }
+
+    // Authorisation above applies on every request, including byte-range seeks.
+    // Request-scoped copies avoid a permanent local cache while letting Moodle
+    // serve ranges without expiring S3 URLs during a long listening session.
+    \core\session\manager::write_close();
+    $path = make_request_directory() . '/' . $filename;
+    \local_aireader\manager\storage::copy_audio_to_path($asset, $path);
+    $sendfilename = !empty($options['filename']) ? $options['filename'] : $filename;
+
+    // An accelerator may read after PHP's request-directory cleanup. Serve this
+    // temporary file in PHP, retaining Moodle's normal Range and HEAD handling.
+    $xsendfile = $CFG->xsendfile ?? null;
+    $CFG->xsendfile = '';
+    try {
+        send_file($path, $sendfilename, 0, 0, false, $forcedownload, 'audio/mpeg', false, $options);
+    } finally {
+        $CFG->xsendfile = $xsendfile;
+        if (is_file($path)) {
+            unlink($path);
+        }
+    }
 }
 
 /**

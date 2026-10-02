@@ -38,7 +38,7 @@ final class openai_translator_test extends \advanced_testcase {
      * @covers ::build_payload
      */
     public function test_build_payload_for_sampling_models(): void {
-        foreach (['gpt-4o-mini', 'gpt-4.1', 'gpt-5-chat-latest'] as $model) {
+        foreach (['gpt-4o-mini', 'gpt-4.1', 'gpt-5-chat-latest', 'gpt-5.3-chat-latest'] as $model) {
             $payload = openai_translator::build_payload($model, 'sys', 'text');
             $this->assertSame(0.2, $payload['temperature'], $model);
             $this->assertArrayNotHasKey('reasoning_effort', $payload, $model);
@@ -55,10 +55,18 @@ final class openai_translator_test extends \advanced_testcase {
      * @covers ::build_payload
      */
     public function test_build_payload_for_gpt5_reasoning_models(): void {
-        foreach (['gpt-5-mini', 'gpt-5', 'gpt-5-nano', 'gpt-5.1'] as $model) {
+        $expected = [
+            'gpt-5-mini' => 'minimal',
+            'gpt-5' => 'minimal',
+            'gpt-5-nano-2025-08-07' => 'minimal',
+            'gpt-5.1' => 'none',
+            'gpt-5.6-terra' => 'none',
+            'gpt-6.1-sol' => 'low',
+        ];
+        foreach ($expected as $model => $effort) {
             $payload = openai_translator::build_payload($model, 'sys', 'text');
             $this->assertArrayNotHasKey('temperature', $payload, $model);
-            $this->assertSame('minimal', $payload['reasoning_effort'], $model);
+            $this->assertSame($effort, $payload['reasoning_effort'], $model);
         }
     }
 
