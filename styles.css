@@ -1671,9 +1671,11 @@ mark.local-aireader-mark.is-current {
     bottom: calc(100% + 6px);
 }
 
-/* Keep page content readable above the fixed bar. */
+/* Keep page content readable above the fixed bar, which also grows by the
+   device's bottom safe-area inset. */
 body.local-aireader-docked-open {
-    padding-bottom: 76px;
+    /* stylelint-disable-next-line csstree/validator -- env() is valid CSS the validator predates. */
+    padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
 }
 
 @media (max-width: 767px) {
@@ -1681,13 +1683,35 @@ body.local-aireader-docked-open {
         flex-wrap: wrap;
     }
 
+    /* The docked bar has no room for the language/voice pickers and the
+       transcript toggle beside the controls, but hiding them left phone users
+       no way to switch language (CPIT-448) or open the transcript. Wrap them
+       onto a second line under the controls instead; the bar only grows when
+       one of them is actually offered. */
     .local-aireader-slim.is-docked .local-aireader-slim-row {
-        flex-wrap: nowrap;
+        flex-wrap: wrap;
+        row-gap: 6px;
     }
 
     .local-aireader-slim.is-docked .local-aireader-langpicker,
     .local-aireader-slim.is-docked .local-aireader-voicepicker,
     .local-aireader-slim.is-docked .local-aireader-transcript-toggle {
-        display: none;
+        order: 10;
+        flex: 1 1 calc(33% - 6px);
+        min-width: 0;
+        justify-content: center;
+    }
+
+    .local-aireader-slim.is-docked .local-aireader-langselect,
+    .local-aireader-slim.is-docked .local-aireader-voiceselect {
+        width: 100%;
+    }
+
+    /* Reserve room for the second line only when something is on it. */
+    body.local-aireader-docked-open:has(.local-aireader-slim.is-docked .local-aireader-langpicker:not(.d-none)),
+    body.local-aireader-docked-open:has(.local-aireader-slim.is-docked .local-aireader-voicepicker:not(.d-none)),
+    body.local-aireader-docked-open:has(.local-aireader-slim.is-docked.is-started .local-aireader-transcript-toggle:not(.d-none)) {
+        /* stylelint-disable-next-line csstree/validator -- env() is valid CSS the validator predates. */
+        padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px));
     }
 }

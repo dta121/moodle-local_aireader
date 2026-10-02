@@ -4,6 +4,30 @@ All notable changes to `local_aireader` are documented in this file.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.8.4] — 2026-10-02
+
+### Fixed
+
+- **Course audio downloads contain one language** (CPIT-458). "Download
+  narration audio" bundled every generated language into one ZIP; BUS101
+  came to 4.6 GB across 17 languages. The page now has a language selector,
+  plus a voice selector when a language has more than one voice. The list,
+  total, size warning and ZIP cover only that choice, and the ZIP name
+  carries the language code. The default is the learner's own language,
+  resolved the same way as the player, otherwise the first language with
+  audio. The parameter is `audiolang` because Moodle reserves `lang` for
+  switching the interface language. Older links without `audiolang`,
+  including bookmarked direct-download links, now get that default language
+  rather than every language. The redundant Language column is gone, and
+  the button string is renamed `downloadcourse_downloadlang` because its
+  placeholders changed. Stored files load in one query instead of one per
+  asset.
+- **Language picker on small screens** (CPIT-448). Below 768px the docked
+  (dockpill) player hid the language and voice pickers to keep one row,
+  leaving phone users no way to switch language. They now wrap onto a
+  second line of the bar along with the transcript toggle. The page
+  reserves room for the taller bar only when that second line is in use.
+
 ## [1.8.3] — 2026-09-21
 
 ### Added

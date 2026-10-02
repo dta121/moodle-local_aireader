@@ -488,5 +488,12 @@ function xmldb_local_aireader_upgrade(int $oldversion): bool {
         upgrade_plugin_savepoint(true, 2026091400, 'local', 'aireader');
     }
 
+    if ($oldversion < 2026100200) {
+        // Single-language course downloads and the docked player's mobile
+        // language picker. No schema change; the bump rolls themerev for the
+        // updated stylesheet.
+        upgrade_plugin_savepoint(true, 2026100200, 'local', 'aireader');
+    }
+
     return true;
 }

@@ -215,6 +215,72 @@ final class download_manager_test extends \advanced_testcase {
     }
 
     /**
+     * A course download holds one language and voice, not every language (CPIT-458).
+     *
+     * @covers ::languages_in
+     * @covers ::voices_in
+     * @covers ::choose_language
+     * @covers ::choose_voice
+     * @covers ::filter_items
+     */
+    public function test_download_is_limited_to_one_language_and_voice(): void {
+        set_config('enabled_languages', 'en,es,fr', 'local_aireader');
+        set_config('voice', 'marin', 'local_aireader');
+        $item = fn(string $lang, string $voice, int $bytes) => (object)[
+            'lang' => $lang, 'voice' => $voice, 'bytesize' => $bytes,
+        ];
+        $items = [
+            $item('fr', 'marin', 10), $item('en', 'cedar', 20), $item('en', 'marin', 30),
+            $item('es', 'marin', 40), $item('en', 'marin', 50),
+        ];
+
+        // Offered order, not the order audio happened to be generated in.
+        $this->assertSame(['en', 'es', 'fr'], download_manager::languages_in($items));
+        $this->assertSame(['marin', 'cedar'], download_manager::voices_in($items, 'en'));
+        $this->assertSame([], download_manager::voices_in($items, 'de'));
+
+        // Requested language wins, then the learner's language, then the first offered.
+        $this->assertSame('es', download_manager::choose_language($items, 'es', 'fr'));
+        $this->assertSame('fr', download_manager::choose_language($items, '', 'fr'));
+        $this->assertSame('fr', download_manager::choose_language($items, 'de', 'fr_ca'));
+        $this->assertSame('en', download_manager::choose_language($items, 'de', 'de'));
+        $this->assertNull(download_manager::choose_language([], 'en', 'en'));
+
+        $this->assertSame('marin', download_manager::choose_voice($items, 'en', ''));
+        $this->assertSame('cedar', download_manager::choose_voice($items, 'en', 'cedar'));
+        $this->assertSame('marin', download_manager::choose_voice($items, 'es', 'cedar'));
+
+        $english = download_manager::filter_items($items, 'en', 'marin');
+        $this->assertSame([30, 50], array_column($english, 'bytesize'));
+        $this->assertSame(80, download_manager::total_bytes($english));
+    }
+
+    /**
+     * Only the chosen language's assets reach the ZIP when collected for real.
+     *
+     * @covers ::collect_for_course
+     * @covers ::filter_items
+     */
+    public function test_collected_items_filter_to_the_chosen_language(): void {
+        $gen = $this->getDataGenerator();
+        $course = $gen->create_course();
+        $page = $gen->create_module('page', ['course' => $course->id]);
+        $cm = get_coursemodule_from_instance('page', $page->id, $course->id, false, MUST_EXIST);
+        $this->make_asset($course, $cm, 0, 'en', asset_manager::STATUS_READY, 2048);
+        $this->make_asset($course, $cm, 0, 'es', asset_manager::STATUS_READY, 3072);
+
+        $student = $gen->create_and_enrol($course, 'student');
+        $all = download_manager::collect_for_course($course, (int)$student->id);
+        $lang = download_manager::choose_language($all, 'es', 'en');
+        $spanish = download_manager::filter_items($all, $lang, download_manager::choose_voice($all, $lang, ''));
+
+        $this->assertSame('es', $lang);
+        $this->assertCount(1, $spanish);
+        $this->assertSame('es', $spanish[0]->lang);
+        $this->assertSame(3072, download_manager::total_bytes($spanish));
+    }
+
+    /**
      * total_bytes sums the collected sizes; warn_threshold_bytes converts MB
      * to bytes and treats non-positive values as "no threshold".
      *
