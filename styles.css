@@ -1671,9 +1671,11 @@ mark.local-aireader-mark.is-current {
     bottom: calc(100% + 6px);
 }
 
-/* Keep page content readable above the fixed bar. */
+/* Keep page content readable above the fixed bar, which also grows by the
+   device's bottom safe-area inset. */
 body.local-aireader-docked-open {
-    padding-bottom: 76px;
+    /* stylelint-disable-next-line csstree/validator -- env() is valid CSS the validator predates. */
+    padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
 }
 
 @media (max-width: 767px) {
@@ -1709,6 +1711,7 @@ body.local-aireader-docked-open {
     body.local-aireader-docked-open:has(.local-aireader-slim.is-docked .local-aireader-langpicker:not(.d-none)),
     body.local-aireader-docked-open:has(.local-aireader-slim.is-docked .local-aireader-voicepicker:not(.d-none)),
     body.local-aireader-docked-open:has(.local-aireader-slim.is-docked.is-started .local-aireader-transcript-toggle:not(.d-none)) {
-        padding-bottom: 120px;
+        /* stylelint-disable-next-line csstree/validator -- env() is valid CSS the validator predates. */
+        padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px));
     }
 }
