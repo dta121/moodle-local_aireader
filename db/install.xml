@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="local/aireader/db" VERSION="20260530" COMMENT="Tables for local_aireader"
+<XMLDB PATH="local/aireader/db" VERSION="20260930" COMMENT="Tables for local_aireader"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
 >
@@ -25,6 +25,10 @@
             COMMENT="pending|generating|ready|error|stale"/>
         <FIELD NAME="fileid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"
             COMMENT="files.id of the generated mp3."/>
+        <FIELD NAME="s3objectid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"
+            COMMENT="Current verified S3 object, retained when local audio is offloaded."/>
+        <FIELD NAME="s3retryafter" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="s3lasterror" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
         <FIELD NAME="bytesize" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
         <FIELD NAME="durationsecs" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
         <FIELD NAME="inputchars" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"
@@ -53,6 +57,32 @@
             FIELDS="cmid, chapterid, lang, voice, model, sourcehash"/>
         <INDEX NAME="status_timemodified" UNIQUE="false" FIELDS="status, timemodified"/>
         <INDEX NAME="cmid_chapter" UNIQUE="false" FIELDS="cmid, chapterid"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_aireader_s3" COMMENT="S3 audio objects and durable upload or deletion work, including deleted assets.">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="assetid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="bucket" TYPE="char" LENGTH="63" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="region" TYPE="char" LENGTH="64" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="objectkey" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="contenthash" TYPE="char" LENGTH="40" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="filesize" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="status" TYPE="char" LENGTH="16" NOTNULL="true" DEFAULT="pending" SEQUENCE="false"
+            COMMENT="pending|ready|delete; deletion survives asset removal and destination changes."/>
+        <FIELD NAME="failcount" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="retryafter" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="lasterror" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="destination" UNIQUE="true" FIELDS="bucket, objectkey"/>
+        <INDEX NAME="assetid" UNIQUE="false" FIELDS="assetid"/>
+        <INDEX NAME="status_retryafter" UNIQUE="false" FIELDS="status, retryafter"/>
       </INDEXES>
     </TABLE>
     <TABLE NAME="local_aireader_override" COMMENT="Per-resource enable/disable overrides set by instructors.">

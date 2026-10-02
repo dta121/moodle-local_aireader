@@ -4,6 +4,57 @@ All notable changes to `local_aireader` are documented in this file.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.9.0] — 2026-10-02
+
+### Added
+
+- **One-click migration of existing audio to S3.** A new **AI Reader audio
+  storage** admin page (Site administration → Plugins → Local plugins) shows
+  where audio lives, runs a **Test S3 connection** check (writes, reads back
+  and deletes a throwaway object under the prefix) and offers **Migrate all
+  audio to S3 and remove Moodle copies**. Migration switches to S3 primary,
+  forgives earlier retry cooldowns and queues a background task that drains
+  the backlog in ten-minute runs, re-queueing itself until done. Local files
+  are deleted only after a verified upload; failures stay in Moodle and retry.
+  `cli/sync_s3.php --all` does the same from the shell.
+
+- **Optional private Amazon S3 audio storage.** The new Storage settings
+  offer Moodle storage (the default), S3 mirror with a local copy, and S3
+  primary which removes the logical local file after a verified upload.
+  A scheduled task runs every five minutes to transfer new and existing
+  audio; `cli/sync_s3.php` supports bounded batches, individual asset IDs,
+  dry-run inspection and a storage status report. Transfer failures leave
+  generated local audio playable and are retried separately from narration generation.
+- **Access-controlled remote audio.** Playback, individual downloads,
+  course ZIP downloads and Whisper alignment can use private S3 files
+  through Moodle. Existing remote audio stays readable after switching
+  storage modes or changing the upload destination. Mirror mode restores
+  remote-only audio to Moodle, and remote deletion retries survive asset
+  cleanup. AWS credentials come from the server's default provider chain;
+  no AWS secrets are stored in plugin settings. See
+  [S3 setup and migration](docs/s3-storage.md).
+
+### Changed
+
+- **Translation default moved off a retiring model.** OpenAI shuts
+  `gpt-5-mini` (`gpt-5-mini-2025-08-07`) down on 11 December 2026 and names
+  `gpt-5.6-terra` as its replacement. The default is now `gpt-5.6-terra`, and
+  the upgrade moves sites still on `gpt-5-mini`; any other configured model
+  is left alone. Translations are cached per model, so content translated
+  before the switch is translated again the next time new audio is generated.
+- **Reasoning effort follows the model.** The translator sends the lowest
+  `reasoning_effort` each model accepts — `minimal` for the original gpt-5
+  snapshots, `none` for gpt-5.1 to gpt-5.6 (which reject `minimal` with a
+  400), `low` for GPT-6 — and treats `gpt-5.x-chat-*` as non-reasoning.
+
+### Notes
+
+- The TTS models (`gpt-4o-mini-tts`, `tts-1`, `tts-1-hd`) are not on
+  OpenAI's deprecation list and are unchanged.
+- `whisper-1`, the alignment default, retires on 26 February 2027. Its
+  recommended replacements (`gpt-transcribe`, `gpt-live-transcribe`) do not
+  return the segment timestamps transcripts and highlighting rely on, so the
+  default stays `whisper-1` until a timestamped replacement exists.
 ## [1.8.4] — 2026-10-02
 
 ### Fixed

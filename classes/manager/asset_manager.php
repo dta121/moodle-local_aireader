@@ -499,9 +499,13 @@ class asset_manager {
     ): void {
         global $DB;
         $now = time();
+        $transaction = $DB->start_delegated_transaction();
         $DB->update_record('local_aireader_asset', (object)[
             'id'            => $id,
             'fileid'        => $fileid,
+            's3objectid'    => null,
+            's3retryafter'  => null,
+            's3lasterror'   => null,
             'bytesize'      => $bytesize,
             'durationsecs'  => $duration,
             'inputchars'    => $inputchars,
@@ -517,6 +521,8 @@ class asset_manager {
             'alignfailcount'  => 0,
             'alignretryafter' => null,
         ]);
+        s3_storage::retire($id);
+        $transaction->allow_commit();
     }
 
     /**
@@ -923,30 +929,85 @@ class asset_manager {
     }
 
     /**
+     * Recover cleanup skipped when source deletion overlapped an active worker.
+     *
+     * This sweep also runs in local-storage mode: a source-deletion event is
+     * not repeated when a generation or transfer lock later becomes available.
+     *
+     * @param int $limit Maximum orphan assets to consider in this run.
+     * @return int Number of assets removed, excluding busy workers.
+     */
+    public static function purge_orphaned(int $limit = 25): int {
+        global $DB;
+        if ($limit < 1) {
+            return 0;
+        }
+        $assets = $DB->get_records_sql("SELECT a.*
+                                        FROM {local_aireader_asset} a
+                                   LEFT JOIN {course_modules} cm ON cm.id = a.cmid
+                                   LEFT JOIN {book_chapters} bc ON bc.id = a.chapterid
+                                       WHERE cm.id IS NULL
+                                          OR (a.module = :book AND a.chapterid > 0 AND bc.id IS NULL)
+                                    ORDER BY a.id", ['book' => 'book'], 0, $limit);
+        return self::purge_assets($assets);
+    }
+
+    /**
      * Delete a batch of asset rows, their stored files, and dependent data.
      *
      * Stored files must be deleted per (context, itemid) through the File API,
-     * but the dependent tables are cleaned with one IN-list query each rather
-     * than four queries per asset.
+     * and serialized with generation/offloading. Each asset and its dependent
+     * data are removed atomically; remote deletion work survives until S3 confirms removal.
+     * Busy workers are skipped and recovered by the orphan or stale-asset sweep.
      *
      * @param \stdClass[] $assets Asset rows (id and contextid required).
+     * @param int|null $stalecutoff Recheck stale status and age under the lock when set.
+     * @return int Number of assets removed.
      */
-    private static function purge_assets(array $assets): void {
+    private static function purge_assets(array $assets, ?int $stalecutoff = null): int {
         global $DB;
         if (!$assets) {
-            return;
+            return 0;
         }
         $fs = get_file_storage();
-        $ids = [];
+        $purged = 0;
         foreach ($assets as $asset) {
-            $fs->delete_area_files($asset->contextid, 'local_aireader', 'audio', $asset->id);
-            $ids[] = (int)$asset->id;
+            $lock = s3_storage::lock((int)$asset->id);
+            if (!$lock) {
+                continue;
+            }
+            try {
+                // A worker may have regenerated this row after the sweep selected
+                // it. Its current status and age, not the old snapshot, govern
+                // retention once we have exclusive access to its stored audio.
+                $asset = $DB->get_record('local_aireader_asset', ['id' => $asset->id]);
+                if (!$asset) {
+                    continue;
+                }
+                if (
+                    $stalecutoff !== null
+                    && ($asset->status !== self::STATUS_STALE || (int)$asset->timemodified >= $stalecutoff)
+                ) {
+                    continue;
+                }
+                $transaction = $DB->start_delegated_transaction();
+                try {
+                    s3_storage::retire((int)$asset->id);
+                    $fs->delete_area_files($asset->contextid, 'local_aireader', 'audio', $asset->id);
+                    $DB->delete_records('local_aireader_position', ['assetid' => $asset->id]);
+                    $DB->delete_records('local_aireader_listen', ['assetid' => $asset->id]);
+                    $DB->delete_records('local_aireader_segment', ['assetid' => $asset->id]);
+                    $DB->delete_records('local_aireader_asset', ['id' => $asset->id]);
+                    $transaction->allow_commit();
+                } catch (\Throwable $e) {
+                    $transaction->rollback($e);
+                }
+                $purged++;
+            } finally {
+                $lock->release();
+            }
         }
-        [$insql, $params] = $DB->get_in_or_equal($ids);
-        $DB->delete_records_select('local_aireader_position', "assetid {$insql}", $params);
-        $DB->delete_records_select('local_aireader_listen', "assetid {$insql}", $params);
-        $DB->delete_records_select('local_aireader_segment', "assetid {$insql}", $params);
-        $DB->delete_records_select('local_aireader_asset', "id {$insql}", $params);
+        return $purged;
     }
 
     /**
@@ -980,7 +1041,6 @@ class asset_manager {
             0,
             $batchlimit > 0 ? $batchlimit : 0
         );
-        self::purge_assets($rows);
-        return count($rows);
+        return self::purge_assets($rows, $cutoff);
     }
 }

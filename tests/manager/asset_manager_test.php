@@ -363,27 +363,26 @@ final class asset_manager_test extends \advanced_testcase {
     /**
      * Queueing reports whether a task row was actually created.
      *
-     * Moodle refuses a duplicate payload, and on the releases this plugin was
-     * written against (4.5, 5.0) it does so without looking at how many
-     * attempts the existing row has left, so a row that has already given up
-     * goes on suppressing every later queue. Callers have to be able to see
-     * that. Core 5.1 changed the duplicate check to ignore exhausted rows, so
-     * the zero-attempts expectation is branch dependent.
+     * Moodle refuses a duplicate payload while attempts remain. Whether an
+     * exhausted duplicate still blocks queueing varies by core build, so the
+     * return value must report actual task creation in either case.
      *
      * @covers ::queue_generation
      */
     public function test_queue_generation_reports_a_blocked_queue(): void {
-        global $CFG, $DB;
+        global $DB;
         $this->resetAfterTest();
 
         $this->assertTrue(asset_manager::queue_generation(4242));
         $this->assertFalse(asset_manager::queue_generation(4242));
 
-        // Once the existing row is out of attempts: still suppressed before
-        // 5.1 (the state that stranded assets for four weeks), no longer so
-        // from 5.1, where a fresh row is created alongside the dead one.
+        // Observe task creation rather than guessing exhausted-duplicate
+        // behaviour from the Moodle branch number.
         $DB->set_field('task_adhoc', 'attemptsavailable', 0, ['component' => 'local_aireader']);
-        $this->assertSame((int)$CFG->branch >= 501, asset_manager::queue_generation(4242));
+        $before = $DB->count_records('task_adhoc', ['component' => 'local_aireader']);
+        $queued = asset_manager::queue_generation(4242);
+        $after = $DB->count_records('task_adhoc', ['component' => 'local_aireader']);
+        $this->assertSame($queued ? $before + 1 : $before, $after);
 
         // A different asset is unaffected.
         $this->assertTrue(asset_manager::queue_generation(4343));

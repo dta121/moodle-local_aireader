@@ -30,6 +30,7 @@ use local_aireader\manager\mp3_splitter;
 use local_aireader\manager\openai_aligner;
 use local_aireader\manager\segment_manager;
 use local_aireader\manager\segment_stitcher;
+use local_aireader\manager\storage;
 
 /**
  * Ad hoc task: pull the mp3 for an asset, send it to Whisper, store segments.
@@ -106,42 +107,37 @@ class align_audio extends adhoc_task {
             return;
         }
 
-        $fs = get_file_storage();
-        $files = $fs->get_area_files((int)$asset->contextid, 'local_aireader', 'audio', $assetid, 'itemid', false);
-        // Both skips below are recorded as alignment failures, not merely
-        // traced. get_status re-queues alignment for any ready asset without
-        // segments, so a clean return that stores nothing and starts no
-        // cool-down would be re-queued on every page view for the rest of the
-        // asset's life.
-        if (!$files) {
-            mtrace("local_aireader: align_audio asset {$assetid} has no stored mp3, skipping");
-            asset_manager::record_alignment_failure(
-                $assetid,
-                get_string('error_alignment_no_audio', 'local_aireader')
-            );
-            return;
-        }
-        $file = reset($files);
-        $bytes = $file->get_content();
-        if ($bytes === '' || $bytes === false) {
-            mtrace("local_aireader: align_audio asset {$assetid} stored file is empty, skipping");
-            asset_manager::record_alignment_failure(
-                $assetid,
-                get_string('error_alignment_empty_input', 'local_aireader')
-            );
-            return;
-        }
-
-        $model = (string)(get_config('local_aireader', 'alignment_model') ?: 'whisper-1');
-        mtrace("local_aireader: aligning asset {$assetid} (" . strlen($bytes) . " bytes) via {$model}");
-
         try {
+            // Remote reads are part of the task's retry policy. Missing and
+            // empty audio still start a cool-down so page views cannot keep
+            // queueing an alignment that has no input.
+            $bytes = storage::get_audio_content($asset);
+            if ($bytes === null) {
+                mtrace("local_aireader: align_audio asset {$assetid} has no stored mp3, skipping");
+                asset_manager::record_alignment_failure(
+                    $assetid,
+                    get_string('error_alignment_no_audio', 'local_aireader')
+                );
+                return;
+            }
+            if ($bytes === '') {
+                mtrace("local_aireader: align_audio asset {$assetid} stored file is empty, skipping");
+                asset_manager::record_alignment_failure(
+                    $assetid,
+                    get_string('error_alignment_empty_input', 'local_aireader')
+                );
+                return;
+            }
+
+            $filename = 'asset-' . $assetid . '.mp3';
+            $model = (string)(get_config('local_aireader', 'alignment_model') ?: 'whisper-1');
+            mtrace("local_aireader: aligning asset {$assetid} (" . strlen($bytes) . " bytes) via {$model}");
             $aligner = new openai_aligner();
             if (strlen($bytes) > self::PART_TARGET_BYTES) {
                 $segments = $this->align_in_parts(
                     $aligner,
                     $bytes,
-                    $file->get_filename(),
+                    $filename,
                     (string)$asset->lang,
                     $assetid
                 );
@@ -159,7 +155,7 @@ class align_audio extends adhoc_task {
                     return;
                 }
             } else {
-                $segments = $aligner->align($bytes, $file->get_filename(), (string)$asset->lang);
+                $segments = $aligner->align($bytes, $filename, (string)$asset->lang);
             }
         } catch (\Throwable $e) {
             mtrace("local_aireader: align_audio failed for asset {$assetid}: " . $e->getMessage());

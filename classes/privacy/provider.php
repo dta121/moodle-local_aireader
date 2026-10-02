@@ -115,6 +115,15 @@ class provider implements
             'privacy:metadata:openai'
         );
 
+        $collection->add_external_location_link(
+            's3',
+            [
+                'audio' => 'privacy:metadata:s3:audio',
+                'objectkey' => 'privacy:metadata:s3:objectkey',
+            ],
+            'privacy:metadata:s3'
+        );
+
         return $collection;
     }
 

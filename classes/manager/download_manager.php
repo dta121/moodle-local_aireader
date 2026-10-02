@@ -68,8 +68,8 @@ class download_manager {
      *
      * @param \stdClass $course Course record.
      * @param int $userid The user the download is being prepared for.
-     * @return array<int,\stdClass> Item objects with keys: assetid, file
-     *         (\stored_file), archivename, bytesize, cmid, chapterid, module,
+     * @return array<int,\stdClass> Item objects with keys: assetid, asset, file
+     *         (\stored_file|null), archivename, bytesize, cmid, chapterid, module,
      *         lang, activityname, chaptertitle.
      */
     public static function collect_for_course(\stdClass $course, int $userid): array {
@@ -157,8 +157,14 @@ class download_manager {
                 continue;
             }
 
+            // Collect metadata only. Remote audio is fetched after the user
+            // confirms the course download, never while listing its contents.
             $file = $filesbyasset[(int)$asset->id] ?? null;
-            if (!$file || (int)$file->get_contextid() !== (int)$context->id) {
+            if ($file && (int)$file->get_contextid() !== (int)$context->id) {
+                $file = null;
+            }
+            $remote = $file ? null : s3_storage::get_remote($asset);
+            if (!$file && !$remote) {
                 continue;
             }
 
@@ -178,9 +184,10 @@ class download_manager {
 
             $items[] = (object)[
                 'assetid'      => (int)$asset->id,
+                'asset'        => $asset,
                 'file'         => $file,
                 'archivename'  => $archivename,
-                'bytesize'     => (int)$file->get_filesize(),
+                'bytesize'     => $file ? (int)$file->get_filesize() : (int)$remote->filesize,
                 'cmid'         => $cmid,
                 'chapterid'    => $chapterid,
                 'module'       => $module,
@@ -317,11 +324,20 @@ class download_manager {
      * @return void This method does not return; send_temp_file() exits.
      */
     public static function serve_zip(\stdClass $course, array $items, string $label = ''): void {
+        // Fetching a course's remote audio must not hold the learner's session lock.
+        \core\session\manager::write_close();
         $packer = \get_file_packer('application/zip');
+        $tempdir = \make_request_directory();
 
         $forzip = [];
         foreach ($items as $item) {
-            $forzip[$item->archivename] = $item->file;
+            if ($item->file) {
+                $forzip[$item->archivename] = $item->file;
+            } else {
+                $path = $tempdir . '/asset-' . (int)$item->assetid . '.mp3';
+                storage::copy_audio_to_path($item->asset, $path);
+                $forzip[$item->archivename] = $path;
+            }
         }
 
         $zipname = \clean_filename(
@@ -329,7 +345,7 @@ class download_manager {
             . ($label !== '' ? ' (' . $label . ')' : '')
         ) . '.zip';
 
-        $temppath = \make_request_directory() . '/' . $zipname;
+        $temppath = $tempdir . '/' . $zipname;
         $packer->archive_to_pathname($forzip, $temppath);
 
         \send_temp_file($temppath, $zipname);
