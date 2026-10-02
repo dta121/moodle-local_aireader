@@ -16,7 +16,7 @@
 
 /**
  * Course-level page: list and bulk-download the AI narration audio a learner
- * may access across a course, as a single ZIP.
+ * may access across a course, one language (and voice) per ZIP.
  *
  * @package    local_aireader
  * @copyright  2026 Saylor Academy
@@ -26,10 +26,15 @@
 require(__DIR__ . '/../../config.php');
 require_once($CFG->libdir . '/filelib.php');
 
+use local_aireader\manager\asset_manager;
 use local_aireader\manager\download_manager;
+use local_aireader\manager\openai_client;
+use local_aireader\manager\openai_translator;
 
 $courseid = required_param('id', PARAM_INT);
 $dodownload = optional_param('download', 0, PARAM_BOOL);
+$requestedlang = optional_param('audiolang', '', PARAM_ALPHANUMEXT);
+$requestedvoice = optional_param('voice', '', PARAM_ALPHANUMEXT);
 
 $course = get_course($courseid);
 require_login($course);
@@ -44,7 +49,6 @@ $PAGE->set_pagelayout('incourse');
 $PAGE->set_title(get_string('downloadcourse_heading', 'local_aireader'));
 $PAGE->set_heading(format_string($course->fullname));
 
-// Site-wide kill switch: downloads may be disabled by the admin.
 if (!download_manager::downloads_enabled()) {
     echo $OUTPUT->header();
     echo $OUTPUT->heading(get_string('downloadcourse_heading', 'local_aireader'));
@@ -53,12 +57,18 @@ if (!download_manager::downloads_enabled()) {
     die;
 }
 
-$items = download_manager::collect_for_course($course, (int)$USER->id);
+$allitems = download_manager::collect_for_course($course, (int)$USER->id);
 
-// Serve the ZIP on a valid, confirmed request. serve_zip() streams and exits.
+// One language and voice per download: bundling every language multiplied
+// the archive by the number of languages generated (CPIT-458).
+$lang = download_manager::choose_language($allitems, $requestedlang, current_language());
+$voices = $lang !== null ? download_manager::voices_in($allitems, $lang) : [];
+$voice = $lang !== null ? download_manager::choose_voice($allitems, $lang, $requestedvoice) : null;
+$items = $lang !== null ? download_manager::filter_items($allitems, $lang, $voice) : [];
+
 if ($dodownload && $items) {
     require_sesskey();
-    download_manager::serve_zip($course, $items);
+    download_manager::serve_zip($course, $items, $lang);
     die;
 }
 
@@ -76,7 +86,26 @@ if (!$items) {
 
 echo html_writer::tag('p', get_string('downloadcourse_intro', 'local_aireader'));
 
-// Per-item table so learners see exactly what they will get and how big it is.
+$langname = openai_translator::language_display_name($lang);
+$langoptions = [];
+foreach (download_manager::languages_in($allitems) as $code) {
+    $langoptions[$code] = openai_translator::language_display_name($code);
+}
+echo html_writer::start_div('d-flex flex-wrap align-items-center mb-3', ['style' => 'gap: 1rem;']);
+$langselect = new single_select($pageurl, 'audiolang', $langoptions, $lang, null);
+$langselect->set_label(get_string('downloadcourse_language', 'local_aireader'));
+echo $OUTPUT->render($langselect);
+if (count($voices) > 1) {
+    $voiceoptions = [];
+    foreach ($voices as $id) {
+        $voiceoptions[$id] = openai_client::voice_display_name($id);
+    }
+    $voiceselect = new single_select(new moodle_url($pageurl, ['audiolang' => $lang]), 'voice', $voiceoptions, $voice, null);
+    $voiceselect->set_label(get_string('downloadcourse_voice', 'local_aireader'));
+    echo $OUTPUT->render($voiceselect);
+}
+echo html_writer::end_div();
+
 $table = new html_table();
 $table->head = [
     get_string('downloadcourse_col_activity', 'local_aireader'),
@@ -84,7 +113,7 @@ $table->head = [
     get_string('downloadcourse_col_size', 'local_aireader'),
 ];
 $table->attributes['class'] = 'generaltable local-aireader-downloadlist';
-$defaultvoice = \local_aireader\manager\asset_manager::default_voice();
+$defaultvoice = asset_manager::default_voice();
 foreach ($items as $item) {
     $label = $item->activityname;
     if ($item->chaptertitle !== '') {
@@ -92,7 +121,7 @@ foreach ($items as $item) {
     }
     $langcell = core_text::strtoupper($item->lang);
     if ($item->voice !== '' && $item->voice !== $defaultvoice) {
-        $langcell .= ' — ' . \local_aireader\manager\openai_client::voice_display_name($item->voice);
+        $langcell .= ' — ' . openai_client::voice_display_name($item->voice);
     }
     $table->data[] = [
         s($label),
@@ -102,10 +131,10 @@ foreach ($items as $item) {
 }
 echo html_writer::table($table);
 
-// Total size line, plus a warning when the archive is large.
 $a = (object)[
     'count' => count($items),
     'size'  => display_size($totalbytes),
+    'language' => $langname,
 ];
 echo html_writer::tag('p', get_string('downloadcourse_total', 'local_aireader', $a), ['class' => 'font-weight-bold']);
 
@@ -116,15 +145,16 @@ if ($threshold > 0 && $totalbytes >= $threshold) {
     );
 }
 
-// Download button: a GET form carrying the sesskey so the request is CSRF-safe.
 $downloadurl = new moodle_url('/local/aireader/download_course.php', [
-    'id'       => $courseid,
-    'download' => 1,
-    'sesskey'  => sesskey(),
+    'id'        => $courseid,
+    'audiolang' => $lang,
+    'voice'     => $voice,
+    'download'  => 1,
+    'sesskey'   => sesskey(),
 ]);
 echo $OUTPUT->single_button(
     $downloadurl,
-    get_string('downloadcourse_button', 'local_aireader', display_size($totalbytes)),
+    get_string('downloadcourse_button', 'local_aireader', $a),
     'get'
 );
 

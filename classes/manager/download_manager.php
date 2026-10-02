@@ -185,6 +185,101 @@ class download_manager {
     }
 
     /**
+     * Languages that have downloadable audio, in the site's offered order.
+     *
+     * @param array $items Items from {@see collect_for_course()}.
+     * @return string[] Language codes.
+     */
+    public static function languages_in(array $items): array {
+        $present = [];
+        foreach ($items as $item) {
+            $present[$item->lang] = true;
+        }
+        return array_values(array_filter(
+            asset_manager::enabled_languages(),
+            fn(string $lang) => isset($present[$lang])
+        ));
+    }
+
+    /**
+     * Voices that have downloadable audio in one language, default voice first.
+     *
+     * @param array $items Items from {@see collect_for_course()}.
+     * @param string $lang Language code.
+     * @return string[] Voice ids.
+     */
+    public static function voices_in(array $items, string $lang): array {
+        $present = [];
+        foreach ($items as $item) {
+            if ($item->lang === $lang) {
+                $present[$item->voice] = true;
+            }
+        }
+        $default = asset_manager::default_voice();
+        $voices = array_keys($present);
+        usort($voices, fn(string $a, string $b) => [$a !== $default, $a] <=> [$b !== $default, $b]);
+        return $voices;
+    }
+
+    /**
+     * Pick the language a course download should contain.
+     *
+     * A course ZIP used to bundle every language, multiplying its size by the
+     * number of languages generated (CPIT-458). Learners now download one
+     * language at a time: the one they asked for when it has audio, otherwise
+     * their own language as the player would resolve it, otherwise the first
+     * language that has any.
+     *
+     * @param array $items Items from {@see collect_for_course()}.
+     * @param string $requested Language from the request, or ''.
+     * @param string $learnerlang The learner's current Moodle language.
+     * @return string|null Language code, or null when nothing is downloadable.
+     */
+    public static function choose_language(array $items, string $requested, string $learnerlang): ?string {
+        $available = self::languages_in($items);
+        if (!$available) {
+            return null;
+        }
+        foreach ([$requested, asset_manager::resolve_language($learnerlang)] as $candidate) {
+            if ($candidate !== '' && in_array($candidate, $available, true)) {
+                return $candidate;
+            }
+        }
+        return $available[0];
+    }
+
+    /**
+     * Pick the voice for a single-language download.
+     *
+     * @param array $items Items from {@see collect_for_course()}.
+     * @param string $lang Chosen language.
+     * @param string $requested Voice from the request, or ''.
+     * @return string|null Voice id, or null when the language has no audio.
+     */
+    public static function choose_voice(array $items, string $lang, string $requested): ?string {
+        $voices = self::voices_in($items, $lang);
+        if (!$voices) {
+            return null;
+        }
+        return in_array($requested, $voices, true) ? $requested : $voices[0];
+    }
+
+    /**
+     * Keep only the items in one language and voice.
+     *
+     * @param array $items Items from {@see collect_for_course()}.
+     * @param string $lang Language code.
+     * @param string $voice Voice id.
+     * @return array Matching items, order preserved.
+     */
+    public static function filter_items(array $items, string $lang, string $voice): array {
+        return array_values(array_filter(
+            $items,
+            fn(\stdClass $item) => $item->lang === $lang && $item->voice === $voice
+        ));
+    }
+
+    /**
      * Sum the byte sizes of a collected item list.
      *
      * @param array $items Items from {@see collect_for_course()}.
@@ -208,9 +303,10 @@ class download_manager {
      *
      * @param \stdClass $course Course record (names the archive).
      * @param array $items Access-checked items to include.
+     * @param string $label Optional suffix for the archive name, e.g. the language.
      * @return void This method does not return; send_temp_file() exits.
      */
-    public static function serve_zip(\stdClass $course, array $items): void {
+    public static function serve_zip(\stdClass $course, array $items, string $label = ''): void {
         $packer = \get_file_packer('application/zip');
 
         $forzip = [];
@@ -220,6 +316,7 @@ class download_manager {
 
         $zipname = \clean_filename(
             \format_string($course->shortname) . ' - ' . \get_string('download_zip_suffix', 'local_aireader')
+            . ($label !== '' ? ' (' . $label . ')' : '')
         ) . '.zip';
 
         $temppath = \make_request_directory() . '/' . $zipname;

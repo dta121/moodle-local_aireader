@@ -1681,13 +1681,32 @@ body.local-aireader-docked-open {
         flex-wrap: wrap;
     }
 
+    /* The docked bar has no room for the language and voice pickers beside
+       the controls, but hiding them left phone users no way to switch
+       language (CPIT-448). Wrap them onto a second line under the controls
+       instead; the bar only grows when a picker is actually offered. */
     .local-aireader-slim.is-docked .local-aireader-slim-row {
-        flex-wrap: nowrap;
+        flex-wrap: wrap;
+        row-gap: 6px;
     }
 
     .local-aireader-slim.is-docked .local-aireader-langpicker,
-    .local-aireader-slim.is-docked .local-aireader-voicepicker,
+    .local-aireader-slim.is-docked .local-aireader-voicepicker {
+        order: 10;
+        flex: 1 1 calc(50% - 6px);
+        min-width: 0;
+    }
+
+    .local-aireader-slim.is-docked .local-aireader-langselect,
+    .local-aireader-slim.is-docked .local-aireader-voiceselect {
+        width: 100%;
+    }
+
     .local-aireader-slim.is-docked .local-aireader-transcript-toggle {
         display: none;
+    }
+
+    body.local-aireader-docked-open {
+        padding-bottom: 120px;
     }
 }
